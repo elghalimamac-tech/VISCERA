@@ -141,8 +141,8 @@ class DoctorAuthController extends ChangeNotifier {
   }) async {
     final error = _validatePassword(password);
     if (error != null) { message = error; notifyListeners(); return false; }
-    final first = firstName.trim().replaceAll(RegExp(r'\\s+'), ' ');
-    final last = lastName.trim().replaceAll(RegExp(r'\\s+'), ' ');
+    final first = firstName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final last = lastName.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (first.length < 2 || last.length < 2 || first.length > 70 || last.length > 70) {
       message = 'Renseignez séparément un prénom et un nom valides (2 à 70 caractères).';
       notifyListeners();
