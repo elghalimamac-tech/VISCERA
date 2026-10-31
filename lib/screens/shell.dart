@@ -113,8 +113,20 @@ class _MainShellState extends State<MainShell> {
         ])),
       ],
       const SizedBox(height:18),
-      VCard(onTap:openPlanning,color:VColors.softMint,child:Row(children:[const Icon(Icons.groups_outlined,color:VColors.ink,size:26),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Gardes & congés · consultations',style:TextStyle(fontWeight:FontWeight.w800,fontSize:14)),const SizedBox(height:5),
+      VCard(onTap:openPlanning,color:VColors.ink,child:Row(children:[
+        const Icon(Icons.calendar_month_rounded,color:Colors.white,size:30),
+        const SizedBox(width:14),
+        const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text('MON PLANNING PERSONNEL',style:TextStyle(fontWeight:FontWeight.w900,fontSize:14,color:Colors.white)),
+          SizedBox(height:5),
+          Text('Mes gardes de service et congés · tuiles à déplacer',
+            style:TextStyle(color:Color(0xFFC9E7DC),fontSize:11.5)),
+        ])),
+        const Icon(Icons.chevron_right_rounded,color:Colors.white),
+      ])),
+      const SizedBox(height:11),
+      VCard(onTap:openReferencePlanning,color:VColors.softMint,child:Row(children:[const Icon(Icons.groups_outlined,color:VColors.ink,size:26),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Gardes du service · consultations',style:TextStyle(fontWeight:FontWeight.w800,fontSize:14)),const SizedBox(height:5),
         Text('Senior : ${appStore.seniorOnName(DateTime.now())??'À renseigner'}  •  Junior : ${appStore.juniorOn(DateTime.now())?.name??'À renseigner'}',maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11.5,color:VColors.muted)),
       ])),const Icon(Icons.chevron_right_rounded)])),
       const SizedBox(height:16),

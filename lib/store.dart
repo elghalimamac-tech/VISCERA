@@ -36,6 +36,9 @@ class AppStore extends ChangeNotifier {
   final Map<String, DutyDay> dutyDays = {};
   final List<ConsultationVacation> vacations = [];
   final List<LeaveEntry> leaves = [];
+  /// Créneaux personnels locaux Jour/Nuit/24H : n'altèrent pas les horaires
+  /// de l'astreinte officielle, qui reste définie au niveau de la date.
+  final Map<String, String> personalServiceShifts = {};
   int _staffSerial = 0;
   bool _planningPersistenceEnabled = false;
   static const _planningStorageKey = 'viscera_demo_v8_planning';
@@ -108,6 +111,16 @@ class AppStore extends ChangeNotifier {
           }
         }
       }
+      personalServiceShifts.clear();
+      final restoredShifts = data['personalServiceShifts'];
+      if(restoredShifts is Map) {
+        for(final entry in restoredShifts.entries) {
+          if(entry.key is String && entry.value is String &&
+              ['jour','nuit','24h'].contains(entry.value)) {
+            personalServiceShifts[entry.key as String] = entry.value as String;
+          }
+        }
+      }
       // V12: ne JAMAIS restaurer d'anciens profils locaux comme sessions authentifiées.
       localProfiles.clear();
       activeLocalProfileId = null;
@@ -139,6 +152,7 @@ class AppStore extends ChangeNotifier {
           'seniorProfessorId': duty.seniorProfessorId,
         })),
         'leaves': leaves.map((x) => {'id':x.id,'doctorName':x.doctorName,'start':x.start.toIso8601String(),'end':x.end.toIso8601String()}).toList(),
+        'personalServiceShifts': personalServiceShifts,
         'vacations': vacations.map((v) => {
           'id': v.id, 'professorId': v.professorId,
           'start': v.start.toIso8601String(), 'end': v.end.toIso8601String(),
@@ -440,12 +454,30 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  /// Retourne null en cas de succès, sinon le conflit à afficher.
-  String? placePersonalEvent(DateTime target,{required String kind,DateTime? from}){
-    final p=activeLocalProfile;if(p==null)return 'Choisissez votre profil.';
+  String _personalSlotKey(LocalDoctorProfile doctor, DateTime date) =>
+      '${doctor.id}|${dayKey(date)}';
+
+  /// Crénéau affiché sur les tuiles personnelles. Les gardes officielles
+  /// importées sont affichées en 24H par défaut, sans modifier leur source.
+  String? myServiceShift(DateTime date) {
+    final doctor=activeLocalProfile;
+    if(doctor==null || !isMyDuty(date))return null;
+    return personalServiceShifts[_personalSlotKey(doctor,date)] ?? '24h';
+  }
+
+  /// Retourne null en cas de succès. La garde de service est conservée dans
+  /// DutyDay (une affectation par date) : le créneau Jour/Nuit/24H est
+  /// uniquement un indicateur VISUEL pour le planning personnel local.
+  /// L'attribution des patients par senior reste indépendante de cette étiquette.
+  String? placePersonalEvent(DateTime target,{
+    required String kind,DateTime? from,String shift='24h'
+  }){
+    final p=activeLocalProfile;if(p==null)return 'Profil médecin indisponible.';
     if(!['garde','conge'].contains(kind))return 'Type inconnu.';
-    if(from!=null && dayKey(from)==dayKey(target))return null;
-    if(from!=null && (kind=='garde' ? !isMyDuty(from) : myLeave(from)==null)){
+    if(kind=='garde' && !['jour','nuit','24h'].contains(shift))return 'Créneau invalide.';
+    final sameDay=from!=null && dayKey(from)==dayKey(target);
+    if(from!=null && !sameDay &&
+        (kind=='garde' ? !isMyDuty(from) : myLeave(from)==null)) {
       return 'Vous ne pouvez déplacer que vos propres événements.';
     }
     if(kind=='garde'){
@@ -457,34 +489,53 @@ class AppStore extends ChangeNotifier {
       }else if(current?.juniorId!=null && current!.juniorId!=p.memberId){
         return 'Une garde junior est déjà attribuée à un autre médecin.';
       }
-      if(from!=null){
+      final originalShift=from!=null&&isMyDuty(from)
+          ? (personalServiceShifts[_personalSlotKey(p,from)]??'24h')
+          : shift;
+      if(!sameDay && from!=null) {
         final prev=dutyOn(from);
         if(prev!=null) setDuty(from,seniorName:p.isSenior?null:prev.seniorName,
           juniorId:p.isSenior?prev.juniorId:null);
+        personalServiceShifts.remove(_personalSlotKey(p,from));
       }
-      final previous=dutyOn(target);
-      setDuty(target,seniorName:p.isSenior?_profileSeniorName(p):previous?.seniorName,
-        juniorId:p.isSenior?previous?.juniorId:p.memberId);
+      if(!sameDay) {
+        final previous=dutyOn(target);
+        setDuty(target,seniorName:p.isSenior?_profileSeniorName(p):previous?.seniorName,
+          juniorId:p.isSenior?previous?.juniorId:p.memberId);
+      }
+      personalServiceShifts[_personalSlotKey(p,target)]=sameDay?shift:originalShift;
+      _savePlanning();
+      notifyListeners();
     }else{
       if(isMyDuty(target))return 'Une garde existe déjà pour vous à cette date.';
       if(myLeave(target)!=null)return 'Un congé est déjà présent à cette date.';
-      if(from!=null){
+      if(sameDay)return null;
+      if(from!=null) {
         final old=myLeave(from)!;
         removeLeave(old.id);
       }
-      if(!addLeave(doctorName:p.isSenior?_profileSeniorName(p):p.name,start:target,end:target)){
+      if(!addLeave(doctorName:p.isSenior?_profileSeniorName(p):p.name,
+        start:target,end:target)) {
         return 'Impossible de saisir le congé.';
       }
     }
     return null;
   }
+
   void removePersonalEvent(DateTime target,String kind){
     final p=activeLocalProfile;if(p==null)return;
-    if(kind=='conge') {final leave=myLeave(target);if(leave!=null)removeLeave(leave.id);return;}
+    if(kind=='conge') {
+      final leave=myLeave(target);
+      if(leave!=null)removeLeave(leave.id);
+      return;
+    }
     if(kind=='garde'&&isMyDuty(target)){
       final old=dutyOn(target);
       if(old!=null)setDuty(target,seniorName:p.isSenior?null:old.seniorName,
         juniorId:p.isSenior?old.juniorId:null);
+      personalServiceShifts.remove(_personalSlotKey(p,target));
+      _savePlanning();
+      notifyListeners();
     }
   }
 
