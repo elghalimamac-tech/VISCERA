@@ -4,7 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "VISCERA_V14_sources_pour_GitHub.zip"
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
+      - "tool/**"
+      - ".github/workflows/android-apk.yml"
 permissions:
   contents: read
 jobs:
@@ -14,19 +18,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Importer automatiquement l'archive V14 (si présente)
-        shell: bash
-        run: |
-          if [ -f VISCERA_V14_sources_pour_GitHub.zip ]; then
-            unzip -t VISCERA_V14_sources_pour_GitHub.zip
-            unzip -o -q VISCERA_V14_sources_pour_GitHub.zip -d .
-            echo "Sources V14 extraites pour compilation"
-          fi
-      - name: Vérifier les sources complètes
+      - name: Vérifier les sources
         shell: bash
         run: |
           for file in pubspec.yaml lib/main.dart lib/store.dart lib/screens/auth_gate.dart lib/screens/shell.dart lib/screens/planning.dart lib/screens/personal_planning.dart tool/setup_deep_links.py; do
-            test -f "$file" || { echo "::error::Sources Flutter V14 incomplètes : $file absent."; exit 1; }
+            test -f "$file" || { echo "::error::Fichier Flutter absent: $file"; exit 1; }
           done
       - name: Installer Flutter
         uses: subosito/flutter-action@v2
@@ -35,21 +31,17 @@ jobs:
           cache: true
       - name: Générer le projet Android
         run: flutter create --platforms=android --project-name viscera --org com.viscera .
-      - name: Configurer Firebase Cloud Messaging
+      - name: Configurer Firebase Android
         run: python3 tool/configure_firebase_android.py
-      - name: Lier les URL de confirmation
+      - name: Configurer les liens de confirmation
         run: python3 tool/setup_deep_links.py
-      - name: Installer les dépendances
+      - name: Dépendances
         run: flutter pub get
       - name: Tests
         run: flutter test
-      - name: APK Android debug
-        env:
-          SUPABASE_URL: https://qkupckqgczdqiwxozxko.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
-        run: |
-          flutter build apk --debug --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
-      - name: Publier l'APK de test
+      - name: Construire APK Android debug
+        run: flutter build apk --debug --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8"
+      - name: Publier APK
         uses: actions/upload-artifact@v4
         with:
           name: VISCERA-Android-debug-APK
