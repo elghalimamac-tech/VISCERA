@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "39815350855",
+    "project_id": "viscera-6da8e",
+    "storage_bucket": "viscera-6da8e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:39815350855:android:520ac9ecb62bea95b6bf62",
+        "android_client_info": {
+          "package_name": "com.viscera.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxTLyEtYpsFylRMtZ6TcL3q9aD8BAwclk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
