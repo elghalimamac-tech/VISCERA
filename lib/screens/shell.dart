@@ -9,6 +9,7 @@ import 'intake.dart';
 import 'patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
+import 'admin_page.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
@@ -18,6 +19,7 @@ class _MainShellState extends State<MainShell> {
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
+  void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
   @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
     key:shellKey,
@@ -73,6 +75,10 @@ class _MainShellState extends State<MainShell> {
     _drawerItem(Icons.schedule_rounded,'Planning · gardes et congés',(){Navigator.pop(context);openPlanning();}),
     _drawerItem(Icons.event_note_outlined,'Consultations',(){Navigator.pop(context);openReferencePlanning();}),
     _drawerItem(Icons.groups_outlined,'Professeurs et médecins',(){Navigator.pop(context);openReferencePlanning();}),
+    if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
+      const SizedBox(height:24),const Overline('ESPACE ADMINISTRATEUR'),const SizedBox(height:10),
+      _drawerItem(Icons.admin_panel_settings_outlined,'Administration VISCERA',(){Navigator.pop(context);openAdmin();}),
+    ],
     _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
     const SizedBox(height:28),const Divider(color:VColors.line),
     const Padding(padding:EdgeInsets.symmetric(vertical:15),child:Text('Prototype clinique • données fictives\nAucune synchronisation sécurisée pour l’instant.',style:TextStyle(color:VColors.muted,fontSize:11,height:1.45))),
@@ -94,6 +100,18 @@ class _MainShellState extends State<MainShell> {
     final active=appStore.active;final urgent=appStore.theatre.where((p)=>p.blockTiming=='Immédiat').length;
     return _scroll([
       _top('Votre service, en un regard.','Vue d’ensemble',action:Row(children:[IconButton(tooltip:'Équipe et planning',onPressed:openPlanning,icon:const Icon(Icons.calendar_month_outlined,color:VColors.ink)),CircleAvatar(backgroundColor:VColors.softMint,child:IconButton(tooltip:'À propos',onPressed:()=>_about(),icon:const Icon(Icons.shield_outlined,color:VColors.ink)))])),
+      if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
+        const SizedBox(height:14),
+        VCard(color:VColors.softMint,onTap:openAdmin,child:Row(children:[
+          const Icon(Icons.admin_panel_settings_rounded,color:VColors.ink,size:26),
+          const SizedBox(width:12),
+          const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('Mon espace administrateur',style:TextStyle(fontWeight:FontWeight.w800)),
+            SizedBox(height:4),Text('Gérer les inscriptions du service',style:TextStyle(fontSize:12,color:VColors.muted)),
+          ])),
+          const Icon(Icons.chevron_right_rounded),
+        ])),
+      ],
       const SizedBox(height:18),
       VCard(onTap:openPlanning,color:VColors.softMint,child:Row(children:[const Icon(Icons.groups_outlined,color:VColors.ink,size:26),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         const Text('Gardes & congés · consultations',style:TextStyle(fontWeight:FontWeight.w800,fontSize:14)),const SizedBox(height:5),

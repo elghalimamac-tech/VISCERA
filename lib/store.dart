@@ -6,8 +6,10 @@ import 'models.dart';
 import 'planning_models.dart';
 
 class LocalDoctorProfile {
-  LocalDoctorProfile({required this.id, required this.name, required this.email, required this.role, required this.memberId});
+  LocalDoctorProfile({required this.id, required this.name, required this.email, required this.role, required this.memberId, this.isAdmin=false});
   final String id, name, email, role, memberId;
+  final bool isAdmin;
+  bool get isVisceraOwner => isAdmin && id == '4fa3bd1b-6ee1-4b87-97eb-d18527025bc6';
   bool get isSenior => role == 'senior';
   Map<String, String> toJson() => {'id':id,'name':name,'email':email,'role':role,'memberId':memberId};
   static LocalDoctorProfile? fromJson(dynamic value) {
@@ -400,7 +402,7 @@ class AppStore extends ChangeNotifier {
   /// Pont TEMPORAIRE vers le planning local du prototype. Seul le serveur
   /// fournit le rôle APPROUVÉ; aucun choix local ne procure de droits.
   void activateAuthenticatedDoctor({required String id,required String name,
-    required String email,required String role}) {
+    required String email,required String role,bool isAdmin=false}) {
     if (!['senior','junior'].contains(role)) return;
     String memberId;
     if (role == 'senior') {
@@ -413,7 +415,7 @@ class AppStore extends ChangeNotifier {
     }
     localProfiles
       ..clear()
-      ..add(LocalDoctorProfile(id: id,name: name,email: email,role: role,memberId: memberId));
+      ..add(LocalDoctorProfile(id: id,name: name,email: email,role: role,memberId: memberId,isAdmin:isAdmin));
     activeLocalProfileId = id;
     notifyListeners();
   }
