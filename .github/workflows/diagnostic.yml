@@ -13,13 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify repository and prerequisites
+      - name: Verify repository
         shell: bash
         run: |
-          echo "Diagnostic VISCERA — GitHub Actions enabled"
           test -f .github/workflows/android-apk.yml
-          test -f firebase/google-services.json
-          echo "Flutter sources present:"
-          if test -f lib/main.dart; then echo "yes"; else echo "no"; fi
-          echo "V14 archive present:"
-          if test -f VISCERA_V14_sources_pour_GitHub.zip; then echo "yes"; else echo "no"; fi
+          echo "Flutter sources: $(test -f lib/main.dart && echo present || echo missing)"
+          echo "V14 archive: $(test -f VISCERA_V14_sources_pour_GitHub.zip && echo present || echo missing)"
+      - name: Check Android workflow syntax
+        shell: bash
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/android-apk.yml
