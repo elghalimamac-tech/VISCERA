@@ -1,0 +1,25 @@
+name: VISCERA Actions diagnostic
+on:
+  push:
+    paths:
+      - ".github/workflows/diagnostic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repository and prerequisites
+        shell: bash
+        run: |
+          echo "Diagnostic VISCERA — GitHub Actions enabled"
+          test -f .github/workflows/android-apk.yml
+          test -f firebase/google-services.json
+          echo "Flutter sources present:"
+          if test -f lib/main.dart; then echo "yes"; else echo "no"; fi
+          echo "V14 archive present:"
+          if test -f VISCERA_V14_sources_pour_GitHub.zip; then echo "yes"; else echo "no"; fi
