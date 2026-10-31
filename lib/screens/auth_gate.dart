@@ -275,7 +275,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget _confirmation() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
     const Icon(Icons.mark_email_unread_outlined,color: Color(0xFF007A80),size:47),
     const SizedBox(height: 15),
-    _title('Vérifiez votre email', 'Cliquez sur le lien reçu, puis revenez dans VISCERA.'),
+    _title('Vérifiez votre adresse e-mail', 'Vous allez recevoir un message VISCERA. Cliquez sur « Confirmer mon adresse e-mail » pour valider votre inscription.'),
     if(auth.pendingEmail!=null) Text(auth.pendingEmail!,textAlign:TextAlign.center,
       style:const TextStyle(fontWeight:FontWeight.w700)),
     const SizedBox(height: 16),
@@ -289,19 +289,19 @@ class _AuthGateState extends State<AuthGate> {
   Widget _forgot() => Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
     const Icon(Icons.lock_reset_outlined,size:43,color:Color(0xFF007A80)),
     const SizedBox(height:12),
-    _title('Mot de passe oublié ?', 'Un lien de réinitialisation sera envoyé à votre email.'),
+    _title('Mot de passe oublié ?', 'Indiquez votre adresse e-mail. Vous recevrez un message VISCERA pour choisir un nouveau mot de passe.'),
     _input(email,'Adresse email',type:TextInputType.emailAddress),
     _notice(),
-    _action('Envoyer le lien',(){if(_valid())auth.forgotPassword(email.text);}),
+    _action('Recevoir l’e-mail de réinitialisation',(){if(_valid())auth.forgotPassword(email.text);}),
     TextButton(onPressed:()=>auth.go(AuthScreen.login),child: const Text('Retour à la connexion')),
   ]);
 
   Widget _reset() => Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
-    _title('Nouveau mot de passe','Votre lien de récupération a été validé.'),
+    _title('Définir un nouveau mot de passe', 'Lien vérifié. Choisissez un mot de passe d’au moins 12 caractères, puis confirmez-le.'),
     _input(password,'Nouveau mot de passe',obscure:true),
     _input(confirmation,'Confirmer le mot de passe',obscure:true),
     _notice(),
-    _action('Enregistrer le nouveau mot de passe',(){
+    _action('Enregistrer et revenir à la connexion',(){
       if(!_valid())return;
       if(password.text!=confirmation.text){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Les mots de passe sont différents.')));return;}
       auth.setNewPassword(password.text);
