@@ -48,7 +48,7 @@ void main() {
         }
       }
     }
-    expect(patient.completedCount(ClinicalDocuments.discharge),10);
+    expect(patient.completedCount(ClinicalDocuments.discharge),11);
     store.confirmDischarge(patient,prescription:'',report:'',operationReport:'');
     expect(patient.stage,CaseStage.discharged);
   });
