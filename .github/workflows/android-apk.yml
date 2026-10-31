@@ -6,6 +6,7 @@ on:
     paths:
       - "lib/**"
       - "test/**"
+      - "VISCERA_V14_sources_pour_GitHub.zip"
 permissions:
   contents: read
 jobs:
@@ -15,6 +16,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Importer automatiquement l'archive V14 (si présente)
+        shell: bash
+        run: |
+          if [ -f VISCERA_V14_sources_pour_GitHub.zip ]; then
+            unzip -t VISCERA_V14_sources_pour_GitHub.zip
+            unzip -o -q VISCERA_V14_sources_pour_GitHub.zip -d .
+            echo "Sources V14 extraites pour compilation"
+          fi
       - name: Vérifier que le code Flutter est importé
         shell: bash
         run: |
