@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'store.dart';
 import 'doctor_registration_options.dart';
+import 'email_link.dart';
 import 'push_device_registration.dart';
 
 /// La gestion des mots de passe et les liens de confirmation sont assurés
@@ -13,15 +14,21 @@ enum AuthScreen { login, signup, confirmation, forgot, reset, loading, pending, 
 
 class DoctorAuthController extends ChangeNotifier {
   DoctorAuthController(this.client) {
+    final pendingEmailLink = kIsWeb ? parseVisceraEmailLink(Uri.base) : null;
+    _linkProcessing = pendingEmailLink != null;
     _subscription = client.auth.onAuthStateChange.listen((change) {
       if (change.event == AuthChangeEvent.passwordRecovery) {
+        if (_linkProcessing) return;
+        recoveryLinkVerified = true;
         ++_version;
         screen = AuthScreen.reset;
         busy = false;
         notifyListeners();
         return;
       }
+      if (_linkProcessing) return;
       if (change.event == AuthChangeEvent.signedOut) {
+        recoveryLinkVerified = false;
         appStore.clearAuthenticatedProfile();
         screen = AuthScreen.login;
         busy = false;
@@ -37,7 +44,11 @@ class DoctorAuthController extends ChangeNotifier {
       busy = false;
       notifyListeners();
     });
-    unawaited(refreshAccess());
+    if (pendingEmailLink != null) {
+      unawaited(_completeEmailLink(pendingEmailLink));
+    } else {
+      unawaited(refreshAccess());
+    }
   }
 
   factory DoctorAuthController.fromSingleton() => DoctorAuthController(Supabase.instance.client);
@@ -52,6 +63,38 @@ class DoctorAuthController extends ChangeNotifier {
   String? approvedRole;
   String? approvalStatus;
   int _version = 0;
+  bool _linkProcessing = false;
+  bool recoveryLinkVerified = false;
+
+  Future<void> _completeEmailLink(VisceraEmailLink link) async {
+    screen = AuthScreen.loading;
+    notifyListeners();
+    try {
+      await client.auth.verifyOTP(
+        tokenHash: link.tokenHash,
+        type: link.type == VisceraEmailLinkType.recovery
+            ? OtpType.recovery
+            : OtpType.signup,
+      );
+      if (link.type == VisceraEmailLinkType.recovery) {
+        recoveryLinkVerified = true;
+        screen = AuthScreen.reset;
+        message = null;
+      } else {
+        await refreshAccess();
+        message = 'Adresse e-mail confirmée. Votre compte reste soumis à validation par le service.';
+      }
+    } on AuthException {
+      screen = AuthScreen.forgot;
+      message = 'Lien invalide ou expiré. Pour réessayer, demandez un nouvel e-mail.';
+    } catch (_) {
+      screen = AuthScreen.forgot;
+      message = 'Vérification impossible. Vérifiez votre connexion et demandez un nouveau lien.';
+    } finally {
+      _linkProcessing = false;
+      notifyListeners();
+    }
+  }
 
   void go(AuthScreen destination) {
     message = null;
@@ -196,10 +239,16 @@ class DoctorAuthController extends ChangeNotifier {
   });
 
   Future<bool> setNewPassword(String password) async {
+    if (!recoveryLinkVerified) {
+      message = 'Ouvrez d’abord le lien de réinitialisation reçu par e-mail.';
+      notifyListeners();
+      return false;
+    }
     final error = _validatePassword(password);
     if (error != null) { message = error; notifyListeners(); return false; }
     return _execute(() async {
       await client.auth.updateUser(UserAttributes(password: password));
+      recoveryLinkVerified = false;
       await client.auth.signOut();
       screen = AuthScreen.login;
       message = 'Mot de passe modifié. Connectez-vous avec votre nouveau mot de passe.';
