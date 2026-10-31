@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'store.dart';
+import 'doctor_registration_options.dart';
 import 'push_device_registration.dart';
 
 /// La gestion des mots de passe et les liens de confirmation sont assurés
@@ -87,7 +88,7 @@ class DoctorAuthController extends ChangeNotifier {
     notifyListeners();
     try {
       final profile = await client.from('doctor_profiles')
-          .select('display_name, approved_role, requested_role, approval_status')
+          .select('display_name, first_name, last_name, junior_category, internship_passage, senior_title, approved_role, requested_role, approval_status')
           .eq('user_id', user.id)
           .maybeSingle();
       if (version != _version) return;
@@ -127,20 +128,52 @@ class DoctorAuthController extends ChangeNotifier {
         await refreshAccess();
       });
 
-  Future<bool> signUp(String name, String email, String password, String role) async {
+  /// Le grade et le titre sont uniquement déclaratifs jusqu'à l'approbation.
+  Future<bool> signUp({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String role,
+    String? juniorCategory,
+    int? internshipPassage,
+    String? seniorTitle,
+  }) async {
     final error = _validatePassword(password);
     if (error != null) { message = error; notifyListeners(); return false; }
-    if (!['junior', 'senior'].contains(role)) {
-      message = 'Sélectionnez Junior ou Senior.'; notifyListeners(); return false;
+    final first = firstName.trim().replaceAll(RegExp(r'\\s+'), ' ');
+    final last = lastName.trim().replaceAll(RegExp(r'\\s+'), ' ');
+    if (first.length < 2 || last.length < 2 || first.length > 70 || last.length > 70) {
+      message = 'Renseignez séparément un prénom et un nom valides (2 à 70 caractères).';
+      notifyListeners();
+      return false;
     }
-    if (name.trim().length < 3) {
-      message = 'Renseignez votre nom et prénom.'; notifyListeners(); return false;
-    }
+    final gradeError = validateMedicalGrade(
+      role: role,
+      juniorCategory: juniorCategory,
+      internshipPassage: internshipPassage,
+      seniorTitle: seniorTitle,
+    );
+    if (gradeError != null) { message = gradeError; notifyListeners(); return false; }
+    final medicalTitle = role == 'junior' ? 'Dr' : seniorTitle!;
+    final redirectUrl = kIsWeb
+        ? '${Uri.base.origin}${Uri.base.path}'
+        : 'viscera://auth-callback/';
+    final metadata = <String, dynamic>{
+      'first_name': first,
+      'last_name': last,
+      'display_name': '$medicalTitle $first $last',
+      'requested_role': role,
+      if (role == 'junior') 'junior_category': juniorCategory,
+      if (role == 'junior' && internshipPassage != null) 'internship_passage': internshipPassage,
+      if (role == 'senior') 'senior_title': seniorTitle,
+    };
     return _execute(() async {
       await client.auth.signUp(
-        email: email.trim().toLowerCase(), password: password,
-        emailRedirectTo: 'viscera://auth-callback/',
-        data: {'display_name': name.trim(), 'requested_role': role},
+        email: email.trim().toLowerCase(),
+        password: password,
+        emailRedirectTo: redirectUrl,
+        data: metadata,
       );
       pendingEmail = email.trim().toLowerCase();
       screen = AuthScreen.confirmation;
@@ -157,7 +190,7 @@ class DoctorAuthController extends ChangeNotifier {
   Future<bool> forgotPassword(String email) async => _execute(() async {
     pendingEmail = email.trim().toLowerCase();
     await client.auth.resetPasswordForEmail(
-      pendingEmail!, redirectTo: 'viscera://auth-callback/',
+      pendingEmail!, redirectTo: kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : 'viscera://auth-callback/',
     );
     message = 'Si un compte correspond à cette adresse, un email de réinitialisation a été envoyé.';
   });

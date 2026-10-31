@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../auth_controller.dart';
+import '../doctor_registration_options.dart';
 import '../push_device_registration.dart';
 import '../theme.dart';
 import 'shell.dart';
@@ -13,10 +14,14 @@ class _AuthGateState extends State<AuthGate> {
   late final DoctorAuthController auth;
   final email = TextEditingController();
   final password = TextEditingController();
-  final name = TextEditingController();
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
   final confirmation = TextEditingController();
   final formKey = GlobalKey<FormState>();
   String role = 'junior';
+  String? juniorCategory;
+  int? internshipPassage;
+  String seniorTitle = 'Dr';
   bool visible = false;
 
   @override
@@ -29,7 +34,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void dispose() {
     auth.dispose();
-    email.dispose(); password.dispose(); name.dispose(); confirmation.dispose();
+    email.dispose(); password.dispose(); firstName.dispose(); lastName.dispose(); confirmation.dispose();
     super.dispose();
   }
 
@@ -64,7 +69,7 @@ class _AuthGateState extends State<AuthGate> {
                         child: _screen(),
                       ),
                       const SizedBox(height: 21),
-                      const Text('VISCERA · Accès réservé aux professionnels autorisés.\n'
+                      const Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.\n'
                         'Ne saisissez aucune donnée patient dans cette version de développement.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
@@ -87,7 +92,7 @@ class _AuthGateState extends State<AuthGate> {
     const SizedBox(width: 13),
     const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('VISCERA', style: TextStyle(color: Color(0xFF142B38), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: .7)),
-      Text('CHIRURGIE VISCÉRALE', style: TextStyle(color: VColors.muted,fontSize: 10,fontWeight: FontWeight.w600,letterSpacing: 1)),
+      Text('HUIM6 BOUSKOURA · CHIRURGIE VISCÉRALE', style: TextStyle(color: VColors.muted,fontSize: 10,fontWeight: FontWeight.w600,letterSpacing: 1)),
     ]),
   ]);
 
@@ -170,26 +175,101 @@ class _AuthGateState extends State<AuthGate> {
   ]);
 
   Widget _signup() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    _title('Créer mon compte', 'Une adresse email vérifiée et l’accord du service sont nécessaires.'),
-    _input(name, 'Nom et prénom'),
+    _title('Créer mon compte', 'Gestion des patients — Chirurgie viscérale, HUIM6 Bouskoura. Inscription réservée aux médecins du service.'),
+    const Text('Statut médical', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+    const SizedBox(height: 9),
+    SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'junior', label: Text('Junior'), icon: Icon(Icons.person_outline)),
+        ButtonSegment(value: 'senior', label: Text('Senior'), icon: Icon(Icons.medical_services_outlined)),
+      ],
+      selected: {role},
+      onSelectionChanged: (selected) => setState(() {
+        role = selected.first;
+        juniorCategory = null;
+        internshipPassage = null;
+        seniorTitle = 'Dr';
+      }),
+    ),
+    const SizedBox(height: 18),
+    if (role == 'junior') ...[
+      const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: Text('Titre : Dr (automatique pour tous les juniors)',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: VColors.ink)),
+      ),
+      DropdownButtonFormField<String>(
+        value: juniorCategory,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Catégorie du junior'),
+        hint: const Text('Choisir une catégorie'),
+        items: juniorCategories.entries.map((entry) => DropdownMenuItem(
+          value: entry.key,
+          child: Text(entry.value, overflow: TextOverflow.ellipsis),
+        )).toList(),
+        validator: (value) => value == null ? 'Sélectionnez votre catégorie' : null,
+        onChanged: (value) => setState(() {
+          juniorCategory = value;
+          internshipPassage = null;
+        }),
+      ),
+      const SizedBox(height: 15),
+      if (passagesForCategory(juniorCategory).isNotEmpty) ...[
+        DropdownButtonFormField<int>(
+          key: ValueKey(juniorCategory),
+          value: internshipPassage,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Passage d’internat'),
+          hint: const Text('Choisir le passage'),
+          items: passagesForCategory(juniorCategory).map((passage) => DropdownMenuItem(
+            value: passage,
+            child: Text(gradeLabel(juniorCategory, passage).split('— ').last),
+          )).toList(),
+          validator: (value) => value == null ? 'Sélectionnez votre passage' : null,
+          onChanged: (value) => setState(() => internshipPassage = value),
+        ),
+        const SizedBox(height: 15),
+      ],
+    ] else ...[
+      DropdownButtonFormField<String>(
+        value: seniorTitle,
+        decoration: const InputDecoration(labelText: 'Titre avant le nom'),
+        items: seniorTitles.map((title) => DropdownMenuItem(
+          value: title,
+          child: Text(title),
+        )).toList(),
+        onChanged: (value) => setState(() => seniorTitle = value ?? 'Dr'),
+      ),
+      const SizedBox(height: 15),
+    ],
+    _input(firstName, 'Prénom'),
+    _input(lastName, 'Nom'),
     _input(email, 'Email professionnel', type: TextInputType.emailAddress),
-    const Text('Catégorie demandée', style: TextStyle(fontSize:12,fontWeight:FontWeight.w700)),
-    const SizedBox(height:9),
-    SegmentedButton<String>(segments: const [
-      ButtonSegment(value:'junior',label:Text('Junior'),icon:Icon(Icons.person_outline)),
-      ButtonSegment(value:'senior',label:Text('Senior'),icon:Icon(Icons.medical_services_outlined)),
-    ], selected:{role},onSelectionChanged:(s)=>setState(()=>role=s.first)),
-    const SizedBox(height: 17),
-    _input(password, 'Mot de passe (12 caractères minimum)',obscure:true),
-    _input(confirmation, 'Confirmer le mot de passe',obscure:true),
+    _input(password, 'Mot de passe (12 caractères minimum)', obscure: true),
+    _input(confirmation, 'Confirmer le mot de passe', obscure: true),
     const SizedBox(height: 2),
     _notice(),
-    _action('Créer mon compte',(){
-      if(!_valid())return;
-      if(password.text!=confirmation.text){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Les mots de passe sont différents.')));return;}
-      auth.signUp(name.text,email.text,password.text,role);
+    _action('Créer mon compte', () {
+      if (!_valid()) return;
+      if (password.text != confirmation.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Les mots de passe sont différents.')),
+        );
+        return;
+      }
+      auth.signUp(
+        firstName: firstName.text,
+        lastName: lastName.text,
+        email: email.text,
+        password: password.text,
+        role: role,
+        juniorCategory: role == 'junior' ? juniorCategory : null,
+        internshipPassage: role == 'junior' ? internshipPassage : null,
+        seniorTitle: role == 'senior' ? seniorTitle : null,
+      );
     }),
-    TextButton(onPressed:()=>auth.go(AuthScreen.login),child: const Text('J’ai déjà un compte')),
+    TextButton(onPressed: () => auth.go(AuthScreen.login),
+      child: const Text('J’ai déjà un compte')),
   ]);
 
   Widget _confirmation() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
