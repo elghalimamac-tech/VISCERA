@@ -272,9 +272,16 @@ class DoctorAuthController extends ChangeNotifier {
       await action();
       return true;
     } on AuthException catch (e) {
+      final response = e.message.trim();
       message = switch (e.statusCode) {
         '429' => 'Trop de tentatives. Réessayez plus tard.',
-        _ => e.message,
+        '500' => 'Service momentanément indisponible. '
+            'L’e-mail n’a pas pu être envoyé. Contactez l’administrateur de VISCERA.',
+        _ when response.startsWith('{') ||
+            response.contains('Error sending recovery email') ||
+            response.contains('unexpected_failure') =>
+          'L’envoi de l’e-mail a échoué. Contactez l’administrateur de VISCERA.',
+        _ => response,
       };
       return false;
     } catch (_) {
