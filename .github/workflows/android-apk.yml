@@ -30,6 +30,7 @@ jobs:
           test -f pubspec.yaml
           test -f lib/main.dart || { echo "::error::Les sources Flutter V14 doivent être ajoutées à ce dépôt avant la compilation."; exit 1; }
           test -f tool/setup_deep_links.py
+          test -f tool/configure_firebase_android.py
       - name: Installer Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -37,71 +38,8 @@ jobs:
           cache: true
       - name: Générer le projet Android
         run: flutter create --platforms=android --project-name viscera --org com.viscera .
-      - name: Configurer Android pour Firebase Cloud Messaging
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          app = Path("android/app/build.gradle.kts")
-          settings = Path("android/settings.gradle.kts")
-          config = Path("firebase/google-services.json")
-          if not app.exists() or not settings.exists() or not config.exists():
-              raise SystemExit("Fichiers Gradle/Firebase manquants")
-
-          app_text = app.read_text()
-          app_text, count = re.subn(
-              r'(applicationId\s*=\s*)"[^"]+"',
-              r'\1"com.viscera.app"',
-              app_text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit("applicationId Android introuvable")
-
-          if 'id("com.google.gms.google-services")' not in app_text:
-              marker = 'id("dev.flutter.flutter-gradle-plugin")'
-              if marker not in app_text:
-                  raise SystemExit("Plugin Flutter Gradle introuvable")
-              app_text = app_text.replace(
-                  marker, marker + '\n    id("com.google.gms.google-services")', 1
-              )
-          app.write_text(app_text)
-
-          settings_text = settings.read_text()
-          if 'id("com.google.gms.google-services")' not in settings_text:
-              settings_text, count = re.subn(
-                  r'(?m)^plugins \{\s*      - name: Lier les URL de confirmation
-        run: python3 tool/setup_deep_links.py
-      - name: Installer les dépendances
-        run: flutter pub get
-      - name: Tests
-        run: flutter test
-      - name: APK Android debug
-        env:
-          SUPABASE_URL: https://qkupckqgczdqiwxozxko.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
-        run: |
-          flutter build apk --debug --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
-      - name: Publier l'APK de test
-        uses: actions/upload-artifact@v4
-        with:
-          name: VISCERA-Android-debug-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-,
-                  'plugins {\n    id("com.google.gms.google-services") version "4.4.4" apply false',
-                  settings_text,
-                  count=1,
-              )
-              if count != 1:
-                  raise SystemExit("Bloc plugins des settings Gradle introuvable")
-          settings.write_text(settings_text)
-          Path("android/app/google-services.json").write_text(config.read_text())
-          print("Firebase Android configuré pour com.viscera.app")
-          PY
+      - name: Configurer Firebase Cloud Messaging
+        run: python3 tool/configure_firebase_android.py
       - name: Lier les URL de confirmation
         run: python3 tool/setup_deep_links.py
       - name: Installer les dépendances
