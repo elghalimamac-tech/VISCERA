@@ -1,0 +1,49 @@
+name: VISCERA Android APK (debug)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "test/**"
+permissions:
+  contents: read
+jobs:
+  build_android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Vérifier que le code Flutter est importé
+        shell: bash
+        run: |
+          test -f pubspec.yaml
+          test -f lib/main.dart || { echo "::error::Les sources Flutter V14 doivent être ajoutées à ce dépôt avant la compilation."; exit 1; }
+          test -f tool/setup_deep_links.py
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Générer le projet Android
+        run: flutter create --platforms=android --project-name viscera --org ma.viscera .
+      - name: Lier les URL de confirmation
+        run: python3 tool/setup_deep_links.py
+      - name: Installer les dépendances
+        run: flutter pub get
+      - name: Tests
+        run: flutter test
+      - name: APK Android debug
+        env:
+          SUPABASE_URL: https://qkupckqgczdqiwxozxko.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
+        run: |
+          flutter build apk --debug --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+      - name: Publier l'APK de test
+        uses: actions/upload-artifact@v4
+        with:
+          name: VISCERA-Android-debug-APK
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
