@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "lib/**"
-      - "test/**"
       - "VISCERA_V14_sources_pour_GitHub.zip"
 permissions:
   contents: read
@@ -24,13 +22,12 @@ jobs:
             unzip -o -q VISCERA_V14_sources_pour_GitHub.zip -d .
             echo "Sources V14 extraites pour compilation"
           fi
-      - name: Vérifier que le code Flutter est importé
+      - name: Vérifier les sources complètes
         shell: bash
         run: |
-          test -f pubspec.yaml
-          test -f lib/main.dart || { echo "::error::Les sources Flutter V14 doivent être ajoutées à ce dépôt avant la compilation."; exit 1; }
-          test -f tool/setup_deep_links.py
-          test -f tool/configure_firebase_android.py
+          for file in pubspec.yaml lib/main.dart lib/store.dart lib/screens/auth_gate.dart lib/screens/shell.dart lib/screens/planning.dart lib/screens/personal_planning.dart tool/setup_deep_links.py; do
+            test -f "$file" || { echo "::error::Sources Flutter V14 incomplètes : $file absent."; exit 1; }
+          done
       - name: Installer Flutter
         uses: subosito/flutter-action@v2
         with:
