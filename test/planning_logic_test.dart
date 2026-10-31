@@ -87,7 +87,7 @@ void main() {
     final id=store.professors.firstWhere((p)=>p.name=='Pr Consultation').id;
     store.addVacation(professorId:id,start:DateTime(2026,11,3,9),end:DateTime(2026,11,3,12));
     expect(store.resolveProfessor('Consultation',DateTime(2026,11,3,10,30)).professorId,id);
-    expect(store.resolveProfessor('Consultation',DateTime(2026,11,3,12)).professorId,isNull);
+    expect(store.professorById(store.resolveProfessor('Consultation',DateTime(2026,11,3,12)).professorId)?.name,'Pr GHADDOU');
   });
 
   test('Chevauchement de deux professeurs oblige une sélection', () {

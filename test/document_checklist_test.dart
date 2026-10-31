@@ -36,7 +36,7 @@ void main() {
 
   test('Une sortie ne se confirme pas avant vérification documentaire', () {
     final patient=example(),store=AppStore();
-    store.confirmDischarge(patient,prescription:'',report:'',operationReport:'',certificate:'');
+    store.confirmDischarge(patient,prescription:'',report:'',operationReport:'');
     expect(patient.stage,CaseStage.postoperative);
     for(final requirement in ClinicalDocuments.discharge){
       if(requirement.optional){
@@ -49,7 +49,7 @@ void main() {
       }
     }
     expect(patient.completedCount(ClinicalDocuments.discharge),10);
-    store.confirmDischarge(patient,prescription:'',report:'',operationReport:'',certificate:'');
+    store.confirmDischarge(patient,prescription:'',report:'',operationReport:'');
     expect(patient.stage,CaseStage.discharged);
   });
 }
