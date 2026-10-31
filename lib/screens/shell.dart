@@ -22,21 +22,36 @@ class _MainShellState extends State<MainShell> {
   @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
     key:shellKey,
     drawer:_drawer(),
-    floatingActionButton:FloatingActionButton.extended(onPressed:openIntake,
-      backgroundColor:VColors.ink,foregroundColor:Colors.white,
-      icon:const Icon(Icons.add_rounded),label:const Text('Admission')),
-    floatingActionButtonLocation:FloatingActionButtonLocation.centerFloat,
     body:SafeArea(child:IndexedStack(index:selected,children:[_dashboard(),_patientList(),_theatre(),_beds()])),
     bottomNavigationBar:_nav(),
   ));
 
+  // La 3e destination est une action, pas un onglet : elle ouvre
+  // le formulaire d'admission sans changer la page active.
+  // Les 4 vrais onglets gardent leurs indices historiques (0 à 3).
   Widget _nav()=>NavigationBar(
-    height:68, selectedIndex:selected, backgroundColor:Colors.white,
+    height:78,
+    selectedIndex:selected>=2 ? selected+1 : selected,
+    backgroundColor:Colors.white,
     indicatorColor:VColors.softMint,
-    onDestinationSelected:(index)=>setState(()=>selected=index),
+    onDestinationSelected:(index){
+      if(index==2){openIntake();return;}
+      setState(()=>selected=index>2 ? index-1 : index);
+    },
     destinations:const [
       NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home_rounded),label:'Accueil'),
       NavigationDestination(icon:Icon(Icons.people_alt_outlined),selectedIcon:Icon(Icons.people_alt_rounded),label:'Patients'),
+      NavigationDestination(
+        icon:SizedBox(
+          width:48,height:48,
+          child:DecoratedBox(
+            decoration:BoxDecoration(color:VColors.ink,shape:BoxShape.circle),
+            child:Icon(Icons.add_rounded,color:Colors.white,size:30),
+          ),
+        ),
+        label:'Admission',
+        tooltip:'Nouvelle admission',
+      ),
       NavigationDestination(icon:Icon(Icons.medical_services_outlined),selectedIcon:Icon(Icons.medical_services_rounded),label:'Bloc'),
       NavigationDestination(icon:Icon(Icons.bed_outlined),selectedIcon:Icon(Icons.bed_rounded),label:'Lits'),
     ],
