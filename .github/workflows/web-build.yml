@@ -1,0 +1,52 @@
+name: VISCERA Web (release)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "pubspec.yaml"
+      - "web/**"
+      - ".github/workflows/web-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build_web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check Flutter sources
+        run: |
+          test -f pubspec.yaml
+          test -f lib/main.dart
+          test -f lib/screens/auth_gate.dart
+          test -f lib/screens/personal_planning.dart
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create web platform
+        run: flutter create --platforms=web --project-name viscera --org com.viscera .
+      - name: Fetch dependencies
+        run: flutter pub get
+      - name: Compile web release
+        env:
+          SUPABASE_URL: https://qkupckqgczdqiwxozxko.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
+        run: |
+          flutter build web --release --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" --dart-define=ENABLE_FIREBASE_PUSH=false
+          test -s build/web/index.html
+          test -s build/web/main.dart.js
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: VISCERA-Web-V14-release
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 14
