@@ -3,7 +3,7 @@ import 'models.dart';
 import 'store.dart';
 import 'theme.dart';
 
-/// Checklist modifiable intégrée au dossier patient (démonstration locale).
+/// Checklist clinique modifiable ; les dossiers issus du bloc sont sauvegardés dans Supabase.
 class DocumentChecklist extends StatelessWidget {
   const DocumentChecklist({super.key, required this.patient, required this.title,
     required this.requirements, this.readOnly=false, this.compact=false});
@@ -37,7 +37,7 @@ class DocumentChecklist extends StatelessWidget {
 
   Widget _row(BuildContext context, DocumentRequirement item){
     final check=patient.check(item.key);
-    final disabled = readOnly || !patient.isActive;
+    final disabled = readOnly || (!patient.isActive && !patient.isProgrammed);
     return Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[
         SizedBox(width:38,height:42,child:Checkbox(
