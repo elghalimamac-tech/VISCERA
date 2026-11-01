@@ -107,9 +107,10 @@ class _IntakePageState extends State<IntakePage> {
     if(!mounted)return;
     setState(()=>saving=true);
     try{
-      await appStore.createManualAdmission(p);
+      final persisted = await appStore.createManualAdmission(p);
       if(!mounted)return;
-      Navigator.pop(context);
+      Navigator.pushReplacement(context,
+        MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:persisted)));
     }on PostgrestException catch(error){
       if(!mounted)return;
       if(error.code=='23505'){
