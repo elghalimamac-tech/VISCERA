@@ -23,6 +23,9 @@ void main() {
 
   test('La validation ne remplace pas la garde d’un autre junior', () async {
     final store=AppStore();
+    store.activateAuthenticatedDoctor(
+      id:'4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
+      name:'Dr Admin',email:'admin@example.org',role:'senior',isAdmin:true);
     store.addJunior('Dr Collègue');
     final colleague=store.juniors.first.id;
     final date=DateTime(2027,6,11);
