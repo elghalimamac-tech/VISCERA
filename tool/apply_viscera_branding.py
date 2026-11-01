@@ -56,6 +56,10 @@ def android():
     # Le premier plan est transparent; Android applique son propre masque.
     png(res / "drawable-nodpi" / "viscera_foreground.png", 432,
         background=False, maskable=True)
+    png(res / "drawable-nodpi" / "viscera_monochrome.png", 432,
+        background=False, maskable=True, monochrome=True)
+    png(res / "drawable-nodpi" / "viscera_notification.png", 96,
+        background=False, maskable=True, monochrome=True)
     png(res / "drawable-nodpi" / "viscera_splash.png", 256, background=False)
     colors = res / "values" / "viscera_colors.xml"
     colors.parent.mkdir(parents=True, exist_ok=True)
@@ -69,15 +73,17 @@ def android():
         '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">'
         '<background android:drawable="@color/viscera_primary"/>'
         '<foreground android:drawable="@drawable/viscera_foreground"/>'
+        '<monochrome android:drawable="@drawable/viscera_monochrome"/>'
         '</adaptive-icon>\n'
     )
     for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
         path = res / "mipmap-anydpi-v26" / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(adaptive, encoding="utf-8")
-    splash = res / "drawable" / "launch_background.xml"
-    splash.parent.mkdir(parents=True, exist_ok=True)
-    splash.write_text(
+    for splash in (res / "drawable" / "launch_background.xml",
+                   res / "drawable-v21" / "launch_background.xml"):
+        splash.parent.mkdir(parents=True, exist_ok=True)
+        splash.write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">'
         '<item android:drawable="@color/viscera_primary"/>'
@@ -94,6 +100,16 @@ def android():
             app_node.set("{" + ns + "}label", "VISCERA")
             app_node.set("{" + ns + "}icon", "@mipmap/ic_launcher")
             app_node.set("{" + ns + "}roundIcon", "@mipmap/ic_launcher_round")
+        if app_node is not None:
+            name = "{" + ns + "}name"
+            resource = "{" + ns + "}resource"
+            existing = any(n.get(name) == "com.google.firebase.messaging.default_notification_icon"
+                           for n in app_node.findall("meta-data"))
+            if not existing:
+                ET.SubElement(app_node, "meta-data", {
+                    name: "com.google.firebase.messaging.default_notification_icon",
+                    resource: "@drawable/viscera_notification",
+                })
         doc.write(manifest, encoding="utf-8", xml_declaration=True)
 
 
