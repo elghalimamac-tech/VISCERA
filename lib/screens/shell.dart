@@ -13,7 +13,6 @@ import 'scheduled_patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
-import 'bloc_program_section.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
@@ -212,7 +211,7 @@ class _MainShellState extends State<MainShell> {
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
       SectionHeading('À opérer'),...cases.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Expanded(child:Text(p.name,style:Theme.of(context).textTheme.titleMedium)),VTag(p.blockTiming=='Immédiat'?'URGENT':'PROGRAMMÉ',warn:p.blockTiming=='Immédiat')]),
-        const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Médecin responsable : ${appStore.responsibleById(p.professorId)?.name??'Non attribué'}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
+        const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Médecin responsable : ${p.isProgrammed ? p.programSurgeon : (appStore.responsibleById(p.professorId)?.name??'Non attribué')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
         const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else if(p.stage==CaseStage.inTheatre)FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
       ]))),if(cases.isEmpty)const VCard(child:Text('Aucune intervention en attente.')),
       SectionHeading('Après bloc'),...appStore.active.where((p)=>p.isPostOp).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
