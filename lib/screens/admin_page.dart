@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../doctor_registration_options.dart';
@@ -134,7 +135,7 @@ class _AdminPageState extends State<AdminPage> {
       backgroundColor:const Color(0xFFF4F7F6),
       appBar:AppBar(
         backgroundColor:const Color(0xFFF4F7F6),
-        title:const Text('Administration VISCERA'),
+        title:const VisceraPageTitle('Administration VISCERA'),
         actions:[IconButton(tooltip:'Actualiser',onPressed:_saving?null:_refresh,
           icon:const Icon(Icons.refresh))],
       ),
