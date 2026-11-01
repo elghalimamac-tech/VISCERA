@@ -143,6 +143,8 @@ class PatientCase {
     this.dischargePrescription = '',
     this.dischargeReport = '',
     this.operationReport = '',
+    this.dischargeMedicalValidated = false,
+    this.dischargeFarValidated = false,
   });
 
   final String id, name, origin;
@@ -179,6 +181,7 @@ class PatientCase {
 
   DateTime? dischargeAt;
   String dischargePrescription, dischargeReport, operationReport;
+  bool dischargeMedicalValidated, dischargeFarValidated;
 
   bool get isFar => insurance == 'FAR';
   bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled;
