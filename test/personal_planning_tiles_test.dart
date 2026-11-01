@@ -21,6 +21,9 @@ void main() {
 
   test('Une tuile personnelle ne remplace pas une garde attribuée à un collègue', () {
     final store=AppStore();
+    store.activateAuthenticatedDoctor(
+      id:'4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
+      name:'Dr Admin',email:'admin@example.org',role:'senior',isAdmin:true);
     store.addJunior('Dr COLLEGUE');
     final colleagueId=store.juniors.first.id;
     final occupied=DateTime(2027,6,15);

@@ -3,7 +3,12 @@ import 'package:viscera/store.dart';
 
 void main() {
   late AppStore store;
-  setUp(() { store=AppStore(); });
+  setUp(() {
+    store=AppStore();
+    store.activateAuthenticatedDoctor(
+      id:'4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
+      name:'Dr Admin',email:'admin@example.org',role:'senior',isAdmin:true);
+  });
 
   test('Référence mai 2026 : mercredi matin professeur, après-midi docteur', () {
     final morning=store.resolveProfessor('Consultation',DateTime(2026,5,6,10));

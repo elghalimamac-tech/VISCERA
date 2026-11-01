@@ -32,7 +32,7 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
           style: TextStyle(fontSize: 12.5))),
         const SizedBox(height: 15),
         if (p.isActive) ElevatedButton.icon(
-          onPressed: () => _editObservation(context),
+          onPressed: () => showClinicalObservationEditor(context, p),
           icon: const Icon(Icons.add_circle_outline),
           label: const Text('Observation du jour / autre date'),
         ),
@@ -44,7 +44,7 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
           child: VCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text(_obsDate(obs.date), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-              if (p.isActive) TextButton.icon(onPressed: () => _editObservation(context, existing: obs),
+              if (p.isActive) TextButton.icon(onPressed: () => showClinicalObservationEditor(context, p, existing: obs),
                 icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Modifier')),
             ]),
             if (obs.vitals.trim().isNotEmpty) _line('Constantes', obs.vitals),
@@ -84,7 +84,13 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
       const SizedBox(height: 2), Text(value, style: const TextStyle(fontSize: 12.5)),
     ]));
 
-  Future<void> _editObservation(BuildContext context, {DailyObservation? existing}) async {
+}
+
+/// Formulaire commun accessible directement depuis le dossier patient
+/// et depuis le suivi des observations, avec les mêmes validations.
+Future<void> showClinicalObservationEditor(
+  BuildContext context, PatientCase p, {DailyObservation? existing}) async {
+    if (!p.isActive) return;
     DateTime selected = existing?.date ?? DateTime.now();
     final initial = existing;
     final vitals = TextEditingController(text: existing?.vitals ?? '');
@@ -166,4 +172,3 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
       for (final controller in values) { controller.dispose(); }
     }
   }
-}

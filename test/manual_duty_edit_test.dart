@@ -9,6 +9,9 @@ void main() {
     expect(store.seniorOnName(historical), 'LAFKIH');
     expect(store.seniorOnName(november), isNull);
 
+    store.activateAuthenticatedDoctor(
+      id:'4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
+      name:'Dr Admin',email:'admin@example.org',role:'senior',isAdmin:true);
     expect(store.addJunior('Résident Démo'), isTrue);
     final juniorId = store.juniors.single.id;
     store.setDuty(november, seniorName: 'FAHSI', juniorId: juniorId);

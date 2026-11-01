@@ -136,34 +136,118 @@ class _PlanningPageState extends State<PlanningPage> {
     ]))));
   }
 
-  Widget _vacations()=>ListView(padding:const EdgeInsets.fromLTRB(18,22,18,32),children:[
-    Text('Vacations de consultation',style:Theme.of(context).textTheme.headlineMedium),const SizedBox(height:7),
-    const Text('Vacations datées et planning de référence. L’attribution du patient repose sur l’heure réelle de sa consultation.',style:TextStyle(fontSize:12.5,color:VColors.muted)),
-    const SizedBox(height:14),
-    VCard(color:VColors.softMint,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Overline('HUIM6 BOUSKOURA · GRILLE ANNUELLE CONFIRMÉE'),
-      const SizedBox(height:7),
-      const Text('Consultations · toute l’année',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800)),
-      const SizedBox(height:7),
-      const Text('Planning récurrent chaque semaine : 9h–13h et 14h–19h. Les Dr BENGHAIT et Dr LAABOULI ainsi que le médecin de garde du samedi nécessitent la confirmation du professeur responsable.',style:TextStyle(fontSize:11.5,color:VColors.muted)),
-      const SizedBox(height:11),
-      ...List.generate(6,(index){
-        final day=index+1;
-        final parts=weeklyVisceralConsultations.where((slot)=>slot.weekday==day).toList();
-        return Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text(weekdays[index].toUpperCase(),style:const TextStyle(fontWeight:FontWeight.w800,fontSize:11)),
+  // Chaque créneau est présenté sur sa propre ligne pour rester lisible
+  // même sur les écrans de petite largeur.
+  Widget _consultationSlot(ReferenceConsultationSlot slot) {
+    final toConfirm=slot.professorName==null;
+    return Padding(
+      padding:const EdgeInsets.symmetric(vertical:10),
+      child:Row(children:[
+        Container(
+          width:92,
+          padding:const EdgeInsets.symmetric(horizontal:8,vertical:8),
+          decoration:BoxDecoration(color:VColors.background,borderRadius:BorderRadius.circular(10)),
+          child:Text('${slot.startHour.toString().padLeft(2,'0')}:00–${slot.endHour.toString().padLeft(2,'0')}:00',
+            textAlign:TextAlign.center,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800,color:VColors.ink)),
+        ),
+        const SizedBox(width:12),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(slot.startHour<13?'Matin':'Après-midi',style:const TextStyle(fontSize:11,color:VColors.muted)),
           const SizedBox(height:3),
-          Text('09–13h  ${parts[0].consultantName}   ·   14–19h  ${parts[1].consultantName}',style:const TextStyle(fontSize:11.5)),
-        ]));
-      }),
-      const SizedBox(height:9),
-      const Text('Confirmé par le service : valable toute l’année, sauf changement ou remplacement ponctuel.',style:TextStyle(fontWeight:FontWeight.w700,fontSize:11.5,color:VColors.ink)),
-    ])),
-    const SizedBox(height:13),ElevatedButton.icon(onPressed:_addVacation,icon:const Icon(Icons.add_rounded),label:const Text('Ajouter une vacation')),
+          Text(slot.consultantName,style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800,color:VColors.ink)),
+        ])),
+        if(toConfirm)const Tooltip(
+          message:'Professeur responsable à confirmer',
+          child:Icon(Icons.info_outline_rounded,size:18,color:Color(0xFF9A602E))),
+      ]),
+    );
+  }
+
+  Widget _consultationDay(int day) {
+    const labels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    final slots=weeklyVisceralConsultations.where((slot)=>slot.weekday==day).toList();
+    final isToday=DateTime.now().weekday==day;
+    return VCard(
+      margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.fromLTRB(15,12,15,10),
+      color:isToday?VColors.softMint:Colors.white,
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[
+          Expanded(child:Text(labels[day-1],style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:VColors.ink))),
+          if(isToday)const VTag('Aujourd’hui',highlight:true),
+        ]),
+        const SizedBox(height:7),
+        const Divider(height:1,color:VColors.line),
+        _consultationSlot(slots[0]),
+        const Divider(height:1,color:VColors.line),
+        _consultationSlot(slots[1]),
+      ]),
+    );
+  }
+
+  Widget _vacations()=>ListView(padding:const EdgeInsets.fromLTRB(18,20,18,32),children:[
+    Text('Consultations',style:Theme.of(context).textTheme.headlineMedium),
+    const SizedBox(height:5),
+    const Text('Planning hebdomadaire de référence · HUIM6 Bouskoura',
+      style:TextStyle(fontSize:13,color:VColors.muted)),
+    const SizedBox(height:16),
+    VCard(color:VColors.softMint,padding:const EdgeInsets.all(16),child:Column(
+      crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Row(children:[
+          Icon(Icons.event_repeat_rounded,color:VColors.ink,size:22),
+          SizedBox(width:9),
+          Expanded(child:Text('Valable toute l’année',
+            style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:VColors.ink))),
+        ]),
+        const SizedBox(height:7),
+        const Text('Récurrent chaque semaine, sauf modification ponctuelle.',
+          style:TextStyle(fontSize:12,color:VColors.muted)),
+        const SizedBox(height:12),
+        const Wrap(spacing:8,runSpacing:8,children:[
+          VTag('Matin · 09h–13h',highlight:true),
+          VTag('Après-midi · 14h–19h',highlight:true),
+        ]),
+      ])),
+    const SizedBox(height:20),
+    const Overline('SEMAINE TYPE'),
+    const SizedBox(height:9),
+    ...List.generate(6,(i)=>_consultationDay(i+1)),
+    VCard(color:VColors.orangeSoft,padding:const EdgeInsets.all(14),child:const Row(
+      crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Icon(Icons.info_outline_rounded,color:Color(0xFF9A602E),size:20),
+        SizedBox(width:10),
+        Expanded(child:Text('Pour Dr BENGHAIT, Dr LAABOULI et le médecin de garde du samedi, le professeur responsable doit être confirmé.',
+          style:TextStyle(fontSize:12,color:VColors.ink,height:1.45))),
+      ])),
+    const SizedBox(height:4),
+    SectionHeading('Vacations exceptionnelles',
+      trailing:TextButton.icon(onPressed:_addVacation,
+        icon:const Icon(Icons.add_rounded,size:19),label:const Text('Ajouter'))),
+    const Text('Ces vacations datées prennent le relais de la grille habituelle sur leur créneau.',
+      style:TextStyle(fontSize:12,color:VColors.muted)),
     const SizedBox(height:12),
-    if(appStore.vacations.isEmpty)const VCard(child:Text('Aucune exception datée ajoutée. La grille hebdomadaire reste applicable toute l’année.')),
-    ...appStore.vacations.map((v)=>VCard(margin:const EdgeInsets.only(bottom:9),child:Row(children:[const Icon(Icons.event_available_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(appStore.professorById(v.professorId)?.name??'Professeur non trouvé',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:5),Text('${when(v.start)}   ·   ${time(v.start)}–${time(v.end)}',style:const TextStyle(fontSize:12,color:VColors.muted))])),IconButton(tooltip:'Supprimer la vacation',onPressed:() async {if(await showConfirmation(context,title:'Supprimer cette vacation ?',message:'Les dossiers déjà attribués ne seront pas modifiés.',action:'Supprimer'))appStore.deleteVacation(v.id);},icon:const Icon(Icons.delete_outline,color:VColors.muted))]))),
-    const SizedBox(height:14),const Text('Si deux professeurs ont une vacation qui se chevauche, l’application signale un conflit et ne choisit pas automatiquement.',style:TextStyle(fontSize:11.5,color:VColors.muted)),
+    if(appStore.vacations.isEmpty)const VCard(padding:EdgeInsets.all(15),
+      child:Text('Aucune exception enregistrée. Le planning hebdomadaire reste applicable.',
+        style:TextStyle(fontSize:12.5,color:VColors.muted))),
+    ...appStore.vacations.map((v)=>VCard(margin:const EdgeInsets.only(bottom:9),child:Row(children:[
+      const Icon(Icons.event_available_outlined,color:VColors.ink),
+      const SizedBox(width:12),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(appStore.professorById(v.professorId)?.name??'Professeur non trouvé',
+          style:const TextStyle(fontWeight:FontWeight.w800)),
+        const SizedBox(height:5),
+        Text('${when(v.start)} · ${time(v.start)}–${time(v.end)}',
+          style:const TextStyle(fontSize:12,color:VColors.muted)),
+      ])),
+      IconButton(tooltip:'Supprimer la vacation',onPressed:() async {
+        if(await showConfirmation(context,title:'Supprimer cette vacation ?',
+          message:'Les dossiers déjà attribués ne seront pas modifiés.',action:'Supprimer')) {
+          appStore.deleteVacation(v.id);
+        }
+      },icon:const Icon(Icons.delete_outline,color:VColors.muted)),
+    ]))),
+    const SizedBox(height:12),
+    const Text('En cas de chevauchement entre deux professeurs, l’attribution doit être vérifiée manuellement.',
+      style:TextStyle(fontSize:11.5,color:VColors.muted)),
   ]);
 
   Future<void> _addVacation() async {
@@ -182,32 +266,69 @@ class _PlanningPageState extends State<PlanningPage> {
     }));
   }
 
-  Widget _team()=>ListView(padding:const EdgeInsets.fromLTRB(18,21,18,32),children:[
-    Text('Annuaire du service',style:Theme.of(context).textTheme.headlineMedium),const SizedBox(height:7),
-    const Text('Quatre professeurs de la grille annuelle sont préremplis. Complétez les autres noms ; les juniors restent à renseigner.',style:TextStyle(color:VColors.muted,fontSize:12.5)),
-    SectionHeading('Professeurs',trailing:TextButton.icon(onPressed:()=>_addMember(professor:true),icon:const Icon(Icons.add,size:18),label:const Text('Ajouter'))),
+  Widget _teamMember(String name,IconData icon)=>VCard(
+    margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.all(13),
+    child:Row(children:[
+      CircleAvatar(backgroundColor:VColors.softMint,
+        child:Icon(icon,color:VColors.ink)),
+      const SizedBox(width:12),
+      Expanded(child:Text(name,style:const TextStyle(fontWeight:FontWeight.w700))),
+    ]),
+  );
+
+  Widget _team()=>ListView(padding:const EdgeInsets.fromLTRB(18,20,18,32),children:[
+    Text('Équipe du service',style:Theme.of(context).textTheme.headlineMedium),
+    const SizedBox(height:5),
+    const Text('Annuaire des professeurs, seniors et juniors.',
+      style:TextStyle(color:VColors.muted,fontSize:13)),
+    const SizedBox(height:16),
+    VCard(color:appStore.canManageTeam?VColors.softMint:VColors.blueSoft,
+      padding:const EdgeInsets.all(14),child:Row(children:[
+        Icon(appStore.canManageTeam?Icons.admin_panel_settings_outlined:Icons.lock_outline_rounded,
+          color:VColors.ink),
+        const SizedBox(width:10),
+        Expanded(child:Text(
+          appStore.canManageTeam
+            ? 'Mode administrateur · ajout de membres autorisé'
+            : 'Annuaire en lecture seule · l’ajout est réservé à l’administrateur',
+          style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w700,color:VColors.ink))),
+      ])),
+    SectionHeading('Professeurs',trailing:appStore.canManageTeam
+      ?TextButton.icon(onPressed:()=>_addMember(professor:true),
+        icon:const Icon(Icons.add,size:18),label:const Text('Ajouter')):null),
     if(appStore.professors.isEmpty)const VCard(child:Text('Aucun professeur enregistré.')),
-    ...appStore.professors.map((p)=>VCard(margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.all(13),child:Row(children:[const CircleAvatar(backgroundColor:VColors.softMint,child:Icon(Icons.school_outlined,color:VColors.ink)),const SizedBox(width:12),Expanded(child:Text(p.name,style:const TextStyle(fontWeight:FontWeight.w700)))]))),
-    const SizedBox(height:12),SectionHeading('Autres médecins consultants (grille annuelle)'),
-    ...referenceConsultationDoctors.map((name)=>VCard(margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.all(12),child:Text(name,style:const TextStyle(fontWeight:FontWeight.w700)))),
-    SectionHeading('Médecins seniors (astreintes octobre 2026)',trailing:TextButton.icon(onPressed:()=>_addSenior(),icon:const Icon(Icons.add,size:18),label:const Text('Ajouter'))),
-    ...appStore.seniorNames.map((name)=>VCard(margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.all(13),child:Row(children:[const CircleAvatar(backgroundColor:VColors.softMint,child:Icon(Icons.medical_services_outlined,color:VColors.ink)),const SizedBox(width:12),Expanded(child:Text(name,style:const TextStyle(fontWeight:FontWeight.w700)))]))),
-    SectionHeading('Juniors',trailing:TextButton.icon(onPressed:()=>_addMember(professor:false),icon:const Icon(Icons.add,size:18),label:const Text('Ajouter'))),
+    ...appStore.professors.map((p)=>_teamMember(p.name,Icons.school_outlined)),
+    SectionHeading('Autres consultants'),
+    ...referenceConsultationDoctors.map((name)=>_teamMember(name,Icons.medical_services_outlined)),
+    SectionHeading('Médecins seniors',trailing:appStore.canManageTeam
+      ?TextButton.icon(onPressed:_addSenior,
+        icon:const Icon(Icons.add,size:18),label:const Text('Ajouter')):null),
+    const Padding(padding:EdgeInsets.only(bottom:10),
+      child:Text('Annuaire initial issu des astreintes d’octobre 2026.',
+        style:TextStyle(fontSize:12,color:VColors.muted))),
+    ...appStore.seniorNames.map((name)=>_teamMember(name,Icons.medical_services_outlined)),
+    SectionHeading('Juniors',trailing:appStore.canManageTeam
+      ?TextButton.icon(onPressed:()=>_addMember(professor:false),
+        icon:const Icon(Icons.add,size:18),label:const Text('Ajouter')):null),
     if(appStore.juniors.isEmpty)const VCard(child:Text('Aucun junior enregistré.')),
-    ...appStore.juniors.map((p)=>VCard(margin:const EdgeInsets.only(bottom:8),padding:const EdgeInsets.all(13),child:Row(children:[const CircleAvatar(backgroundColor:VColors.softMint,child:Icon(Icons.person_outline,color:VColors.ink)),const SizedBox(width:12),Expanded(child:Text(p.name,style:const TextStyle(fontWeight:FontWeight.w700)))]))),
+    ...appStore.juniors.map((p)=>_teamMember(p.name,Icons.person_outline)),
   ]);
 
   Future<void> _addSenior() async {
+    if(!appStore.canManageTeam){notice('Accès réservé à l’administrateur.');return;}
     final controller=TextEditingController();
     final name=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Ajouter un médecin senior'),content:TextField(controller:controller,autofocus:true,decoration:const InputDecoration(labelText:'Nom du médecin')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Annuler')),FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:const Text('Ajouter'))]));
     controller.dispose();if(!mounted||name==null)return;
+    if(!appStore.canManageTeam){notice('Accès réservé à l’administrateur.');return;}
     if(!appStore.addSenior(name))notice('Nom vide ou déjà enregistré.');
   }
 
   Future<void> _addMember({required bool professor}) async {
+    if(!appStore.canManageTeam){notice('Accès réservé à l’administrateur.');return;}
     final controller=TextEditingController();
     final name=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:Text(professor?'Ajouter un professeur':'Ajouter un junior'),content:TextField(controller:controller,autofocus:true,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'Nom et prénom')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Annuler')),FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:const Text('Ajouter'))]));
     controller.dispose(); if(!mounted||name==null)return;
+    if(!appStore.canManageTeam){notice('Accès réservé à l’administrateur.');return;}
     final ok=professor?appStore.addProfessor(name):appStore.addJunior(name);
     if(!ok)notice('Nom vide ou déjà enregistré.');
   }

@@ -15,52 +15,179 @@ class PatientDetailPage extends StatefulWidget {
 }
 class _PatientDetailPageState extends State<PatientDetailPage> {
   PatientCase get p=>widget.patient;
-  @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
-    appBar:AppBar(title:const Text('Dossier patient',style:TextStyle(fontWeight:FontWeight.w800)),backgroundColor:VColors.background,surfaceTintColor:Colors.transparent),
-    body:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,45),children:[
-      VCard(color:VColors.ink,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(p.id,style:const TextStyle(color:VColors.mint,fontSize:11,fontWeight:FontWeight.w700,letterSpacing:1.3)),const SizedBox(height:9),
-        Text(p.name,style:const TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w800)),const SizedBox(height:5),
-        Text('${p.age} ans  •  ${p.origin}',style:const TextStyle(color:Color(0xFFD8EAE4),fontSize:12)),const SizedBox(height:17),
-        Wrap(spacing:7,runSpacing:7,children:[VTag(p.stage.label,highlight:true),VTag(p.insurance),if(p.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true)]),
-      ])),
-      const SizedBox(height:13),DocumentChecklist(patient:p,title:'Documents à l’admission',requirements:ClinicalDocuments.admission),
-      if(p.stage==CaseStage.inTheatre || p.isPostOp || p.stage==CaseStage.discharged)...[
-        SectionHeading('À la sortie du bloc'),
-        DocumentChecklist(patient:p,title:'Vérifications postopératoires',requirements:ClinicalDocuments.postBlock,readOnly:p.stage==CaseStage.discharged),
-      ],
-      if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[const SizedBox(height:12),VCard(color:VColors.orangeSoft,child:Row(children:[const Icon(Icons.notifications_active_outlined,color:Color(0xFFA45633)),const SizedBox(width:9),const Expanded(child:Text('Sortie potentielle : évaluation et validation médicales nécessaires.',style:TextStyle(fontSize:12.5,fontWeight:FontWeight.w700)))]))],
-      SectionHeading('Parcours hospitalier'),VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        _line(Icons.login_rounded,'Admission',p.admissionTiming),const Divider(height:22),
-        _line(Icons.medical_services_outlined,'Médecin responsable',appStore.responsibleById(p.professorId)?.name??'À attribuer'),const SizedBox(height:6),
-        Text('${p.assignmentMode}  ·  ${p.assignmentExplanation}',style:const TextStyle(fontSize:11,color:VColors.muted)),const SizedBox(height:10),
-        OutlinedButton.icon(onPressed:_changeProfessor,icon:const Icon(Icons.manage_accounts_outlined,size:17),label:const Text('Modifier le médecin responsable')),
-        if(p.consultationAt!=null)...[const Divider(height:22),_line(Icons.event_outlined,'Consultation',_format(p.consultationAt!))],
-        const Divider(height:22),
-        _line(Icons.medical_services_outlined,'Bloc', '${p.procedure}\n${_format(p.blockAt)}  •  ${p.blockTiming}'),const Divider(height:22),
-        _line(Icons.bed_outlined,'Avant le bloc','${p.beforeUnit} • Box ${p.beforeBox}'),const Divider(height:22),
-        _line(Icons.bed_outlined,'Après le bloc','${p.afterUnit} • Box ${p.afterBox}'),const Divider(height:22),
-        _line(Icons.event_available_outlined,'Sortie estimée','${_date(p.expectedDischargeAt)} • ${p.expectedDays} jour(s)'),
-        const SizedBox(height:12),OutlinedButton.icon(onPressed:_changeBed,icon:const Icon(Icons.edit_location_alt_outlined,size:18),label:const Text('Modifier l’affectation')),
-      ])),
-      SectionHeading('Observations quotidiennes',trailing:TextButton.icon(
-        onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p))),
-        icon:const Icon(Icons.open_in_new,size:16),label:const Text('Ouvrir'))),
-      VCard(color:VColors.softMint,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('${p.dailyObservations.length} observation(s) enregistrée(s)',style:const TextStyle(fontWeight:FontWeight.w800)),
-        const SizedBox(height:5),
-        Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',style:const TextStyle(fontSize:12)),
-        const SizedBox(height:11),
-        SizedBox(width:double.infinity,child:OutlinedButton.icon(
-          onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p))),
-          icon:const Icon(Icons.mic_none_rounded),label:const Text('Saisir / dicter une observation'))),
-      ])),
-      SectionHeading('Dossier clinique',trailing:TextButton.icon(onPressed:_editClinical,icon:const Icon(Icons.edit_outlined,size:16),label:const Text('Modifier'))),
-      VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_clinical('Motif',p.motive),_clinical('Interrogatoire',p.history),_clinical('Examen clinique',p.exam),_clinical('Examens complémentaires',p.investigations),_clinical('Bilans',p.labs),_clinical('Conduite à tenir immédiate',p.immediatePlan)])),
-      SectionHeading('Actions'),_actions(),
-      if(p.stage==CaseStage.discharged)...[const SizedBox(height:12),VCard(color:VColors.softMint,child:Text('Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.'))],
+  void _openObservations()=>Navigator.push(
+    context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p)));
+
+  @override
+  Widget build(BuildContext context)=>AnimatedBuilder(
+    animation:appStore,
+    builder:(context,_)=>Scaffold(
+      appBar:AppBar(
+        title:const Text('Dossier patient',style:TextStyle(fontWeight:FontWeight.w800)),
+        backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,
+      ),
+      // Point d'entrée clinique accessible à tout moment pendant le séjour.
+      floatingActionButton:p.isActive?FloatingActionButton.extended(
+        heroTag:'observation-${p.id}',
+        backgroundColor:VColors.ink,foregroundColor:Colors.white,
+        icon:const Icon(Icons.add_rounded),
+        label:const Text('Observation clinique',
+          style:TextStyle(fontWeight:FontWeight.w700)),
+        tooltip:'Ajouter une observation clinique à ce dossier',
+        onPressed:()=>showClinicalObservationEditor(context,p),
+      ):null,
+      floatingActionButtonLocation:FloatingActionButtonLocation.endFloat,
+      body:ListView(
+        padding:const EdgeInsets.fromLTRB(18,14,18,120),
+        children:[
+          VCard(color:VColors.ink,padding:const EdgeInsets.all(18),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                Expanded(child:Text(p.id,style:const TextStyle(
+                  color:VColors.mint,fontSize:11,fontWeight:FontWeight.w700,letterSpacing:1.2))),
+                const Icon(Icons.folder_shared_outlined,color:VColors.mint,size:20),
+              ]),
+              const SizedBox(height:8),
+              Text(p.name,style:const TextStyle(color:Colors.white,fontSize:23,
+                fontWeight:FontWeight.w800)),
+              const SizedBox(height:5),
+              Text('${p.age} ans · ${p.origin}',style:const TextStyle(
+                color:Color(0xFFD8EAE4),fontSize:13)),
+              const SizedBox(height:13),
+              Wrap(spacing:7,runSpacing:7,children:[
+                VTag(p.stage.label,highlight:true),
+                VTag(p.insurance),
+                if(p.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),
+              ]),
+            ])),
+          const SizedBox(height:11),
+          Row(children:[
+            Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
+              '${p.currentUnit} · ${p.currentBox}')),
+            const SizedBox(width:9),
+            Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
+              appStore.responsibleById(p.professorId)?.name??'À attribuer')),
+          ]),
+          if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
+            const SizedBox(height:11),
+            VCard(color:VColors.orangeSoft,padding:const EdgeInsets.all(14),
+              child:const Row(children:[
+                Icon(Icons.notifications_active_outlined,color:Color(0xFFA45633)),
+                SizedBox(width:10),
+                Expanded(child:Text('Sortie potentielle : évaluation et validation médicales nécessaires.',
+                  style:TextStyle(fontSize:12,fontWeight:FontWeight.w700))),
+              ])),
+          ],
+          SectionHeading('Suivi clinique',trailing:TextButton.icon(
+            onPressed:_openObservations,icon:const Icon(Icons.history_rounded,size:17),
+            label:const Text('Historique'))),
+          VCard(color:VColors.softMint,padding:const EdgeInsets.all(16),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
+                const SizedBox(width:10),
+                Expanded(child:Text(
+                  '${p.dailyObservations.length} observation(s) clinique(s)',
+                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:15))),
+              ]),
+              const SizedBox(height:8),
+              Text(p.dailyObservations.isEmpty
+                ? 'Aucune observation enregistrée pour ce séjour.'
+                : 'Dernière observation : ${_date(p.dailyObservations.first.date)}',
+                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
+              const SizedBox(height:4),
+              Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',
+                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
+              const SizedBox(height:10),
+              TextButton.icon(onPressed:_openObservations,
+                icon:const Icon(Icons.visibility_outlined,size:18),
+                label:const Text('Consulter les observations')),
+            ])),
+          SectionHeading('Dossier clinique',trailing:TextButton.icon(
+            onPressed:_editClinical,icon:const Icon(Icons.edit_outlined,size:16),
+            label:const Text('Modifier'))),
+          VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            _clinical('Motif de prise en charge',p.motive),
+            const Divider(height:1,color:VColors.line),
+            ExpansionTile(
+              initiallyExpanded:false,tilePadding:EdgeInsets.zero,
+              childrenPadding:const EdgeInsets.only(top:10),
+              title:const Text('Voir le dossier clinique détaillé',
+                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
+              children:[
+                _clinical('Interrogatoire',p.history),
+                _clinical('Examen clinique',p.exam),
+                _clinical('Examens complémentaires',p.investigations),
+                _clinical('Bilans',p.labs),
+                _clinical('Conduite à tenir immédiate',p.immediatePlan),
+              ],
+            ),
+          ])),
+          SectionHeading('Parcours hospitalier'),
+          VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            _line(Icons.login_rounded,'Admission',p.admissionTiming),
+            if(p.consultationAt!=null)...[
+              const Divider(height:22),
+              _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
+            ],
+            const Divider(height:22),
+            _line(Icons.medical_services_outlined,'Médecin responsable',
+              appStore.responsibleById(p.professorId)?.name??'À attribuer'),
+            const SizedBox(height:5),
+            Text('${p.assignmentMode} · ${p.assignmentExplanation}',
+              style:const TextStyle(fontSize:11,color:VColors.muted)),
+            const SizedBox(height:8),
+            OutlinedButton.icon(onPressed:_changeProfessor,
+              icon:const Icon(Icons.manage_accounts_outlined,size:17),
+              label:const Text('Modifier le responsable')),
+            const Divider(height:22),
+            _line(Icons.medical_services_outlined,'Bloc',
+              '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
+            const Divider(height:22),
+            _line(Icons.bed_outlined,'Avant le bloc','${p.beforeUnit} · Box ${p.beforeBox}'),
+            const Divider(height:22),
+            _line(Icons.bed_outlined,'Après le bloc','${p.afterUnit} · Box ${p.afterBox}'),
+            const Divider(height:22),
+            _line(Icons.event_available_outlined,'Sortie estimée',
+              '${_date(p.expectedDischargeAt)} · ${p.expectedDays} jour(s)'),
+            const SizedBox(height:12),
+            OutlinedButton.icon(onPressed:_changeBed,
+              icon:const Icon(Icons.edit_location_alt_outlined,size:18),
+              label:const Text('Modifier l’affectation')),
+          ])),
+          SectionHeading('Documents et vérifications'),
+          DocumentChecklist(patient:p,title:'Documents à l’admission',
+            requirements:ClinicalDocuments.admission),
+          if(p.stage==CaseStage.inTheatre || p.isPostOp ||
+            p.stage==CaseStage.discharged)...[
+            const SizedBox(height:12),
+            DocumentChecklist(patient:p,title:'Vérifications postopératoires',
+              requirements:ClinicalDocuments.postBlock,
+              readOnly:p.stage==CaseStage.discharged),
+          ],
+          SectionHeading('Actions de prise en charge'),
+          _actions(),
+          if(p.stage==CaseStage.discharged)...[
+            const SizedBox(height:12),
+            VCard(color:VColors.softMint,child:Text(
+              'Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.')),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _factCard(IconData icon,String label,String value)=>VCard(
+    padding:const EdgeInsets.all(13),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Icon(icon,color:VColors.ink,size:20),
+      const SizedBox(height:7),
+      Text(label,style:const TextStyle(fontSize:11,color:VColors.muted)),
+      const SizedBox(height:4),
+      Text(value,maxLines:2,overflow:TextOverflow.ellipsis,
+        style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w800,color:VColors.ink)),
     ]),
-  ));
+  );
 
   Widget _line(IconData icon,String label,String value)=>Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:VColors.muted,size:18),const SizedBox(width:11),SizedBox(width:90,child:Text(label,style:const TextStyle(fontSize:12,color:VColors.muted))),Expanded(child:Text(value,style:const TextStyle(fontSize:12.8,fontWeight:FontWeight.w700)))]);
   Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
