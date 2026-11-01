@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../document_checklist.dart';
@@ -45,7 +46,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     animation:appStore,
     builder:(context,_)=>Scaffold(
       appBar:AppBar(
-        title:const Text('Dossier patient',style:TextStyle(fontWeight:FontWeight.w800)),
+        title:const VisceraPageTitle('Dossier patient'),
         backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,
       ),
       // Point d'entrée clinique accessible à tout moment pendant le séjour.
