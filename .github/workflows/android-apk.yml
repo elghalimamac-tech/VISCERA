@@ -35,6 +35,8 @@ jobs:
         run: python3 tool/configure_firebase_android.py
       - name: Configurer les liens de confirmation
         run: python3 tool/setup_deep_links.py
+      - name: Configurer les rappels Android des gardes
+        run: python3 tool/configure_duty_reminders_android.py
       - name: Dépendances
         run: flutter pub get
       - name: Tests

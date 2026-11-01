@@ -134,7 +134,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _savePlanning() {
-    if (_planningPersistenceEnabled) unawaited(_persistPlanning());
+    if (_planningPersistenceEnabled) unawaited(_persistPlanning().then((_) {}));
   }
 
   Future<bool> _persistPlanning() async {
