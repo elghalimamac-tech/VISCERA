@@ -108,8 +108,13 @@ class ManualAdmissionService {
     final byId = <String,PatientCase>{
       for (final p in patients) p.id.substring('MANUAL-'.length):p,
     };
-    final links = await Supabase.instance.client.from('manual_bloc_links')
-      .select('manual_id,entry_id');
+    final links = <Map<String,dynamic>>[];
+    for(var page=0;;page+=500){
+      final fetched = await Supabase.instance.client.from('manual_bloc_links')
+        .select('manual_id,entry_id').order('entry_id').range(page,page+499);
+      links.addAll(fetched.map((row)=>Map<String,dynamic>.from(row)));
+      if(fetched.length<500)break;
+    }
     final entryIds = links.map((row)=>row['entry_id']).whereType<int>().toList();
     final entries = <int,Map<String,dynamic>>{};
     if(entryIds.isNotEmpty){
