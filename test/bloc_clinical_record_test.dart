@@ -43,7 +43,7 @@ void main() {
     expect(reloaded.clinicalVersion, 2);
   });
 
-  test('L'admission est explicitement confirmée, jamais déduite du bloc', () {
+  test("L'admission est explicitement confirmée, jamais déduite du bloc", () {
     final patient = fromProgram();
     final data = BlocClinicalRecordService.encode(patient);
     data['stage'] = 'preoperative';
