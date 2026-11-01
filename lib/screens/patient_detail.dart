@@ -60,7 +60,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 if(p.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),
               ]),
             ])),
-          if(p.fromBlocProgram)...[
+          if(p.fromBlocProgram || p.fromManualAdmission)...[
             const SizedBox(height:11),
             VCard(color:VColors.softMint,child:Row(children:[
               const Icon(Icons.cloud_done_outlined,color:VColors.ink),
@@ -83,7 +83,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               const SizedBox(height:10),
               VCard(color:VColors.orangeSoft,child:Column(
                 crossAxisAlignment:CrossAxisAlignment.start,children:[
-                const Text('Patient programmé · Provenance Consultation',
+                Text('Patient programmé · Provenance ${p.origin}',
                   style:TextStyle(fontWeight:FontWeight.w800)),
                 const SizedBox(height:7),
                 Text(p.blockAt.isBefore(DateTime(DateTime.now().year,DateTime.now().month,DateTime.now().day))
@@ -292,7 +292,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               const Text('Compléter le dossier patient',
                 style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
               const SizedBox(height:6),
-              const Text('Provenance : Consultation. Le nom et l’intervention du programme officiel ne sont pas modifiés.',
+              Text('Provenance : ${p.origin}. Le nom et l’intervention d’origine ne sont pas modifiés.',
                 style:TextStyle(fontSize:12,color:VColors.muted)),
               const SizedBox(height:16),
               TextField(controller:age,keyboardType:TextInputType.number,

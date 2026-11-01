@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../push_device_registration.dart';
 import '../models.dart';
 import '../bloc_patient_sync.dart';
+import '../manual_admission_service.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -36,13 +37,17 @@ class _MainShellState extends State<MainShell> {
     if (_syncInProgress) return;
     _syncInProgress = true;
     try {
-      final officialPatients = await BlocPatientSync.fetch();
+      final records = await Future.wait<List<PatientCase>>([
+        ManualAdmissionService().fetch(),
+        BlocPatientSync.fetch(),
+      ]);
       if (!mounted) return;
-      appStore.replaceBlocProgramPatients(officialPatients);
+      appStore.replaceManualPatients(records[0]);
+      appStore.replaceBlocProgramPatients(records[1]);
       setState(() => _syncProblem = null);
     } catch (_) {
       if (mounted) setState(() =>
-        _syncProblem = 'Impossible de charger les programmes. Réessayez.');
+        _syncProblem = 'Impossible de charger les dossiers partagés. Réessayez.');
     } finally {
       _syncInProgress = false;
     }
@@ -193,9 +198,9 @@ class _MainShellState extends State<MainShell> {
     }).toList();
     return _scroll([_top('Dossiers et suivi individuel.','Patients'),const SizedBox(height:22),TextField(onChanged:(v)=>setState(()=>query=v),decoration:const InputDecoration(hintText:'Rechercher nom, motif, box...',prefixIcon:Icon(Icons.search_rounded),hintStyle:TextStyle(color:VColors.muted))),const SizedBox(height:14),
       Wrap(spacing:8,children:['Tous','Programmés','Actifs','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
-      Row(children:[Expanded(child:Text(_syncProblem ?? 'Programmes officiels synchronisés depuis Supabase',
+      Row(children:[Expanded(child:Text(_syncProblem ?? 'Dossiers partagés synchronisés depuis Supabase',
         style:const TextStyle(fontSize:11,color:VColors.muted))),
-        IconButton(tooltip:'Actualiser les programmes officiels',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
+        IconButton(tooltip:'Actualiser les dossiers partagés',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
       SectionHeading('${results.length} patient(s)'),...results.map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),if(results.isEmpty)const VCard(child:Text('Aucun patient trouvé.')),
     ]);
   }
@@ -203,9 +208,9 @@ class _MainShellState extends State<MainShell> {
   Widget _theatre(){
     final cases=appStore.theatre;
     return _scroll([_top('Interventions urgentes et programmées.','Programme du bloc'),const SizedBox(height:22),
-      Row(children:[Expanded(child:Text(_syncProblem ?? 'Patients du programme officiel · provenance Consultation',
+      Row(children:[Expanded(child:Text(_syncProblem ?? 'Admissions manuelles et programmes officiels',
         style:const TextStyle(fontSize:12,color:VColors.muted))),
-        IconButton(tooltip:'Actualiser le programme du bloc',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
+        IconButton(tooltip:'Actualiser les admissions et programmes',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
       const SizedBox(height:10),
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
       SectionHeading('À opérer'),...cases.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -232,7 +237,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _startTheatre(PatientCase p) async { if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ? La localisation sera actualisée.',action:'Confirmer'))appStore.startTheatre(p); }
   Future<void> _finishTheatre(PatientCase p) async { final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);if(conflict!=null){_error('Le box ${p.afterBox} de ${p.afterUnit} est déjà attribué à ${conflict.name}.');return;}if(await showConfirmation(context,title:'Fin d’intervention',message:'Transférer ${p.name} vers ${p.afterUnit}, box ${p.afterBox} ?',action:'Valider'))appStore.finishTheatre(p);}
   void _error(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
-  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires importés automatiquement ; les dossiers cliniques saisis manuellement ne sont pas encore persistés sur le serveur.')]);
+  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
 }
 
 String _formatDate(DateTime date)=>'${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}  •  ${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';

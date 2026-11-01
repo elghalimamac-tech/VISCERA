@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:postgrest/postgrest.dart';
 import '../models.dart';
 import '../document_checklist.dart';
 import '../planning_models.dart';
 import 'planning.dart';
+import 'patient_detail.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -11,6 +14,7 @@ import '../voice_dictation.dart';
 class IntakePage extends StatefulWidget { const IntakePage({super.key}); @override State<IntakePage> createState()=>_IntakePageState(); }
 class _IntakePageState extends State<IntakePage> {
   int step=0;
+  bool saving=false;
   late final PatientCase _intakeDocs = PatientCase(
     id:'TEMP',name:'Brouillon',age:'—',origin:'Urgences',insurance:'À préciser',
     motive:'',history:'',exam:'',investigations:'',labs:'',immediatePlan:'',
@@ -33,6 +37,7 @@ class _IntakePageState extends State<IntakePage> {
 
   void alert(String message)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
   void next(){
+    if(saving)return;
     if(step==0&&name.text.trim().isEmpty){alert('Renseignez le nom ou identifiant du patient.');return;}
     if(step==0&&appStore.responsibleOptions(forEmergencies:origin=='Urgences').isEmpty){alert('Ajoutez les médecins dans Équipe & planning avant cette admission.');return;}
     if(step==0&&appStore.responsibleById(selectedProfessorId)==null){alert('Veuillez attribuer un médecin responsable.');return;}
@@ -40,12 +45,32 @@ class _IntakePageState extends State<IntakePage> {
 
     if(step==1&&motive.text.trim().isEmpty){alert('Renseignez le motif de consultation.');return;}
     if(step==2){if(preBox.text.trim().isEmpty||postBox.text.trim().isEmpty){alert('Renseignez les boxes pré- et postopératoires.');return;}if(int.tryParse(length.text.trim())==null||int.parse(length.text.trim())<0){alert('Renseignez une durée de séjour valide.');return;}}
-    if(step<3){setState(()=>step++);}else{_save();}
+    if(step<3){setState(()=>step++);}else{unawaited(_save());}
   }
-  void _save(){
+  Future<void> _save() async {
     final effectiveDate=blockTiming=='Immédiat'?DateTime.now():blockAt;
     final conflict=admissionTiming=='Immédiate'?appStore.conflictingBox(preUnit,preBox.text):null;
     if(conflict!=null){alert('Box préopératoire déjà attribué à ${conflict.name}.');return;}
+    final existing = appStore.findDuplicateCase(name.text.trim(),effectiveDate);
+    if(existing!=null){
+      final open = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Text('Dossier déjà présent'),
+        content:const Text('Un patient portant ce nom figure déjà à cette date '
+          'dans les admissions ou le programme du bloc. '
+          'Ouvrez sa fiche existante et complétez-la pour éviter un doublon.'),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx,false),
+            child:const Text('Annuler')),
+          FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+            child:const Text('Ouvrir le dossier')),
+        ],
+      ));
+      if(open==true && mounted){
+        await Navigator.push(context,
+          MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:existing)));
+      }
+      return;
+    }
     // Les affectations futures restent à confirmer au moment du transfert au bloc / postop.
     final assignment=match;
     final physician=selectedProfessorId;
@@ -56,7 +81,9 @@ class _IntakePageState extends State<IntakePage> {
       id:appStore.nextId(),name:name.text.trim(),age:age.text.trim().isEmpty?'—':age.text.trim(),origin:origin,insurance:insurance,
       motive:motive.text.trim(),history:history.text.trim(),exam:exam.text.trim(),investigations:investigations.text.trim(),labs:labs.text.trim(),immediatePlan:plan.text.trim(),
       procedure:procedure,blockTiming:blockTiming,admissionTiming:admissionTiming,beforeUnit:preUnit,beforeBox:preBox.text.trim(),afterUnit:postUnit,afterBox:postBox.text.trim(),
-      expectedDays:int.parse(length.text.trim()),blockAt:effectiveDate,admittedAt:arrivalAt,
+      expectedDays:int.parse(length.text.trim()),blockAt:effectiveDate,
+      admittedAt:admissionTiming=='Immédiate'?arrivalAt:null,
+      stage:admissionTiming=='Immédiate'?CaseStage.preoperative:CaseStage.scheduled,
       consultationAt:origin=='Consultation'?consultationAt:null,
       professorId:physician,
       assignmentMode:manuallyChosen?'Attribution manuelle':assignment.mode,
@@ -71,8 +98,27 @@ class _IntakePageState extends State<IntakePage> {
       target.checkedAt=source.checkedAt;
     }
     p.confidentialEnvelopeDone = p.check('pli').verified;
-    appStore.add(p);
-    Navigator.pop(context);
+    if(!mounted)return;
+    setState(()=>saving=true);
+    try{
+      await appStore.createManualAdmission(p);
+      if(!mounted)return;
+      Navigator.pop(context);
+    }on PostgrestException catch(error){
+      if(!mounted)return;
+      if(error.code=='23505'){
+        alert('Dossier déjà existant pour ce nom et cette date. '
+          'Actualisez Patients et utilisez le dossier déjà présent.');
+      }else if(error.code=='42501'){
+        alert('Votre compte médical doit être approuvé pour enregistrer un dossier.');
+      }else{
+        alert('Enregistrement serveur impossible. Aucun dossier n’a été créé dans la liste.');
+      }
+    }catch(_){
+      if(mounted)alert('Impossible de sauvegarder l’admission dans Supabase. Réessayez.');
+    }finally{
+      if(mounted)setState(()=>saving=false);
+    }
   }
 
   @override Widget build(BuildContext context)=>Scaffold(
@@ -92,7 +138,7 @@ class _IntakePageState extends State<IntakePage> {
         Overline('ÉTAPE ${step+1} SUR 4'),const SizedBox(height:7),Text(['Identité & couverture','Dossier clinique','Séjour & intervention','Vérification'][step],style:Theme.of(context).textTheme.headlineMedium),const SizedBox(height:6),Text(['L’essentiel à l’arrivée.','Un seul dossier médical continu.','Lits avant/après bloc et séjour prévu.','Confirmez avant de créer le dossier.'][step],style:const TextStyle(color:VColors.muted)),const SizedBox(height:25),
         if(step==0)..._identity(),if(step==1)..._clinical(),if(step==2)..._organization(),if(step==3)..._review(),
       ])),
-      Container(padding:const EdgeInsets.fromLTRB(20,12,20,15),decoration:const BoxDecoration(color:Colors.white,border:Border(top:BorderSide(color:VColors.line))),child:Row(children:[if(step>0)...[Expanded(child:OutlinedButton(onPressed:()=>setState(()=>step--),child:const Padding(padding:EdgeInsets.symmetric(vertical:13),child:Text('Retour')))),const SizedBox(width:10)],Expanded(flex:2,child:ElevatedButton(onPressed:next,child:Text(step==3?'Créer le dossier':'Continuer')))])),
+      Container(padding:const EdgeInsets.fromLTRB(20,12,20,15),decoration:const BoxDecoration(color:Colors.white,border:Border(top:BorderSide(color:VColors.line))),child:Row(children:[if(step>0)...[Expanded(child:OutlinedButton(onPressed:()=>setState(()=>step--),child:const Padding(padding:EdgeInsets.symmetric(vertical:13),child:Text('Retour')))),const SizedBox(width:10)],Expanded(flex:2,child:ElevatedButton(onPressed:saving?null:next,child:Text(saving?'Enregistrement…':step==3?'Enregistrer dans VISCERA':'Continuer')))])),
     ])),
   );
 
@@ -132,7 +178,15 @@ class _IntakePageState extends State<IntakePage> {
     _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;if(v==procedures[0]||v==procedures[1]){length.text='1';admissionTiming='Le jour du bloc';}})),const SizedBox(height:16),
     const Overline('BLOC OPÉRATOIRE'),const SizedBox(height:9),_chips(['Immédiat','Différé'],blockTiming,(v)=>setState(()=>blockTiming=v)),
     if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date et heure : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
-    const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),_chips(['Immédiate','Le jour du bloc'],admissionTiming,(v)=>setState(()=>admissionTiming=v)),const SizedBox(height:19),
+    const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),
+    _chips(['Immédiate','Le jour du bloc'],admissionTiming,(v)=>setState(()=>admissionTiming=v)),
+    const SizedBox(height:9),
+    VCard(color:VColors.softMint,child:Text(
+      admissionTiming=='Immédiate'
+        ? 'Une admission réelle est déclarée et horodatée. Confirmer la présence du patient.'
+        : 'Admission prévue le jour du bloc : ce patient reste « Programmé » et ne compte pas comme hospitalisé.',
+      style:const TextStyle(fontSize:12))),
+    const SizedBox(height:19),
     _picker('Unité avant bloc',preUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>preUnit=v)),const SizedBox(height:12),_field('Numéro de box avant bloc',preBox,hint:'Ex. 03'),const SizedBox(height:20),
     _picker('Unité après bloc',postUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>postUnit=v)),const SizedBox(height:12),_field('Numéro de box après bloc',postBox,hint:'Ex. 08'),const SizedBox(height:20),
     _field('Durée prévisionnelle du séjour (jours)',length,number:true),const SizedBox(height:12),

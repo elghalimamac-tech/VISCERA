@@ -29,4 +29,4 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test access controls and clinical flows
         run: |
-          flutter test test/bloc_clinical_record_test.dart test/programmed_patient_test.dart test/admin_access_test.dart test/team_admin_permission_test.dart test/patient_observation_fab_test.dart test/daily_observation_test.dart test/planning_logic_test.dart test/manual_duty_edit_test.dart test/personal_month_validation_test.dart test/personal_planning_tiles_test.dart test/personal_planning_types_test.dart
+          flutter test test/manual_admission_persistence_test.dart test/bloc_clinical_record_test.dart test/programmed_patient_test.dart test/admin_access_test.dart test/team_admin_permission_test.dart test/patient_observation_fab_test.dart test/daily_observation_test.dart test/planning_logic_test.dart test/manual_duty_edit_test.dart test/personal_month_validation_test.dart test/personal_planning_tiles_test.dart test/personal_planning_types_test.dart
