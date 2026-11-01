@@ -26,7 +26,7 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
     if (_saving || !p.canDeclareDischarge || !_clinicalValidated ||
         (p.isFar && !_farPrescriptionReady)) return;
     final confirmed = await showConfirmation(
-      context: context,
+      context,
       title: 'Confirmer définitivement la sortie',
       message: 'Les documents obligatoires ont été vérifiés, ainsi que '
           'leurs cachets. Confirmez-vous la décision médicale de sortie de '
