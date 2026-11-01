@@ -86,8 +86,9 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 const Text('Patient programmé · Provenance Consultation',
                   style:TextStyle(fontWeight:FontWeight.w800)),
                 const SizedBox(height:7),
-                const Text('Le programme opératoire ne confirme pas une admission hospitalière. '
-                  'Le dossier est modifiable avant admission ; aucun lit ou séjour n’est supposé.',
+                Text(p.blockAt.isBefore(DateTime(DateTime.now().year,DateTime.now().month,DateTime.now().day))
+                  ? 'Programmation antérieure : le devenir clinique doit être vérifié. Aucune admission n’est présumée.'
+                  : 'Le programme opératoire ne confirme pas une admission hospitalière. Le dossier est modifiable avant admission ; aucun lit ou séjour n’est supposé.',
                   style:TextStyle(fontSize:12)),
                 const SizedBox(height:12),
                 FilledButton.icon(onPressed:_confirmAdmission,
@@ -140,12 +141,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 label:const Text('Consulter les observations')),
             ])),
           SectionHeading('Dossier clinique',trailing:Row(children:[
-            TextButton.icon(onPressed:_editIdentity,
-              icon:const Icon(Icons.badge_outlined,size:16),
-              label:const Text('Identité')),
-            TextButton.icon(
-            onPressed:_editClinical,icon:const Icon(Icons.edit_outlined,size:16),
-            label:const Text('Modifier'))]),
+            IconButton(onPressed:_editIdentity,tooltip:'Modifier identité et couverture',
+              icon:const Icon(Icons.badge_outlined)),
+            TextButton.icon(onPressed:_editClinical,
+              icon:const Icon(Icons.edit_outlined,size:16),
+              label:const Text('Modifier'))])),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             _clinical('Motif de prise en charge',p.motive),
             const Divider(height:1,color:VColors.line),
@@ -267,7 +267,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     String current=postoperative?p.afterUnit:p.beforeUnit;
     final controller=TextEditingController(text:postoperative?p.afterBox:p.beforeBox);
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>StatefulBuilder(builder:(sheetContext,refresh)=>Padding(padding:EdgeInsets.fromLTRB(22,8,22,MediaQuery.of(sheetContext).viewInsets.bottom+25),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text(postoperative?'Modifier l’unité postopératoire':'Modifier l’unité préopératoire',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:15),DropdownButtonFormField<String>(value:hospitalUnits.any((u)=>u.code==current)?current:null,decoration:const InputDecoration(labelText:'Unité'),items:hospitalUnits.map((u)=>DropdownMenuItem(value:u.code,child:Text(u.code))).toList(),onChanged:(v)=>refresh(()=>current=v!)),const SizedBox(height:13),TextField(controller:controller,decoration:const InputDecoration(labelText:'Numéro du box')),const SizedBox(height:17),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(controller.text.trim().isEmpty){_notice('Numéro de box requis.');return;}final conflicting=appStore.conflictingBox(current,controller.text,exceptPatientId:p.id);if(conflicting!=null){_notice('Box déjà occupé par ${conflicting.name}.');return;}if(postoperative){p.afterUnit=current;p.afterBox=controller.text.trim();}else{p.beforeUnit=current;p.beforeBox=controller.text.trim();}appStore.refresh(changed:p);Navigator.pop(sheetContext);},child:const Text('Enregistrer l’affectation'))),
+      Text(postoperative?'Modifier l’unité postopératoire':'Modifier l’unité préopératoire',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:15),DropdownButtonFormField<String>(value:hospitalUnits.any((u)=>u.code==current)?current:null,decoration:const InputDecoration(labelText:'Unité'),items:hospitalUnits.map((u)=>DropdownMenuItem(value:u.code,child:Text(u.code))).toList(),onChanged:(v)=>refresh(()=>current=v!)),const SizedBox(height:13),TextField(controller:controller,decoration:const InputDecoration(labelText:'Numéro du box')),const SizedBox(height:17),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(current.isEmpty||controller.text.trim().isEmpty){_notice('Précisez l’unité et le numéro de box.');return;}final conflicting=appStore.conflictingBox(current,controller.text,exceptPatientId:p.id);if(conflicting!=null){_notice('Box déjà occupé par ${conflicting.name}.');return;}if(postoperative){p.afterUnit=current;p.afterBox=controller.text.trim();}else{p.beforeUnit=current;p.beforeBox=controller.text.trim();}appStore.refresh(changed:p);Navigator.pop(sheetContext);},child:const Text('Enregistrer l’affectation'))),
     ]))));
     controller.dispose();
   }
@@ -279,52 +279,62 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     final days = TextEditingController(
       text:p.expectedDays == 0 ? '' : p.expectedDays.toString());
     DateTime? consultation = p.consultationAt;
-    await showModalBottomSheet<void>(context:context,isScrollControlled:true,
-      showDragHandle:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>
-      Padding(padding:EdgeInsets.fromLTRB(20,10,20,
-        MediaQuery.of(ctx).viewInsets.bottom+24),
-      child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Compléter le dossier patient',
-          style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
-        const SizedBox(height:6),
-        const Text('Provenance : Consultation. Le nom et l’intervention du programme officiel ne sont pas modifiés.',
-          style:TextStyle(fontSize:12,color:VColors.muted)),
-        const SizedBox(height:16),
-        TextField(controller:age,keyboardType:TextInputType.number,
-          decoration:const InputDecoration(labelText:'Âge (si connu)')),
-        const SizedBox(height:10),
-        TextField(controller:insurance,
-          decoration:const InputDecoration(labelText:'Mutuelle / assurance (si connue)')),
-        const SizedBox(height:10),
-        TextField(controller:days,keyboardType:TextInputType.number,
-          decoration:const InputDecoration(labelText:'Durée prévisionnelle (jours, si connue)')),
-        const SizedBox(height:10),
-        OutlinedButton.icon(icon:const Icon(Icons.calendar_month),
-          label:Text(consultation==null?'Renseigner la date de consultation':
-            'Consultation : ${_date(consultation!)}'),
-          onPressed:() async{
-            final picked=await showDatePicker(context:ctx,
-              initialDate:consultation??DateTime.now(),
-              firstDate:DateTime(2020),lastDate:DateTime(2100));
-            if(picked!=null) refresh(()=>consultation=picked);
-          }),
-        const SizedBox(height:16),
-        SizedBox(width:double.infinity,child:FilledButton(
-          onPressed:(){
-            final parsedAge=int.tryParse(age.text.trim());
-            final parsedDays=days.text.trim().isEmpty?0:int.tryParse(days.text.trim());
-            if((age.text.trim().isNotEmpty && (parsedAge==null || parsedAge<0 || parsedAge>130))
-              || parsedDays==null || parsedDays<0 || parsedDays>365){
-              _notice('Vérifiez l’âge et la durée prévisionnelle.');return;
-            }
-            p.age=age.text.trim().isEmpty?'—':age.text.trim();
-            p.insurance=insurance.text.trim().isEmpty?'À préciser':insurance.text.trim();
-            p.expectedDays=parsedDays;
-            p.consultationAt=consultation;
-            appStore.refresh(changed:p);
-            Navigator.pop(ctx);
-          },child:const Text('Enregistrer les informations'))),
-      ]))));
+    await showModalBottomSheet<void>(
+      context:context, isScrollControlled:true, showDragHandle:true,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>Padding(
+        padding:EdgeInsets.fromLTRB(20,10,20,MediaQuery.of(ctx).viewInsets.bottom+24),
+        child:ConstrainedBox(
+          constraints:BoxConstraints(maxHeight:MediaQuery.of(ctx).size.height*.75),
+          child:SingleChildScrollView(child:Column(
+            mainAxisSize:MainAxisSize.min,
+            crossAxisAlignment:CrossAxisAlignment.start,
+            children:[
+              const Text('Compléter le dossier patient',
+                style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+              const SizedBox(height:6),
+              const Text('Provenance : Consultation. Le nom et l’intervention du programme officiel ne sont pas modifiés.',
+                style:TextStyle(fontSize:12,color:VColors.muted)),
+              const SizedBox(height:16),
+              TextField(controller:age,keyboardType:TextInputType.number,
+                decoration:const InputDecoration(labelText:'Âge (si connu)')),
+              const SizedBox(height:10),
+              TextField(controller:insurance,
+                decoration:const InputDecoration(labelText:'Mutuelle / assurance (si connue)')),
+              const SizedBox(height:10),
+              TextField(controller:days,keyboardType:TextInputType.number,
+                decoration:const InputDecoration(labelText:'Durée prévisionnelle (jours, si connue)')),
+              const SizedBox(height:10),
+              OutlinedButton.icon(
+                icon:const Icon(Icons.calendar_month),
+                label:Text(consultation==null?'Renseigner la date de consultation':
+                  'Consultation : ${_date(consultation!)}'),
+                onPressed:() async{
+                  final picked=await showDatePicker(context:ctx,
+                    initialDate:consultation??DateTime.now(),
+                    firstDate:DateTime(2020),lastDate:DateTime(2100));
+                  if(picked!=null) refresh(()=>consultation=picked);
+                }),
+              const SizedBox(height:16),
+              SizedBox(width:double.infinity,child:FilledButton(
+                onPressed:(){
+                  final parsedAge=int.tryParse(age.text.trim());
+                  final parsedDays=days.text.trim().isEmpty?0:int.tryParse(days.text.trim());
+                  if((age.text.trim().isNotEmpty &&
+                      (parsedAge==null || parsedAge<0 || parsedAge>130))
+                    || parsedDays==null || parsedDays<0 || parsedDays>365){
+                    _notice('Vérifiez l’âge et la durée prévisionnelle.');return;
+                  }
+                  p.age=age.text.trim().isEmpty?'—':age.text.trim();
+                  p.insurance=insurance.text.trim().isEmpty?'À préciser':insurance.text.trim();
+                  p.expectedDays=parsedDays;
+                  p.consultationAt=consultation;
+                  appStore.refresh(changed:p);
+                  Navigator.pop(ctx);
+                },child:const Text('Enregistrer les informations'))),
+            ],
+          )),
+        ),
+      )));
     age.dispose();insurance.dispose();days.dispose();
   }
 
