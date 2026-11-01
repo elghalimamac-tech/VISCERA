@@ -55,7 +55,9 @@ class _DischargePageState extends State<DischargePage> {
       final saved=await appStore.finalizeDischarge(p,
         prescription:prescription.text,
         report:stayReport.text,
-        operationReport:operationReport.text);
+        operationReport:operationReport.text,
+        clinicalValidated:clinicalValidated,
+        farPrescriptionReady:farPrescriptionReady);
       if(!mounted)return;
       if(saved) {
         Navigator.pop(context);
