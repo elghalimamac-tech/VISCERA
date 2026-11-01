@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
+import 'bloc_clinical_record.dart';
 import 'store.dart';
 
 /// Projections des patients issus des programmes officiels du bloc.
@@ -38,6 +39,16 @@ class BlocPatientSync {
       ).eq('bloc_program_imports.is_current', true)
         .order('id', ascending: false).range(offset, offset + pageSize - 1);
       if (response.isEmpty) break;
+      final ids = response.map((r) => r['id']).whereType<int>().toList();
+      final clinical = <int, Map<String, dynamic>>{};
+      if (ids.isNotEmpty) {
+        final records = await api.from('bloc_patient_records')
+          .select('entry_id,version,clinical_data').inFilter('entry_id', ids);
+        for (final record in records) {
+          final id = record['entry_id'];
+          if (id is int) clinical[id] = Map<String, dynamic>.from(record);
+        }
+      }
       for (final raw in response) {
         final row = Map<String, dynamic>.from(raw);
         final program = row['bloc_program_imports'];
@@ -57,7 +68,7 @@ class BlocPatientSync {
             break;
           }
         }
-        result.add(PatientCase(
+        final patient = PatientCase(
           id: 'BLOC-$rowId',
           name: name,
           age: '—',
@@ -88,7 +99,16 @@ class BlocPatientSync {
           programSurgeon: surgeon,
           programSourceService: _str(row['source_service']),
           programScheduledTime: _str(row['scheduled_time']),
-        ));
+        );
+        final saved = clinical[rowId];
+        if (saved != null && saved['clinical_data'] is Map) {
+          BlocClinicalRecordService.apply(
+            patient,
+            Map<String, dynamic>.from(saved['clinical_data'] as Map),
+            saved['version'] is int ? saved['version'] as int : 0,
+          );
+        }
+        result.add(patient);
       }
       if (response.length < pageSize) break;
       offset += pageSize;

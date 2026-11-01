@@ -9,7 +9,6 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
-import 'scheduled_patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
@@ -49,7 +48,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
   final GlobalKey<ScaffoldState> shellKey=GlobalKey<ScaffoldState>();
-  void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>p.isProgrammed ? ScheduledPatientPage(patient:p) : PatientDetailPage(patient:p)));
+  void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:p)));
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));

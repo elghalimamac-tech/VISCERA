@@ -140,16 +140,18 @@ class PatientCase {
     this.operationReport = '',
   });
 
-  final String id, name, age, origin, insurance;
+  final String id, name, origin;
+  String age, insurance;
   String motive, history, exam;
   String investigations, labs, immediatePlan;
   final String procedure, blockTiming;
-  final String admissionTiming;
+  String admissionTiming;
   String beforeUnit, beforeBox, afterUnit, afterBox;
-  final int expectedDays;
+  int expectedDays;
   final DateTime blockAt;
-  final DateTime? admittedAt;
-  final DateTime? consultationAt;
+  DateTime? admittedAt;
+  DateTime? consultationAt;
+  int clinicalVersion = 0;
   /// Programme officiel uniquement, sans admission ni dossier clinique inventé.
   final bool fromBlocProgram;
   final String programRoom, programSurgeon, programSourceService, programScheduledTime;
@@ -174,9 +176,9 @@ class PatientCase {
   bool get isProgrammed => stage == CaseStage.scheduled;
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
   bool get physicallyAdmitted =>
-      isActive && (admissionTiming == 'Immédiate' || !DateTime.now().isBefore(blockAt) || isPostOp || stage == CaseStage.inTheatre);
+      isActive && admittedAt != null;
   DateTime get expectedDischargeAt => DateTime(blockAt.year, blockAt.month, blockAt.day + expectedDays);
-  bool get dischargeDue => isPostOp && !DateTime.now().isBefore(expectedDischargeAt);
+  bool get dischargeDue => expectedDays > 0 && isPostOp && !DateTime.now().isBefore(expectedDischargeAt);
   String get currentUnit => isPostOp ? afterUnit : beforeUnit;
   String get currentBox => isPostOp ? afterBox : beforeBox;
 }
