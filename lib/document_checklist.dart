@@ -56,7 +56,7 @@ class DocumentChecklist extends StatelessWidget {
           _pill('Non cacheté',check.stamped==false,check.verified&&!disabled,
             ()=>appStore.updateDocument(patient,item,stamped:false)),
         ],
-        if(!item.needsStamp && check.verified) const Text('Rendez-vous confirmé',style:TextStyle(fontSize:11,color:VColors.muted)),
+        if(!item.needsStamp && check.verified) Text(item.key=='consent' ? 'Consentement signé / vérifié' : 'Document vérifié',style:TextStyle(fontSize:11,color:VColors.muted)),
         if(item.optional) _pill('Non applicable',check.notApplicable,!disabled,
           ()=>appStore.updateDocument(patient,item,notApplicable:!check.notApplicable)),
       ])),
