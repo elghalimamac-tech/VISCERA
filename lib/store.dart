@@ -38,7 +38,9 @@ class AppStore extends ChangeNotifier {
 
   String clinicalSyncState(PatientCase patient) =>
     !patient.fromBlocProgram ? 'Dossier local (non synchronisé)' :
-    (_clinicalState[patient.id] ?? 'Dossier partagé · modifications enregistrées');
+    (_clinicalState[patient.id] ??
+      (patient.clinicalVersion > 0 ? 'Dossier clinique chargé du serveur' :
+      'Programme importé · aucun complément clinique enregistré'));
 
   Future<void> saveClinical(PatientCase patient) {
     if (!patient.fromBlocProgram) return Future<void>.value();
@@ -57,6 +59,17 @@ class AppStore extends ChangeNotifier {
       }
     });
     _clinicalWrites[patient.id] = current;
+    // Retirer la file de travail après la dernière écriture ; permet
+    // de charger les éventuelles mises à jour d'un autre médecin.
+    unawaited(current.then((_) {
+      if (identical(_clinicalWrites[patient.id], current)) {
+        _clinicalWrites.remove(patient.id);
+      }
+    }, onError:(Object _) {
+      if (identical(_clinicalWrites[patient.id], current)) {
+        _clinicalWrites.remove(patient.id);
+      }
+    }));
     return current;
   }
 
@@ -453,7 +466,7 @@ class AppStore extends ChangeNotifier {
   /// Les observations des patients issus du bloc sont enregistrées dans Supabase.
   /// Une modification nécessite à nouveau le report manuel dans Magica/Sillage.
   void saveDailyObservation(PatientCase p, DailyObservation note) {
-    if (!p.isActive || !note.hasContent) return;
+    if ((!p.isActive && !p.isProgrammed) || !note.hasContent) return;
     final existingIndex = p.dailyObservations.indexWhere((item) =>
       item.date.year == note.date.year && item.date.month == note.date.month && item.date.day == note.date.day);
     if (existingIndex >= 0) {
@@ -467,7 +480,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void setObservationReported(PatientCase p, DailyObservation note, {bool? magica, bool? sillage}) {
-    if (!p.isActive) return;
+    if (!p.isActive && !p.isProgrammed) return;
     if (magica != null) {
       note.reportedMagica = magica;
       note.reportedMagicaAt = magica ? DateTime.now() : null;
