@@ -61,14 +61,14 @@ class ScheduledPatientPage extends StatelessWidget {
           Text('Admission et suivi', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           line('Provenance', 'Consultation'),
-          line('Admission hospitalière', 'Non enregistrée'),
+          line('Admission hospitalière', 'Non confirmée dans VISCERA'),
           line('Date de consultation', 'Non renseignée sur le programme'),
           line('Mutuelle et identité complémentaire', 'À compléter lors de l’admission'),
           line('Lit / box', 'Non attribué'),
           const SizedBox(height: 14),
           const Text(
             'Ce patient provient du programme opératoire officiel. '
-            'Sa présence sur le programme ne confirme pas son admission, '
+            'Sa présence sur le programme ne permet pas de confirmer son admission, '
             'la réalisation de l’intervention ou son hospitalisation. '
             'Aucun dossier clinique, bilan ou séjour n’a été renseigné automatiquement.',
             style: TextStyle(color: VColors.muted, fontSize: 12, height: 1.5),
