@@ -24,19 +24,19 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
         VCard(color: VColors.ink, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20)),
           const SizedBox(height: 7),
-          Text('${p.currentUnit} · Box ${p.currentBox}', style: const TextStyle(color: Colors.white70)),
+          Text(p.isProgrammed ? 'Consultation · Patient programmé' : '${p.currentUnit} · Box ${p.currentBox}', style: const TextStyle(color: Colors.white70)),
         ])),
         const SizedBox(height: 14),
         VCard(color: VColors.softMint, child: const Text(
           'Une observation par jour. Dictée vocale disponible dans chaque champ clinique. Relisez le texte avant enregistrement. Les cases Magica/Sillage attestent uniquement d’une ressaisie MANUELLE dans ces logiciels.',
           style: TextStyle(fontSize: 12.5))),
         const SizedBox(height: 15),
-        if (p.isActive) ElevatedButton.icon(
+        if (p.isActive || p.isProgrammed) ElevatedButton.icon(
           onPressed: () => showClinicalObservationEditor(context, p),
           icon: const Icon(Icons.add_circle_outline),
           label: const Text('Observation du jour / autre date'),
         ),
-        SectionHeading('Suivi de l’hospitalisation'),
+        SectionHeading(p.isProgrammed ? 'Observations préopératoires' : 'Suivi de l’hospitalisation'),
         if (p.dailyObservations.isEmpty)
           const VCard(child: Text('Aucune observation quotidienne renseignée.')),
         ...p.dailyObservations.map((obs) => Padding(
@@ -44,7 +44,7 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
           child: VCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text(_obsDate(obs.date), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-              if (p.isActive) TextButton.icon(onPressed: () => showClinicalObservationEditor(context, p, existing: obs),
+              if (p.isActive || p.isProgrammed) TextButton.icon(onPressed: () => showClinicalObservationEditor(context, p, existing: obs),
                 icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Modifier')),
             ]),
             if (obs.vitals.trim().isNotEmpty) _line('Constantes', obs.vitals),
@@ -58,7 +58,7 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
               dense: true,
               title: const Text('Reporté manuellement sur Magica'),
               value: obs.reportedMagica,
-              onChanged: p.isActive ? (v) => appStore.setObservationReported(p, obs, magica: v ?? false) : null,
+              onChanged: (p.isActive || p.isProgrammed) ? (v) => appStore.setObservationReported(p, obs, magica: v ?? false) : null,
               controlAffinity: ListTileControlAffinity.leading,
             ),
             CheckboxListTile(
@@ -90,7 +90,7 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
 /// et depuis le suivi des observations, avec les mêmes validations.
 Future<void> showClinicalObservationEditor(
   BuildContext context, PatientCase p, {DailyObservation? existing}) async {
-    if (!p.isActive) return;
+    if (!p.isActive && !p.isProgrammed) return;
     DateTime selected = existing?.date ?? DateTime.now();
     final initial = existing;
     final vitals = TextEditingController(text: existing?.vitals ?? '');
@@ -113,8 +113,8 @@ Future<void> showClinicalObservationEditor(
                   label: Text('Date : ${_obsDate(selected)}'),
                   onPressed: initial == null ? () async {
                     final admission = p.admittedAt;
-                    if (admission == null) return;
-                    final start = DateTime(admission.year, admission.month, admission.day);
+                    final start = admission == null ? DateTime(2020)
+                      : DateTime(admission.year, admission.month, admission.day);
                     final today = DateTime.now();
                     final first = start.isAfter(today) ? today : start;
                     final picked = await showDatePicker(context: sheetContext,
