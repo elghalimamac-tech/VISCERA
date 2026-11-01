@@ -470,9 +470,9 @@ class AppStore extends ChangeNotifier {
     p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
 
   PatientCase? findDuplicateCase(String name, DateTime blockDate) {
-    final expected = name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase();
+    final expected = name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
     for (final patient in patients) {
-      if (patient.name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase() == expected &&
+      if (patient.name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase() == expected &&
           patient.blockAt.year == blockDate.year &&
           patient.blockAt.month == blockDate.month &&
           patient.blockAt.day == blockDate.day) return patient;
