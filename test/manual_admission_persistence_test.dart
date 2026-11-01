@@ -10,6 +10,7 @@ PatientCase manualFixture({
   DateTime? admittedAt,
 }) => PatientCase(
   id: 'DRAFT-TEST', name: name, age: '51', origin: 'Urgences',
+  birthDate:DateTime(1975,3,15),surgeryType:'Chirurgie laparoscopique',
   insurance: 'CNSS', motive: 'Motif documenté',
   history: 'Antécédents', exam: 'Examen vérifié',
   investigations: 'Imagerie', labs: 'Biologie',
@@ -38,6 +39,7 @@ void main() {
       'procedure_name':draft.procedure,
       'block_at':draft.blockAt.toUtc().toIso8601String(),
       'block_timing':draft.blockTiming,
+      'birth_date':'1975-03-15','surgery_type':draft.surgeryType,
       'clinical_data':BlocClinicalRecordService.encode(draft),
       'version':3,
     };
@@ -46,6 +48,8 @@ void main() {
     expect(patient.fromManualAdmission,isTrue);
     expect(patient.fromBlocProgram,isFalse);
     expect(patient.origin,'Urgences');
+    expect(patient.birthDate,DateTime(1975,3,15));
+    expect(patient.surgeryType,'Chirurgie laparoscopique');
     expect(patient.stage,CaseStage.preoperative);
     expect(patient.admittedAt,isNotNull);
     expect(patient.motive,'Motif documenté');
@@ -67,6 +71,7 @@ void main() {
       'procedure_name':seed.procedure,
       'block_at':seed.blockAt.toUtc().toIso8601String(),
       'block_timing':seed.blockTiming,
+      'birth_date':'1975-03-15','surgery_type':seed.surgeryType,
       'clinical_data':source,
       'version':1,
     });
@@ -83,6 +88,7 @@ void main() {
       'procedure_name':'Intervention choisie',
       'block_at':DateTime(2026,11,2,9).toUtc().toIso8601String(),
       'block_timing':'Différé',
+      'birth_date':'1975-03-15','surgery_type':'Chirurgie laparoscopique',
       'clinical_data':BlocClinicalRecordService.encode(manualFixture()),
       'version':1,
     });
@@ -92,6 +98,26 @@ void main() {
     expect(store.active,hasLength(1));
     expect(store.findDuplicateCase('  personne    TEST ',DateTime(2026,11,2)),isNotNull);
     expect(store.findDuplicateCase('PERSONNE TEST',DateTime(2026,11,3)),isNull);
+    expect(store.findDuplicateCase('PERSONNE TEST',DateTime(2026,11,2),
+      birthDate:DateTime(1975,3,15)),isNotNull);
+    expect(store.findDuplicateCase('PERSONNE TEST',DateTime(2026,11,2),
+      birthDate:DateTime(1990,8,9)),isNull);
+    // Un programme sans naissance renseignée n'est pas une preuve d'identité.
+    store.replaceBlocProgramPatients([PatientCase(
+      id:'BLOC-7',name:'PERSONNE TEST',age:'—',origin:'Consultation',
+      insurance:'À préciser',motive:'',history:'',exam:'',investigations:'',
+      labs:'',immediatePlan:'',procedure:'Intervention programmée',
+      blockTiming:'Différé',admissionTiming:'À confirmer',
+      beforeUnit:'',beforeBox:'',afterUnit:'',afterBox:'',expectedDays:0,
+      blockAt:DateTime(2026,11,2,9),fromBlocProgram:true,
+      stage:CaseStage.scheduled,
+    )]);
+    expect(store.patients,hasLength(2));
+    final imported=store.patients.firstWhere((p)=>p.fromBlocProgram);
+    store.attachVerifiedProgram(original,imported);
+    expect(store.patients,hasLength(1));
+    expect(original.linkedProgramEntryId,7);
+    expect(original.dailyObservations,isEmpty);
     store.clearAuthenticatedProfile();
     expect(store.patients,isEmpty);
   });

@@ -13,6 +13,8 @@ class BlocClinicalRecordService {
 
   static Map<String, dynamic> encode(PatientCase patient) => {
     'age': patient.age,
+    'birthDate': patient.birthDate == null ? null : '${patient.birthDate!.year.toString().padLeft(4,'0')}-${patient.birthDate!.month.toString().padLeft(2,'0')}-${patient.birthDate!.day.toString().padLeft(2,'0')}',
+    'surgeryType': patient.surgeryType,
     'insurance': patient.insurance,
     'motive': patient.motive,
     'history': patient.history,
@@ -61,6 +63,8 @@ class BlocClinicalRecordService {
   static void apply(PatientCase patient, Map<String, dynamic> data, int version) {
     patient.clinicalVersion = version;
     patient.age = _text(data['age']).isEmpty ? '—' : _text(data['age']);
+    patient.birthDate = _date(data['birthDate']) ?? patient.birthDate;
+    patient.surgeryType = _text(data['surgeryType']).isEmpty ? patient.surgeryType : _text(data['surgeryType']);
     patient.insurance = _text(data['insurance']).isEmpty
       ? 'À préciser' : _text(data['insurance']);
     patient.motive = _text(data['motive']);

@@ -61,6 +61,7 @@ class ClinicalDocuments {
   static const admission = <DocumentRequirement>[
     DocumentRequirement('bulletin', 'Bulletin d’hospitalisation'),
     DocumentRequirement('pli', 'Pli confidentiel'),
+    DocumentRequirement('consent', 'Consentement éclairé du patient', needsStamp:false),
   ];
   static const postBlock = <DocumentRequirement>[
     DocumentRequirement('cro', 'Compte rendu opératoire'),
@@ -127,6 +128,9 @@ class PatientCase {
     this.professorId,
     this.fromBlocProgram = false,
     this.fromManualAdmission = false,
+    this.birthDate,
+    this.surgeryType = '',
+    this.linkedProgramEntryId,
     this.programRoom = '',
     this.programSurgeon = '',
     this.programSourceService = '',
@@ -143,6 +147,9 @@ class PatientCase {
 
   final String id, name, origin;
   String age, insurance;
+  DateTime? birthDate;
+  String surgeryType;
+  int? linkedProgramEntryId;
   String motive, history, exam;
   String investigations, labs, immediatePlan;
   final String procedure, blockTiming;
@@ -156,7 +163,7 @@ class PatientCase {
   /// Programme officiel uniquement, sans admission ni dossier clinique inventé.
   final bool fromBlocProgram;
   final bool fromManualAdmission;
-  final String programRoom, programSurgeon, programSourceService, programScheduledTime;
+  String programRoom, programSurgeon, programSourceService, programScheduledTime;
   /// ID interne du médecin responsable (professeur ou senior d’astreinte).
   String? professorId;
   String assignmentMode, assignmentExplanation;

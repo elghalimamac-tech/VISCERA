@@ -6,6 +6,8 @@ import 'models.dart';
 /// Le serveur est la source de vérité. Aucune identité patient n'est mise en cache.
 class ManualAdmissionService {
   static String _str(dynamic x) => (x ?? '').toString();
+  static String _isoDate(DateTime date) =>
+    '${date.year.toString().padLeft(4,'0')}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
 
   static PatientCase fromServer(Map<String, dynamic> row) {
     final blockAt = DateTime.tryParse(_str(row['block_at']))?.toLocal();
@@ -28,6 +30,8 @@ class ManualAdmissionService {
       blockAt: blockAt,
       admittedAt: null,
       fromManualAdmission: true,
+      birthDate:DateTime.tryParse(_str(row['birth_date'])),
+      surgeryType:_str(row['surgery_type']),
       stage: CaseStage.scheduled,
     );
     BlocClinicalRecordService.apply(
@@ -52,6 +56,8 @@ class ManualAdmissionService {
         'p_block_at': draft.blockAt.toUtc().toIso8601String(),
         'p_block_date': isoDate,
         'p_block_timing': draft.blockTiming,
+        'p_birth_date': draft.birthDate == null ? null : _isoDate(draft.birthDate!),
+        'p_surgery_type': draft.surgeryType,
         'p_clinical_data': BlocClinicalRecordService.encode(draft),
       },
     );
@@ -73,6 +79,7 @@ class ManualAdmissionService {
       admittedAt: draft.admittedAt, consultationAt: draft.consultationAt,
       professorId: draft.professorId,
       fromManualAdmission: true,
+      birthDate:draft.birthDate, surgeryType:draft.surgeryType,
       assignmentMode: draft.assignmentMode,
       assignmentExplanation: draft.assignmentExplanation,
       stage: draft.stage,
@@ -89,7 +96,7 @@ class ManualAdmissionService {
     final patients = <PatientCase>[];
     while (true) {
       final rows = await Supabase.instance.client.from('manual_patient_records')
-        .select('id,name,origin,procedure_name,block_at,block_date,block_timing,clinical_data,version')
+        .select('id,name,origin,procedure_name,block_at,block_date,block_timing,birth_date,surgery_type,clinical_data,version')
         .order('created_at', ascending: false)
         .range(offset, offset + pageSize - 1);
       for (final row in rows) {
@@ -98,7 +105,57 @@ class ManualAdmissionService {
       if (rows.length < pageSize) break;
       offset += pageSize;
     }
+    final byId = <String,PatientCase>{
+      for (final p in patients) p.id.substring('MANUAL-'.length):p,
+    };
+    final links = <Map<String,dynamic>>[];
+    for(var page=0;;page+=500){
+      final fetched = await Supabase.instance.client.from('manual_bloc_links')
+        .select('manual_id,entry_id').order('entry_id').range(page,page+499);
+      links.addAll(fetched.map((row)=>Map<String,dynamic>.from(row)));
+      if(fetched.length<500)break;
+    }
+    final entryIds = links.map((row)=>row['entry_id']).whereType<int>().toList();
+    final entries = <int,Map<String,dynamic>>{};
+    if(entryIds.isNotEmpty){
+      const chunkSize=250;
+      for(var start=0;start<entryIds.length;start+=chunkSize){
+        final subset=entryIds.skip(start).take(chunkSize).toList();
+        final fetched=await Supabase.instance.client.from('bloc_program_entries')
+          .select('id,room,scheduled_time,surgeon,procedure_name')
+          .inFilter('id',subset);
+        for(final row in fetched){
+          if(row['id'] is int) entries[row['id'] as int]=Map<String,dynamic>.from(row);
+        }
+      }
+    }
+    for(final link in links){
+      final manual=byId[_str(link['manual_id'])];
+      final entry=entries[link['entry_id']];
+      if(manual==null || entry==null)continue;
+      manual.linkedProgramEntryId=link['entry_id'] as int;
+      manual.programRoom=_str(entry['room']);
+      manual.programScheduledTime=_str(entry['scheduled_time']);
+      manual.programSurgeon=_str(entry['surgeon']);
+    }
     return patients;
+  }
+
+  /// Association volontaire après vérification par le soignant :
+  /// le programme ne contient pas de date de naissance et ne permet
+  /// donc aucune fusion automatique sur le seul nom.
+  Future<void> linkToProgram(PatientCase manual,PatientCase programmed) async{
+    if(!manual.fromManualAdmission || !programmed.fromBlocProgram ||
+      manual.birthDate==null) throw StateError('Identité non vérifiée.');
+    final id=int.tryParse(programmed.id.replaceFirst('BLOC-',''));
+    if(id==null)throw StateError('Programme invalide.');
+    final response=await Supabase.instance.client.rpc('viscera_link_manual_bloc_program',
+      params:{
+        'p_manual_id':manual.id.substring('MANUAL-'.length),
+        'p_entry_id':id,
+        'p_confirmed_birth_date':_isoDate(manual.birthDate!),
+      });
+    if(response!=true)throw StateError('Rapprochement non confirmé.');
   }
 
   Future<void> save(PatientCase patient) async {

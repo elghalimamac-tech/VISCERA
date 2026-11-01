@@ -64,10 +64,11 @@ void main() {
       stage: CaseStage.preoperative);
     store.add(manuallyCreated);
     store.replaceBlocProgramPatients([patientForTest('BLOC-1')]);
-    expect(store.patients, hasLength(1)); // Même patient/date : pas de doublon.
+    // Le nom et le jour ne prouvent pas l'identité : association à vérifier.
+    expect(store.patients, hasLength(2));
     store.replaceBlocProgramPatients([patientForTest('BLOC-2')]);
-    expect(store.patients, hasLength(1));
-    expect(store.patients.single.id, 'LOCAL-1');
+    expect(store.patients, hasLength(2));
+    expect(store.patients.where((p)=>p.id=='LOCAL-1'), hasLength(1));
   });
 
   test('La déconnexion efface les dossiers de la session', () {

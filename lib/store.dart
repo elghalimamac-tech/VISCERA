@@ -403,12 +403,10 @@ class AppStore extends ChangeNotifier {
         if (patient.fromBlocProgram) patient.id: patient
     };
     patients.removeWhere((p) => p.fromBlocProgram);
-    bool manualAlreadyExists(PatientCase incoming) => patients.any((existing) =>
-      existing.name.trim().toUpperCase() == incoming.name.trim().toUpperCase() &&
-      existing.blockAt.year == incoming.blockAt.year &&
-      existing.blockAt.month == incoming.blockAt.month &&
-      existing.blockAt.day == incoming.blockAt.day);
-    for (final official in officialCases.where((p) => !manualAlreadyExists(p))) {
+    // Ne jamais masquer un programme seulement parce qu'un nom et une date
+    // correspondent : deux homonymes pourraient être deux personnes différentes.
+    // Seule la relation vérifiée manual_bloc_links supprime le doublon apparent.
+    for (final official in officialCases) {
       final local = existing[official.id];
       // Préserve la fiche actuellement ouverte ou en cours d'enregistrement.
       if (local != null &&
@@ -469,15 +467,38 @@ class AppStore extends ChangeNotifier {
   List<PatientCase> get toDischarge => active.where((p) =>
     p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
 
-  PatientCase? findDuplicateCase(String name, DateTime blockDate) {
+  PatientCase? findDuplicateCase(String name, DateTime blockDate,
+      {DateTime? birthDate}) {
     final expected = name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
     for (final patient in patients) {
-      if (patient.name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase() == expected &&
-          patient.blockAt.year == blockDate.year &&
-          patient.blockAt.month == blockDate.month &&
-          patient.blockAt.day == blockDate.day) return patient;
+      if (patient.name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase() != expected ||
+          patient.blockAt.year != blockDate.year ||
+          patient.blockAt.month != blockDate.month ||
+          patient.blockAt.day != blockDate.day) continue;
+      if (birthDate != null) {
+        // Sans date de naissance confirmée dans le programme du bloc,
+        // le nom seul ne peut pas justifier une fusion d'identité.
+        if (patient.birthDate == null ||
+            patient.birthDate!.year != birthDate.year ||
+            patient.birthDate!.month != birthDate.month ||
+            patient.birthDate!.day != birthDate.day) continue;
+      }
+      return patient;
     }
     return null;
+  }
+
+  /// Le dossier clinique de l'admission reste la source de vérité ; le
+  /// programme officiel ajoute seulement les informations opératoires.
+  void attachVerifiedProgram(PatientCase manual, PatientCase programmed) {
+    if (!manual.fromManualAdmission || !programmed.fromBlocProgram) return;
+    manual.linkedProgramEntryId = int.tryParse(
+      programmed.id.replaceFirst('BLOC-', ''));
+    manual.programRoom = programmed.programRoom;
+    manual.programSurgeon = programmed.programSurgeon;
+    manual.programScheduledTime = programmed.programScheduledTime;
+    patients.removeWhere((p)=>p.id==programmed.id);
+    notifyListeners();
   }
   int get occupiedBoxes => active.where((p) => p.physicallyAdmitted && p.stage != CaseStage.inTheatre).length;
 
