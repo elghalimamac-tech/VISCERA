@@ -126,6 +126,7 @@ class PatientCase {
     this.consultationAt,
     this.professorId,
     this.fromBlocProgram = false,
+    this.fromManualAdmission = false,
     this.programRoom = '',
     this.programSurgeon = '',
     this.programSourceService = '',
@@ -154,6 +155,7 @@ class PatientCase {
   int clinicalVersion = 0;
   /// Programme officiel uniquement, sans admission ni dossier clinique inventé.
   final bool fromBlocProgram;
+  final bool fromManualAdmission;
   final String programRoom, programSurgeon, programSourceService, programScheduledTime;
   /// ID interne du médecin responsable (professeur ou senior d’astreinte).
   String? professorId;
