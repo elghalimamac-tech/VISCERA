@@ -28,8 +28,13 @@ class BlocPatientSync {
   static Future<List<PatientCase>> fetch() async {
     final api = Supabase.instance.client;
     const pageSize = 500;
-    final links = await api.from('manual_bloc_links').select('entry_id');
-    final linkedIds = links.map((r)=>r['entry_id']).whereType<int>().toSet();
+    final linkedIds = <int>{};
+    for(var page=0;;page+=500){
+      final links = await api.from('manual_bloc_links').select('entry_id')
+        .order('entry_id').range(page,page+499);
+      linkedIds.addAll(links.map((r)=>r['entry_id']).whereType<int>());
+      if(links.length<500)break;
+    }
     final result = <PatientCase>[];
     var offset = 0;
     while (true) {
