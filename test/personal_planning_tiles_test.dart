@@ -2,18 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:viscera/store.dart';
 
 void main() {
-  test('Les tuiles personnelles SERVICE gardent le type de plage et le médecin', () {
+  test('Les tuiles personnelles SERVICE sont exclusivement en 24H et restent attribuées au médecin', () {
     final store=AppStore();
     store.activateAuthenticatedDoctor(id:'doctor-a',name:'Dr TEST',email:'test@example.com',role:'junior');
     final source=DateTime(2027,3,11);
     final target=DateTime(2027,3,12);
-    expect(store.placePersonalEvent(source,kind:'garde',shift:'nuit'),isNull);
-    expect(store.myServiceShift(source),'nuit');
-    expect(store.placePersonalEvent(target,kind:'garde',from:source,shift:'nuit'),isNull);
+    expect(store.placePersonalEvent(source,kind:'garde',shift:'24h'),isNull);
+    expect(store.myServiceShift(source),'24h');
+    expect(store.placePersonalEvent(target,kind:'garde',from:source,shift:'24h'),isNull);
     expect(store.isMyDuty(source),isFalse);
-    expect(store.myServiceShift(target),'nuit');
-    expect(store.placePersonalEvent(target,kind:'garde',shift:'jour'),isNull);
-    expect(store.myServiceShift(target),'jour');
+    expect(store.myServiceShift(target),'24h');
+    expect(store.placePersonalEvent(target,kind:'garde',shift:'jour'),isNotNull);
+    expect(store.placePersonalEvent(target,kind:'garde',shift:'nuit'),isNotNull);
+    expect(store.myServiceShift(target),'24h');
     store.removePersonalEvent(target,'garde');
     expect(store.myServiceShift(target),isNull);
   });
