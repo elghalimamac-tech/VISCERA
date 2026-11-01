@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../store.dart';
 import '../planning_models.dart';
@@ -325,7 +326,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
           foregroundColor:deep,
           backgroundColor:Colors.white,
           elevation:0,
-          title:const Text('Planning personnel',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800)),
+          title:const VisceraPageTitle('Planning personnel'),
           actions:const [],
         ),
         body:SafeArea(child:Padding(
