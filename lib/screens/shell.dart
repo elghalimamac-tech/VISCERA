@@ -32,7 +32,7 @@ class _MainShellState extends State<MainShell> {
   // le formulaire d'admission sans changer la page active.
   // Les 4 vrais onglets gardent leurs indices historiques (0 à 3).
   Widget _nav()=>NavigationBar(
-    height:78,
+    height:68,
     selectedIndex:selected>=2 ? selected+1 : selected,
     backgroundColor:Colors.white,
     indicatorColor:VColors.softMint,
@@ -45,7 +45,7 @@ class _MainShellState extends State<MainShell> {
       NavigationDestination(icon:Icon(Icons.people_alt_outlined),selectedIcon:Icon(Icons.people_alt_rounded),label:'Patients'),
       NavigationDestination(
         icon:SizedBox(
-          width:48,height:48,
+          width:44,height:44,
           child:DecoratedBox(
             decoration:BoxDecoration(color:VColors.ink,shape:BoxShape.circle),
             child:Icon(Icons.add_rounded,color:Colors.white,size:30),
@@ -81,7 +81,7 @@ class _MainShellState extends State<MainShell> {
     ],
     _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
     const SizedBox(height:28),const Divider(color:VColors.line),
-    const Padding(padding:EdgeInsets.symmetric(vertical:15),child:Text('Prototype clinique • données fictives\nAucune synchronisation sécurisée pour l’instant.',style:TextStyle(color:VColors.muted,fontSize:11,height:1.45))),
+
   ])));
   void _switchTab(int tab){Navigator.pop(context);setState(()=>selected=tab);}
   Widget _drawerItem(IconData icon,String label,VoidCallback action)=>ListTile(
@@ -100,35 +100,17 @@ class _MainShellState extends State<MainShell> {
     final active=appStore.active;final urgent=appStore.theatre.where((p)=>p.blockTiming=='Immédiat').length;
     return _scroll([
       _top('Votre service, en un regard.','Vue d’ensemble',action:Row(children:[IconButton(tooltip:'Équipe et planning',onPressed:openPlanning,icon:const Icon(Icons.calendar_month_outlined,color:VColors.ink)),CircleAvatar(backgroundColor:VColors.softMint,child:IconButton(tooltip:'À propos',onPressed:()=>_about(),icon:const Icon(Icons.shield_outlined,color:VColors.ink)))])),
-      if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
-        const SizedBox(height:14),
-        VCard(color:VColors.softMint,onTap:openAdmin,child:Row(children:[
-          const Icon(Icons.admin_panel_settings_rounded,color:VColors.ink,size:26),
-          const SizedBox(width:12),
-          const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            Text('Mon espace administrateur',style:TextStyle(fontWeight:FontWeight.w800)),
-            SizedBox(height:4),Text('Gérer les inscriptions du service',style:TextStyle(fontSize:12,color:VColors.muted)),
-          ])),
-          const Icon(Icons.chevron_right_rounded),
-        ])),
-      ],
-      const SizedBox(height:18),
-      VCard(onTap:openPlanning,color:VColors.ink,child:Row(children:[
-        const Icon(Icons.calendar_month_rounded,color:Colors.white,size:30),
-        const SizedBox(width:14),
-        const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('MON PLANNING PERSONNEL',style:TextStyle(fontWeight:FontWeight.w900,fontSize:14,color:Colors.white)),
-          SizedBox(height:5),
-          Text('Mes gardes de service et congés · tuiles à déplacer',
-            style:TextStyle(color:Color(0xFFC9E7DC),fontSize:11.5)),
-        ])),
-        const Icon(Icons.chevron_right_rounded,color:Colors.white),
-      ])),
-      const SizedBox(height:11),
-      VCard(onTap:openReferencePlanning,color:VColors.softMint,child:Row(children:[const Icon(Icons.groups_outlined,color:VColors.ink,size:26),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Gardes du service · consultations',style:TextStyle(fontWeight:FontWeight.w800,fontSize:14)),const SizedBox(height:5),
-        Text('Senior : ${appStore.seniorOnName(DateTime.now())??'À renseigner'}  •  Junior : ${appStore.juniorOn(DateTime.now())?.name??'À renseigner'}',maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11.5,color:VColors.muted)),
-      ])),const Icon(Icons.chevron_right_rounded)])),
+      const SizedBox(height:12),
+      Row(children:[
+        Expanded(flex:3,child:_homeShortcut(
+          Icons.calendar_month_rounded,'Mon planning',openPlanning,
+          primary:true)),
+        if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
+          const SizedBox(width:8),
+          Expanded(flex:2,child:_homeShortcut(
+            Icons.admin_panel_settings_outlined,'Admin',openAdmin)),
+        ],
+      ]),
       const SizedBox(height:16),
       Row(children:[
         Expanded(child:Text('Aujourd’hui',style:Theme.of(context).textTheme.titleLarge)),
@@ -146,9 +128,23 @@ class _MainShellState extends State<MainShell> {
       if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties potentielles'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
       SectionHeading('Dossiers en cours',trailing:TextButton(onPressed:()=>setState(()=>selected=1),child:const Text('Tout voir'))),...active.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(active.isEmpty)const VCard(child:Text('Aucun patient actif. Créez votre première admission.')),
-      const SizedBox(height:14),const Text('Prototype de démonstration • Données fictives • Aucun dossier sauvegardé sur serveur',style:TextStyle(fontSize:11,color:VColors.muted)),
+
     ]);
   }
+  Widget _homeShortcut(IconData icon,String title,VoidCallback onTap,
+      {bool primary=false})=>SizedBox(height:50,child:FilledButton.icon(
+    onPressed:onTap,
+    icon:Icon(icon,size:21),
+    label:Text(title,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800),
+      maxLines:1,overflow:TextOverflow.ellipsis),
+    style:FilledButton.styleFrom(
+      backgroundColor:primary?VColors.ink:VColors.softMint,
+      foregroundColor:primary?Colors.white:VColors.ink,
+      padding:const EdgeInsets.symmetric(horizontal:10),
+      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13)),
+    ),
+  ));
+
   Widget _quick(IconData icon,String title,VoidCallback onTap)=>VCard(onTap:onTap,
       padding:const EdgeInsets.symmetric(horizontal:8,vertical:18),child:Column(children:[Icon(icon,color:VColors.ink,size:25),
       const SizedBox(height:8),Text(title,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:12))]));

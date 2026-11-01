@@ -205,14 +205,7 @@ class _AdminPageState extends State<AdminPage> {
                   textAlign:TextAlign.center,
                   style:TextStyle(color:VColors.muted)))
               else ...filtered.map(_doctor),
-              const SizedBox(height:13),
-              const Text('L’accès est réservé à ton compte et vérifié côté serveur. '
-                'Vérifie personnellement chaque nouvelle inscription avant de l’approuver.',
-                style:TextStyle(fontSize:11,color:VColors.muted,height:1.5)),
-              const SizedBox(height:9),
-              const Text('Version de démonstration : patients fictifs, '
-                'sans synchronisation clinique sécurisée.',
-                style:TextStyle(fontSize:11,color:VColors.muted,height:1.5)),
+
             ]),
           );
         },

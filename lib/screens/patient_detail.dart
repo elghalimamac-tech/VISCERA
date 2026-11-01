@@ -58,7 +58,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       SectionHeading('Dossier clinique',trailing:TextButton.icon(onPressed:_editClinical,icon:const Icon(Icons.edit_outlined,size:16),label:const Text('Modifier'))),
       VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_clinical('Motif',p.motive),_clinical('Interrogatoire',p.history),_clinical('Examen clinique',p.exam),_clinical('Examens complémentaires',p.investigations),_clinical('Bilans',p.labs),_clinical('Conduite à tenir immédiate',p.immediatePlan)])),
       SectionHeading('Actions'),_actions(),
-      if(p.stage==CaseStage.discharged)...[const SizedBox(height:12),VCard(color:VColors.softMint,child:Text('Sortie validée le ${_format(p.dischargeAt!)}. Dossier archivé dans ce prototype local.'))],
+      if(p.stage==CaseStage.discharged)...[const SizedBox(height:12),VCard(color:VColors.softMint,child:Text('Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.'))],
     ]),
   ));
 

@@ -69,8 +69,7 @@ class _AuthGateState extends State<AuthGate> {
                         child: _screen(),
                       ),
                       const SizedBox(height: 21),
-                      const Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.\n'
-                        'Ne saisissez aucune donnée patient dans cette version de développement.',
+                      const Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
                     ],
