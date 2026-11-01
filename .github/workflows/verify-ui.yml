@@ -1,0 +1,32 @@
+name: VISCERA UI verification
+
+on:
+  push:
+    branches:
+      - feature/consultations-mobile-admin-team
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  flutter_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare Flutter
+        run: |
+          flutter create --platforms=web --project-name viscera --org com.viscera .
+          flutter pub get
+      - name: Analyze changed Dart sources
+        run: flutter analyze --no-fatal-infos
+      - name: Test access controls and clinical flows
+        run: |
+          flutter test test/admin_access_test.dart test/team_admin_permission_test.dart test/patient_observation_fab_test.dart test/daily_observation_test.dart test/planning_logic_test.dart test/manual_duty_edit_test.dart test/personal_month_validation_test.dart test/personal_planning_tiles_test.dart test/personal_planning_types_test.dart
