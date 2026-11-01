@@ -42,6 +42,8 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
         prescription: p.dischargePrescription,
         report: p.dischargeReport,
         operationReport: p.operationReport,
+        clinicalValidated: _clinicalValidated,
+        farPrescriptionReady: _farPrescriptionReady,
       );
       if (!mounted) return;
       if (saved) {
