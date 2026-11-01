@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'bloc_clinical_record.dart';
+import 'manual_admission_service.dart';
 import 'planning_models.dart';
 
 class LocalDoctorProfile {
@@ -33,23 +34,29 @@ class AppStore extends ChangeNotifier {
   bool get canManageTeam => activeLocalProfile?.isVisceraOwner == true;
   final List<PatientCase> patients = [];
   final BlocClinicalRecordService _clinicalService = const BlocClinicalRecordService();
+  final ManualAdmissionService _manualService = ManualAdmissionService();
   final Map<String, Future<void>> _clinicalWrites = {};
   final Map<String, String> _clinicalState = {};
 
   String clinicalSyncState(PatientCase patient) =>
-    !patient.fromBlocProgram ? 'Dossier local (non synchronisé)' :
-    (_clinicalState[patient.id] ??
-      (patient.clinicalVersion > 0 ? 'Dossier clinique chargé du serveur' :
-      'Programme importé · aucun complément clinique enregistré'));
+    (!patient.fromBlocProgram && !patient.fromManualAdmission)
+      ? 'Brouillon local non enregistré'
+      : (_clinicalState[patient.id] ??
+        (patient.clinicalVersion > 0 ? 'Dossier partagé · enregistré dans Supabase'
+        : 'Programme importé · aucun complément clinique enregistré'));
 
   Future<void> saveClinical(PatientCase patient) {
-    if (!patient.fromBlocProgram) return Future<void>.value();
+    if (!patient.fromBlocProgram && !patient.fromManualAdmission) return Future<void>.value();
     final previous = _clinicalWrites[patient.id] ?? Future<void>.value();
     final current = previous.catchError((Object _) {}).then((_) async {
       _clinicalState[patient.id] = 'Enregistrement sécurisé en cours…';
       notifyListeners();
       try {
-        await _clinicalService.save(patient);
+        if (patient.fromManualAdmission) {
+          await _manualService.save(patient);
+        } else {
+          await _clinicalService.save(patient);
+        }
         _clinicalState[patient.id] = 'Modifications enregistrées';
       } catch (_) {
         _clinicalState[patient.id] = 'Échec de l’enregistrement. Réessayez avant de quitter.';
@@ -74,7 +81,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _saveIfImported(PatientCase patient) {
-    if (patient.fromBlocProgram) {
+    if (patient.fromBlocProgram || patient.fromManualAdmission) {
       unawaited(saveClinical(patient).catchError((Object _) {}));
     }
   }
@@ -415,6 +422,39 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Charge tous les séjours manuels du serveur, sans effacer les dossiers
+  /// qui ont des sauvegardes en cours ou qui viennent d'être créés.
+  void replaceManualPatients(List<PatientCase> incoming) {
+    final existing = <String, PatientCase>{
+      for (final patient in patients)
+        if (patient.fromManualAdmission) patient.id: patient,
+    };
+    patients.removeWhere((p) => p.fromManualAdmission);
+    final received = <String>{};
+    for (final remote in incoming) {
+      received.add(remote.id);
+      final local = existing[remote.id];
+      if (local != null &&
+          (_clinicalWrites.containsKey(local.id) ||
+          local.clinicalVersion > remote.clinicalVersion)) {
+        patients.add(local);
+      } else {
+        patients.add(remote);
+      }
+    }
+    for (final entry in existing.entries) {
+      if (!received.contains(entry.key)) patients.add(entry.value);
+    }
+    notifyListeners();
+  }
+
+  Future<PatientCase> createManualAdmission(PatientCase draft) async {
+    final persisted = await _manualService.create(draft);
+    patients.insert(0, persisted);
+    notifyListeners();
+    return persisted;
+  }
+
   List<PatientCase> get programmed => patients.where((p) => p.isProgrammed).toList()
     ..sort((a,b) => b.blockAt.compareTo(a.blockAt));
   List<PatientCase> get active => patients.where((p) => p.isActive).toList();
@@ -426,7 +466,19 @@ class AppStore extends ChangeNotifier {
       (p.isActive && (p.stage == CaseStage.preoperative || p.stage == CaseStage.inTheatre))
     ).toList()..sort((a,b) => a.blockAt.compareTo(b.blockAt));
   }
-  List<PatientCase> get toDischarge => active.where((p) => p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
+  List<PatientCase> get toDischarge => active.where((p) =>
+    p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
+
+  PatientCase? findDuplicateCase(String name, DateTime blockDate) {
+    final expected = name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase();
+    for (final patient in patients) {
+      if (patient.name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase() == expected &&
+          patient.blockAt.year == blockDate.year &&
+          patient.blockAt.month == blockDate.month &&
+          patient.blockAt.day == blockDate.day) return patient;
+    }
+    return null;
+  }
   int get occupiedBoxes => active.where((p) => p.physicallyAdmitted && p.stage != CaseStage.inTheatre).length;
 
   // Détecte un box déjà occupé; l'inventaire réel des boxes devra être importé par l'administrateur.
@@ -530,6 +582,7 @@ class AppStore extends ChangeNotifier {
     localProfiles.clear();
     patients.clear(); // Retirer toute donnée patient de la session à la déconnexion.
     _clinicalState.clear();
+    _clinicalWrites.clear();
     activeLocalProfileId = null;
     notifyListeners();
   }
