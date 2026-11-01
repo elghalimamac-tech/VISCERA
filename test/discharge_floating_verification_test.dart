@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:viscera/models.dart';
-import 'package:viscera/store.dart';
 import 'package:viscera/screens/patient_detail.dart';
 
 PatientCase dischargePatient({CaseStage stage = CaseStage.postoperative,
@@ -61,7 +60,7 @@ void main() {
     await tester.tap(find.byKey(const Key('declare-discharge-fab')));
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
-    expect(find.textContaining('Pièces encore à vérifier'),findsOneWidget);
+    expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
     final pending=tester.widget<FilledButton>(
       find.widgetWithText(FilledButton,'Déclarer la sortie et libérer le box'));
     expect(pending.onPressed,isNull);
