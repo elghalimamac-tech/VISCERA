@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
 class VColors {
-  static const ink = Color(0xFF0F4038);
-  static const muted = Color(0xFF627873);
-  static const background = Color(0xFFF7FAF9);
+  static const ink = Color(0xFF083B46);
+  static const muted = Color(0xFF617A80);
+  static const background = Color(0xFFF5FAFB);
   static const surface = Colors.white;
-  static const softMint = Color(0xFFE6F5EF);
-  static const mint = Color(0xFFBDE8D8);
+  static const softMint = Color(0xFFEAF6F7);
+  static const mint = Color(0xFF13B8B0);
   static const blueSoft = Color(0xFFE9F2FF);
   static const orange = Color(0xFFF2A27B);
   static const orangeSoft = Color(0xFFFFF0E7);
-  static const line = Color(0xFFE2EAE6);
+  static const line = Color(0xFFDCE8EB);
 }
 
 ThemeData visceraTheme() {

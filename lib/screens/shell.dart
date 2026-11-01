@@ -7,6 +7,7 @@ import '../bloc_patient_sync.dart';
 import '../manual_admission_service.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../branding.dart';
 import '../widgets.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
@@ -98,7 +99,7 @@ class _MainShellState extends State<MainShell> {
   );
   Widget _drawer()=>Drawer(backgroundColor:Colors.white,child:SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(17,20,17,18),children:[
     Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:VColors.ink,borderRadius:BorderRadius.circular(20)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Icon(Icons.medical_services_outlined,color:Colors.white,size:28),SizedBox(height:13),
+      VisceraMark(size:39,onDark:true),SizedBox(height:13),
       Text('VISCERA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:23,letterSpacing:1)),
       Text('Chirurgie viscérale • HUIM6',style:TextStyle(color:Color(0xFFC9E7DC),fontSize:12)),
     ])),
@@ -130,7 +131,7 @@ class _MainShellState extends State<MainShell> {
   Widget _scroll(List<Widget> children)=>ListView(padding:const EdgeInsets.fromLTRB(20,23,20,32),children:children);
   Widget _top(String section,String title,{Widget? action})=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Row(children:[IconButton(tooltip:'Ouvrir le menu',icon:const Icon(Icons.menu_rounded,color:VColors.ink),onPressed:()=>shellKey.currentState?.openDrawer()),
-    const SizedBox(width:3),const Expanded(child:Overline('VISCERA   /   CHIRURGIE VISCÉRALE')),if(action!=null)action]),
+    const SizedBox(width:3),const Expanded(child:VisceraBrandLockup(markSize:31,subtitle:null)),if(action!=null)action]),
     const SizedBox(height:15),Text(title,style:Theme.of(context).textTheme.headlineLarge),const SizedBox(height:5),Text(section,style:const TextStyle(color:VColors.muted,fontSize:13)),
   ]);
 
@@ -237,7 +238,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _startTheatre(PatientCase p) async { if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ? La localisation sera actualisée.',action:'Confirmer'))appStore.startTheatre(p); }
   Future<void> _finishTheatre(PatientCase p) async { final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);if(conflict!=null){_error('Le box ${p.afterBox} de ${p.afterUnit} est déjà attribué à ${conflict.name}.');return;}if(await showConfirmation(context,title:'Fin d’intervention',message:'Transférer ${p.name} vers ${p.afterUnit}, box ${p.afterBox} ?',action:'Valider'))appStore.finishTheatre(p);}
   void _error(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
-  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
+  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',applicationIcon:const VisceraMark(size:50),children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
 }
 
 String _formatDate(DateTime date)=>'${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}  •  ${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
