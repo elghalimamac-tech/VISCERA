@@ -184,6 +184,9 @@ class PatientCase {
   bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled;
   bool get isProgrammed => stage == CaseStage.scheduled;
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
+  /// Autorisation documentaire et clinique nécessaire avant la sortie.
+  bool get canDeclareDischarge =>
+      isPostOp && physicallyAdmitted && allChecked(ClinicalDocuments.discharge);
   bool get physicallyAdmitted =>
       isActive && admittedAt != null;
   DateTime get expectedDischargeAt => DateTime(blockAt.year, blockAt.month, blockAt.day + expectedDays);
