@@ -26,10 +26,11 @@ const healthInsurances = <String>[
   'FAR', 'CNOPS', 'CNSS', 'Assurance privée', 'AMO / autre', 'Sans mutuelle', 'À préciser',
 ];
 
-enum CaseStage { preoperative, inTheatre, postoperative, dischargeReady, discharged }
+enum CaseStage { scheduled, preoperative, inTheatre, postoperative, dischargeReady, discharged }
 
 extension CaseStageLabel on CaseStage {
   String get label => switch (this) {
+    CaseStage.scheduled => 'Programmé',
     CaseStage.preoperative => 'Préopératoire',
     CaseStage.inTheatre => 'Au bloc',
     CaseStage.postoperative => 'Postopératoire',
@@ -121,9 +122,14 @@ class PatientCase {
     required this.afterBox,
     required this.expectedDays,
     required this.blockAt,
-    required this.admittedAt,
+    this.admittedAt,
     this.consultationAt,
     this.professorId,
+    this.fromBlocProgram = false,
+    this.programRoom = '',
+    this.programSurgeon = '',
+    this.programSourceService = '',
+    this.programScheduledTime = '',
     this.assignmentMode = 'Non attribué',
     this.assignmentExplanation = '',
     this.stage = CaseStage.preoperative,
@@ -141,8 +147,12 @@ class PatientCase {
   final String admissionTiming;
   String beforeUnit, beforeBox, afterUnit, afterBox;
   final int expectedDays;
-  final DateTime blockAt, admittedAt;
+  final DateTime blockAt;
+  final DateTime? admittedAt;
   final DateTime? consultationAt;
+  /// Programme officiel uniquement, sans admission ni dossier clinique inventé.
+  final bool fromBlocProgram;
+  final String programRoom, programSurgeon, programSourceService, programScheduledTime;
   /// ID interne du médecin responsable (professeur ou senior d’astreinte).
   String? professorId;
   String assignmentMode, assignmentExplanation;
@@ -160,7 +170,8 @@ class PatientCase {
   String dischargePrescription, dischargeReport, operationReport;
 
   bool get isFar => insurance == 'FAR';
-  bool get isActive => stage != CaseStage.discharged;
+  bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled;
+  bool get isProgrammed => stage == CaseStage.scheduled;
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
   bool get physicallyAdmitted =>
       isActive && (admissionTiming == 'Immédiate' || !DateTime.now().isBefore(blockAt) || isPostOp || stage == CaseStage.inTheatre);
