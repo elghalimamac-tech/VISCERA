@@ -137,7 +137,7 @@ class AppStore extends ChangeNotifier {
     if (_planningPersistenceEnabled) unawaited(_persistPlanning());
   }
 
-  Future<void> _persistPlanning() async {
+  Future<bool> _persistPlanning() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final data = <String, dynamic>{
@@ -158,9 +158,10 @@ class AppStore extends ChangeNotifier {
           'start': v.start.toIso8601String(), 'end': v.end.toIso8601String(),
         }).toList(),
       };
-      await prefs.setString(_planningStorageKey, jsonEncode(data));
+      return await prefs.setString(_planningStorageKey, jsonEncode(data));
     } catch (error) {
-      debugPrint('Impossible de sauvegarder le planning de démonstration : $error');
+      debugPrint('Impossible de sauvegarder le planning : $error');
+      return false;
     }
   }
 
@@ -512,6 +513,96 @@ class AppStore extends ChangeNotifier {
         return 'Impossible de saisir le congé.';
       }
     }
+    return null;
+  }
+
+  /// Applique un mois après validation explicite ; aucune modification
+  /// n'est persistée tant que le médecin n'a pas confirmé son calendrier.
+  /// Les gardes des autres médecins et les vacations ne sont jamais modifiées.
+  Future<String?> validatePersonalMonth(DateTime selectedMonth, Map<int,String?> changes) async {
+    final doctor=activeLocalProfile;
+    if(doctor==null)return 'Connectez-vous pour enregistrer le planning.';
+    final now=DateTime.now();
+    if(selectedMonth.year<now.year||
+       (selectedMonth.year==now.year&&selectedMonth.month<now.month)) {
+      return 'Un mois terminé ne peut pas être modifié.';
+    }
+    final limit=DateTime(selectedMonth.year,selectedMonth.month+1,0).day;
+    if(changes.isEmpty)return 'Aucune modification à enregistrer.';
+
+    // Validation complète d'abord : aucun changement partiel en cas de conflit.
+    for(final entry in changes.entries) {
+      if(entry.key<1||entry.key>limit||
+         ![null,'garde','conge'].contains(entry.value)) {
+        return 'Date ou type de tuile non valide.';
+      }
+      final date=DateTime(selectedMonth.year,selectedMonth.month,entry.key);
+      final current=dutyOn(date);
+      if(entry.value=='garde') {
+        if(doctor.isSenior) {
+          final senior=seniorOnName(date);
+          if(senior!=null && senior!=_profileSeniorName(doctor)) {
+            return 'Le ${entry.key} : garde senior déjà affectée à un collègue.';
+          }
+        } else if(current?.juniorId!=null&&current!.juniorId!=doctor.memberId) {
+          return 'Le ${entry.key} : garde junior déjà affectée à un collègue.';
+        }
+      }
+      final ownLeave=myLeave(date);
+      if(ownLeave!=null&&dayKey(ownLeave.start)!=dayKey(ownLeave.end)
+          &&entry.value!='conge') {
+        return 'Le ${entry.key} : congé de plusieurs jours à modifier dans sa totalité.';
+      }
+    }
+    final oldDuty=dutyDays.map((k,v)=>MapEntry(k,DutyDay(
+      date:v.date,juniorId:v.juniorId,
+      seniorName:v.seniorName,seniorProfessorId:v.seniorProfessorId)));
+    final oldLeaves=List<LeaveEntry>.from(leaves);
+    final oldShifts=Map<String,String>.from(personalServiceShifts);
+    final oldSerial=_staffSerial;
+
+    for(final entry in changes.entries) {
+      final date=DateTime(selectedMonth.year,selectedMonth.month,entry.key);
+      final key=dayKey(date);
+      final old=dutyOn(date);
+      final ownLeave=myLeave(date);
+      if(ownLeave!=null)leaves.removeWhere((leave)=>leave.id==ownLeave.id);
+      if(entry.value=='garde') {
+        final name=doctor.isSenior?_profileSeniorName(doctor):old?.seniorName;
+        dutyDays[key]=DutyDay(date:date,
+          seniorName:name,
+          seniorProfessorId:doctor.isSenior?_matchingProfessor(name!)?.id:old?.seniorProfessorId,
+          juniorId:doctor.isSenior?old?.juniorId:doctor.memberId);
+        personalServiceShifts[_personalSlotKey(doctor,date)]='24h';
+      } else {
+        if(isMyDuty(date)) {
+          final seniorName=doctor.isSenior?null:old?.seniorName;
+          final juniorId=doctor.isSenior?old?.juniorId:null;
+          if(seniorName==null&&juniorId==null) {
+            dutyDays.remove(key);
+          } else {
+            dutyDays[key]=DutyDay(date:date,seniorName:seniorName,
+              seniorProfessorId:doctor.isSenior?null:old?.seniorProfessorId,
+              juniorId:juniorId);
+          }
+        }
+        personalServiceShifts.remove(_personalSlotKey(doctor,date));
+        if(entry.value=='conge') {
+          leaves.add(LeaveEntry(id:'LEAVE-${++_staffSerial}',
+            doctorName:doctor.isSenior?_profileSeniorName(doctor):doctor.name,
+            start:date,end:date));
+        }
+      }
+    }
+    if(!await _persistPlanning()) {
+      dutyDays..clear()..addAll(oldDuty);
+      leaves..clear()..addAll(oldLeaves);
+      personalServiceShifts..clear()..addAll(oldShifts);
+      _staffSerial=oldSerial;
+      notifyListeners();
+      return 'Impossible d’enregistrer le planning sur cet appareil.';
+    }
+    notifyListeners();
     return null;
   }
 
