@@ -178,7 +178,7 @@ class PatientCase {
   bool get physicallyAdmitted =>
       isActive && admittedAt != null;
   DateTime get expectedDischargeAt => DateTime(blockAt.year, blockAt.month, blockAt.day + expectedDays);
-  bool get dischargeDue => isPostOp && !DateTime.now().isBefore(expectedDischargeAt);
+  bool get dischargeDue => expectedDays > 0 && isPostOp && !DateTime.now().isBefore(expectedDischargeAt);
   String get currentUnit => isPostOp ? afterUnit : beforeUnit;
   String get currentBox => isPostOp ? afterBox : beforeBox;
 }
