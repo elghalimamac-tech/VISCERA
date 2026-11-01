@@ -21,6 +21,8 @@ class _IntakePageState extends State<IntakePage> {
     procedure:procedures.first,blockTiming:'Différé',admissionTiming:'Immédiate',
     beforeUnit:'TC1',beforeBox:'',afterUnit:'TC1',afterBox:'',expectedDays:1,
     blockAt:DateTime.now(),admittedAt:DateTime.now());
+  DateTime? selectedBirthDate;
+  final surgeryType=TextEditingController();
   final name=TextEditingController(),age=TextEditingController(),motive=TextEditingController(),history=TextEditingController(),exam=TextEditingController(),investigations=TextEditingController(),labs=TextEditingController(),plan=TextEditingController();
   final preBox=TextEditingController(),postBox=TextEditingController();
   final length=TextEditingController(text:'1');
@@ -33,17 +35,19 @@ class _IntakePageState extends State<IntakePage> {
   bool get manualOverride => professorOverrideId!=null && match.professorId!=null && professorOverrideId!=match.professorId;
   String origin='Urgences',insurance='À préciser',procedure=procedures.first,blockTiming='Différé',admissionTiming='Le jour du bloc',preUnit='TC1',postUnit='TC1';
   DateTime blockAt=DateTime.now().add(const Duration(days:1));
-  @override void dispose(){for(final c in [name,age,motive,history,exam,investigations,labs,plan,preBox,postBox,length,assignmentReason]){c.dispose();}super.dispose();}
+  @override void dispose(){for(final c in [name,age,surgeryType,motive,history,exam,investigations,labs,plan,preBox,postBox,length,assignmentReason]){c.dispose();}super.dispose();}
 
   void alert(String message)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
   void next(){
     if(saving)return;
     if(step==0&&name.text.trim().isEmpty){alert('Renseignez le nom ou identifiant du patient.');return;}
+    if(step==0&&selectedBirthDate==null){alert('Renseignez la date de naissance pour distinguer les homonymes.');return;}
     if(step==0&&appStore.responsibleOptions(forEmergencies:origin=='Urgences').isEmpty){alert('Ajoutez les médecins dans Équipe & planning avant cette admission.');return;}
     if(step==0&&appStore.responsibleById(selectedProfessorId)==null){alert('Veuillez attribuer un médecin responsable.');return;}
     if(step==0&&manualOverride&&assignmentReason.text.trim().isEmpty){alert('Précisez la raison du changement de professeur.');return;}
 
     if(step==1&&motive.text.trim().isEmpty){alert('Renseignez le motif de consultation.');return;}
+    if(step==2&&surgeryType.text.trim().isEmpty){alert('Renseignez le type de chirurgie.');return;}
     if(step==2){if(preBox.text.trim().isEmpty||postBox.text.trim().isEmpty){alert('Renseignez les boxes pré- et postopératoires.');return;}if(int.tryParse(length.text.trim())==null||int.parse(length.text.trim())<0){alert('Renseignez une durée de séjour valide.');return;}}
     if(step<3){setState(()=>step++);}else{unawaited(_save());}
   }
@@ -51,7 +55,8 @@ class _IntakePageState extends State<IntakePage> {
     final effectiveDate=blockTiming=='Immédiat'?DateTime.now():blockAt;
     final conflict=admissionTiming=='Immédiate'?appStore.conflictingBox(preUnit,preBox.text):null;
     if(conflict!=null){alert('Box préopératoire déjà attribué à ${conflict.name}.');return;}
-    final existing = appStore.findDuplicateCase(name.text.trim(),effectiveDate);
+    final existing = appStore.findDuplicateCase(name.text.trim(),effectiveDate,
+      birthDate:selectedBirthDate);
     if(existing!=null){
       final open = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
         title:const Text('Dossier déjà présent'),
@@ -79,6 +84,7 @@ class _IntakePageState extends State<IntakePage> {
     if(manualOverride&&assignmentReason.text.trim().isEmpty){alert('Précisez le motif de dérogation.');return;}
     final p=PatientCase(
       id:appStore.nextId(),name:name.text.trim(),age:age.text.trim().isEmpty?'—':age.text.trim(),origin:origin,insurance:insurance,
+      birthDate:selectedBirthDate,surgeryType:surgeryType.text.trim(),
       motive:motive.text.trim(),history:history.text.trim(),exam:exam.text.trim(),investigations:investigations.text.trim(),labs:labs.text.trim(),immediatePlan:plan.text.trim(),
       procedure:procedure,blockTiming:blockTiming,admissionTiming:admissionTiming,beforeUnit:preUnit,beforeBox:preBox.text.trim(),afterUnit:postUnit,afterBox:postBox.text.trim(),
       expectedDays:int.parse(length.text.trim()),blockAt:effectiveDate,
@@ -143,7 +149,19 @@ class _IntakePageState extends State<IntakePage> {
   );
 
   List<Widget> _identity()=>[
-    _field('Nom / identifiant patient',name,hint:'Ex. Patient ou n° de dossier'),const SizedBox(height:12),_field('Âge',age,hint:'En années',number:true),const SizedBox(height:19),
+    _field('Nom / identifiant patient',name,hint:'Nom et prénom du patient'),
+    const SizedBox(height:12),
+    VCard(onTap:_chooseBirthDate,child:Row(children:[
+      const Icon(Icons.cake_outlined),const SizedBox(width:11),
+      Expanded(child:Text(selectedBirthDate==null
+        ? 'Date de naissance * — obligatoire'
+        : 'Né(e) le ${_formatDate(selectedBirthDate!)}',
+        style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13))),
+      const Icon(Icons.edit_calendar_outlined,size:18),
+    ])),
+    const SizedBox(height:12),
+    _field('Âge (facultatif, calculé à partir de la naissance)',age,number:true),
+    const SizedBox(height:19),
     const Overline('PROVENANCE'),const SizedBox(height:9),_chips(['Urgences','Consultation'],origin,(v)=>setState((){origin=v;professorOverrideId=null;assignmentReason.clear();})),const SizedBox(height:17),
     if(origin=='Urgences')...[
       VCard(onTap:_chooseArrivalDate,child:Row(children:[const Icon(Icons.access_time_outlined),const SizedBox(width:11),Expanded(child:Text('Arrivée aux urgences : ${_format(arrivalAt)}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12.5))),const Icon(Icons.edit_outlined,size:18)])),const SizedBox(height:14),
@@ -175,9 +193,11 @@ class _IntakePageState extends State<IntakePage> {
     _field('Conduite à tenir immédiate',plan,maxLines:3),
   ];
   List<Widget> _organization()=>[
+    _field('Type de chirurgie *',surgeryType,hint:'Ex. laparoscopie, chirurgie ouverte'),
+    const SizedBox(height:14),
     _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;if(v==procedures[0]||v==procedures[1]){length.text='1';admissionTiming='Le jour du bloc';}})),const SizedBox(height:16),
     const Overline('BLOC OPÉRATOIRE'),const SizedBox(height:9),_chips(['Immédiat','Différé'],blockTiming,(v)=>setState(()=>blockTiming=v)),
-    if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date et heure : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
+    if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date prévue du bloc : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
     const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),
     _chips(['Immédiate','Le jour du bloc'],admissionTiming,(v)=>setState(()=>admissionTiming=v)),
     const SizedBox(height:9),
@@ -193,9 +213,10 @@ class _IntakePageState extends State<IntakePage> {
     if(procedure==procedures[0]||procedure==procedures[1])const VCard(color:VColors.softMint,child:Text('Parcours standard proposé : hospitalisation le jour du bloc, J0–J1. À adapter selon l’état clinique, le protocole local et la décision du chirurgien.',style:TextStyle(fontSize:12.5))),
   ];
   List<Widget> _review()=>[
-    _reviewBlock('PATIENT',['${name.text}  •  ${age.text.isEmpty?'Âge non renseigné':'${age.text} ans'}',origin,'Mutuelle : $insurance','Médecin responsable : ${appStore.responsibleById(selectedProfessorId)?.name??'À attribuer'}','Attribution : ${professorOverrideId!=null?'Manuelle':match.mode}',if(origin=='Consultation')'Consultation le ${_format(consultationAt)}']),
+    _reviewBlock('PATIENT',['${name.text}  •  ${age.text.isEmpty?'Âge non renseigné':'${age.text} ans'}',
+      'Date de naissance : ${selectedBirthDate==null?'À renseigner':_formatDate(selectedBirthDate!)}',origin,'Mutuelle : $insurance','Médecin responsable : ${appStore.responsibleById(selectedProfessorId)?.name??'À attribuer'}','Attribution : ${professorOverrideId!=null?'Manuelle':match.mode}',if(origin=='Consultation')'Consultation le ${_format(consultationAt)}']),
     const SizedBox(height:13),_reviewBlock('CLINIQUE',[motive.text,'Histoire : ${history.text.isEmpty?'À compléter':history.text}','CAT : ${plan.text.isEmpty?'À compléter':plan.text}']),
-    const SizedBox(height:13),_reviewBlock('PARCOURS',[procedure,'Bloc : $blockTiming  •  ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
+    const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
     const SizedBox(height:15),DocumentChecklist(patient:_intakeDocs,title:'Documents à l’admission',requirements:ClinicalDocuments.admission),
     const SizedBox(height:15),VCard(color:VColors.orangeSoft,child:const Text('Les affectations de box sont prévisionnelles tant que le patient n’y est pas transféré. Toute sortie et toute prescription nécessitent une validation médicale.',style:TextStyle(fontSize:12))),
   ];
@@ -203,6 +224,23 @@ class _IntakePageState extends State<IntakePage> {
   Widget _field(String label,TextEditingController controller,{String? hint,int maxLines=1,bool number=false})=>maxLines>1 ? VoiceClinicalField(label:label,controller:controller,hint:hint,maxLines:maxLines) : TextField(controller:controller,maxLines:maxLines,keyboardType:number?TextInputType.number:TextInputType.text,decoration:InputDecoration(labelText:label,hintText:hint));
   Widget _picker(String label,String value,List<String> values,void Function(String) onValue)=>DropdownButtonFormField<String>(value:value,isExpanded:true,decoration:InputDecoration(labelText:label),items:values.map((v)=>DropdownMenuItem(value:v,child:Text(v,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v){if(v!=null)onValue(v);});
   Widget _chips(List<String> values,String selected,void Function(String) onValue)=>Wrap(spacing:9,runSpacing:8,children:values.map((v)=>ChoiceChip(label:Text(v),selected:selected==v,onSelected:(_)=>onValue(v),selectedColor:VColors.softMint,showCheckmark:false,labelStyle:TextStyle(color:VColors.ink,fontWeight:selected==v?FontWeight.w800:FontWeight.w500))).toList());
+  String _formatDate(DateTime value) =>
+    '${value.day.toString().padLeft(2,'0')}/${value.month.toString().padLeft(2,'0')}/${value.year}';
+
+  Future<void> _chooseBirthDate() async {
+    final now=DateTime.now();
+    final picked=await showDatePicker(context:context,
+      initialDate:selectedBirthDate??DateTime(now.year-35,now.month,now.day),
+      firstDate:DateTime(1900),lastDate:now,
+      helpText:'Date de naissance du patient');
+    if(picked==null || !mounted)return;
+    final ageYears=now.year-picked.year-((now.month<picked.month ||
+      (now.month==picked.month && now.day<picked.day))?1:0);
+    setState((){
+      selectedBirthDate=picked;
+      age.text=ageYears.toString();
+    });
+  }
   Future<void> _chooseArrivalDate()async{
     final picked=await showDatePicker(context:context,initialDate:arrivalAt,firstDate:DateTime(2020),lastDate:DateTime(2100));
     if(picked==null||!mounted)return;
