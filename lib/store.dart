@@ -28,6 +28,8 @@ class AppStore extends ChangeNotifier {
     for(final p in localProfiles){if(p.id==activeLocalProfileId)return p;}
     return null;
   }
+  /// Le rôle administrateur est attesté par le profil approuvé Supabase Auth.
+  bool get canManageTeam => activeLocalProfile?.isVisceraOwner == true;
   final List<PatientCase> patients = [];
   final List<TeamMember> professors = [];
   final List<TeamMember> juniors = [];
@@ -221,32 +223,41 @@ class AppStore extends ChangeNotifier {
     return options..sort((a,b) => a.name.compareTo(b.name));
   }
 
-  bool addSenior(String rawName) {
+  // Initialisation du référentiel et activation de profils déjà approuvés.
+  // Les actions d'ajout accessibles depuis l'UI passent par canManageTeam.
+  bool _registerSenior(String rawName) {
     final name=_normalizeClinician(rawName);
     if (name.isEmpty || seniorNames.contains(name)) return false;
     seniorNames.add(name);
     seniorNames.sort();notifyListeners();_savePlanning();return true;
   }
+  bool addSenior(String rawName) =>
+      canManageTeam && _registerSenior(rawName);
   TeamMember? juniorOn(DateTime date) => juniorById(dutyOn(date)?.juniorId);
 
-  bool addProfessor(String rawName) {
+  bool _registerProfessor(String rawName) {
     final name = rawName.trim();
     if (name.isEmpty || professors.any((p)=>p.name.toLowerCase()==name.toLowerCase())) return false;
     professors.add(TeamMember(id:'PROF-${++_staffSerial}',name:name));
     professors.sort((a,b)=>a.name.compareTo(b.name)); notifyListeners(); _savePlanning(); return true;
   }
-  bool addJunior(String rawName) {
+  bool addProfessor(String rawName) =>
+      canManageTeam && _registerProfessor(rawName);
+
+  bool _registerJunior(String rawName) {
     final name = rawName.trim();
     if (name.isEmpty || juniors.any((p)=>p.name.toLowerCase()==name.toLowerCase())) return false;
     juniors.add(TeamMember(id:'JR-${++_staffSerial}',name:name));
     juniors.sort((a,b)=>a.name.compareTo(b.name)); notifyListeners(); _savePlanning(); return true;
   }
+  bool addJunior(String rawName) =>
+      canManageTeam && _registerJunior(rawName);
   void setDuty(DateTime date,{String? juniorId,String? seniorProfessorId,String? seniorName}) {
     // Nom du senior sauvegardé séparément du titre de professeur.
     final resolvedName=(seniorName!=null && seniorName.trim().isNotEmpty)
       ? _normalizeClinician(seniorName)
       : professorById(seniorProfessorId)?.name;
-    if(resolvedName!=null) addSenior(resolvedName);
+    if(resolvedName!=null && canManageTeam) _registerSenior(resolvedName);
     final resolvedProfessor=resolvedName==null ? null : _matchingProfessor(resolvedName)?.id;
     dutyDays[dayKey(date)] = DutyDay(date:DateTime(date.year,date.month,date.day),juniorId:juniorId,
       seniorProfessorId:resolvedProfessor,seniorName:resolvedName);
@@ -318,10 +329,10 @@ class AppStore extends ChangeNotifier {
     // Noms relevés de la grille hebdomadaire annuelle (source : mai 2026).
     // Dr BENGHAIT et Dr LAABOULI sont des consultants, non des professeurs.
     for (final name in ['Pr BENSAAD','Pr GHADDOU','Pr NOURI','Pr CHOUKRI']) {
-      addProfessor(name);
+      _registerProfessor(name);
     }
     // Photo d'octobre 2026 : seniors nommés, juniors non renseignés.
-    for (final doctor in ['LAFKIH','GHADDOU','FAHSI','LAABOULI','BENSAAD']) {addSenior(doctor);}
+    for (final doctor in ['LAFKIH','GHADDOU','FAHSI','LAABOULI','BENSAAD']) {_registerSenior(doctor);}
     for (var i=0; i<october2026SeniorByDay.length; i++) {
       setDuty(DateTime(2026,10,i+1),seniorName:october2026SeniorByDay[i]);
     }
@@ -422,10 +433,10 @@ class AppStore extends ChangeNotifier {
     String memberId;
     if (role == 'senior') {
       final seniorName = _normalizeClinician(name);
-      addSenior(seniorName);
+      _registerSenior(seniorName);
       memberId = 'SENIOR-$seniorName';
     } else {
-      addJunior(name);
+      _registerJunior(name);
       memberId = juniors.firstWhere((m) => m.name.toLowerCase()==name.toLowerCase()).id;
     }
     localProfiles
