@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import '../store.dart';
 import '../planning_models.dart';
-import 'planning.dart';
+import '../duty_reminders.dart';
 
-/// VISCERA : calendrier personnel façon GardeFlow à deux tuiles uniquement :
-/// GARDE DE SERVICE (24H) et CONGÉ, avec glisser-déposer ou toucher.
-/// Les affectations restent locales au prototype ; une date porte au plus
-/// une garde de service junior ou senior.
+/// Calendrier personnel : garde de service 24H et congé.
 class PersonalPlanningPage extends StatefulWidget {
   const PersonalPlanningPage({super.key});
 
@@ -23,6 +20,8 @@ class _PlanningTile {
 class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
   DateTime month=DateTime(DateTime.now().year,DateTime.now().month);
   _PlanningTile selected=const _PlanningTile('garde');
+  final Map<int,String?> draft = {};
+  bool saving = false;
 
   static const deep=Color(0xFF103F36);
   static const teal=Color(0xFF187A70);
@@ -41,14 +40,74 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
         (month.year==today.year && month.month<today.month);
   }
 
-  void changeMonth(int offset) {
-    setState(()=>month=DateTime(month.year,month.month+offset));
+  Future<bool> discardChangesIfNeeded() async {
+    if(draft.isEmpty)return true;
+    final discard=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:const Text('Modifications non enregistrées'),
+      content:const Text('Changer de mois annulera les tuiles non validées.'),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Rester')),
+        FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Abandonner')),
+      ]));
+    return discard==true;
+  }
+
+  Future<void> changeMonth(int offset) async {
+    if(!await discardChangesIfNeeded()||!mounted)return;
+    setState((){
+      month=DateTime(month.year,month.month+offset);
+      draft.clear();
+    });
   }
 
   Future<void> chooseMonth()async{
+    if(!await discardChangesIfNeeded()||!mounted)return;
     final date=await showDatePicker(context:context,initialDate:month,
       firstDate:DateTime(2025),lastDate:DateTime(2035,12,31));
-    if(date!=null && mounted)setState(()=>month=DateTime(date.year,date.month));
+    if(date!=null&&mounted)setState((){
+      month=DateTime(date.year,date.month);draft.clear();
+    });
+  }
+
+  String? savedKind(DateTime date) {
+    if(appStore.isMyDuty(date))return 'garde';
+    if(appStore.myLeave(date)!=null)return 'conge';
+    return null;
+  }
+
+  String? kindAt(DateTime date) {
+    final key=date.day;
+    return draft.containsKey(key)?draft[key]:savedKind(date);
+  }
+
+  void stage(DateTime date,String? kind) {
+    setState((){
+      if(kind==savedKind(date))draft.remove(date.day);
+      else draft[date.day]=kind;
+    });
+  }
+
+  Future<void> save() async {
+    if(saving||draft.isEmpty)return;
+    setState(()=>saving=true);
+    try {
+      final error=await appStore.validatePersonalMonth(month,Map<int,String?>.from(draft));
+      if(error!=null){notice(error);return;}
+      final duties=List.generate(DateTime(month.year,month.month+1,0).day,
+        (day)=>DateTime(month.year,month.month,day+1))
+        .where(appStore.isMyDuty).toList();
+      String alertMessage;
+      try {
+        alertMessage=await scheduleDutyReminders(month,duties);
+      } catch (_) {
+        alertMessage='Rappels non activés. Vérifiez les autorisations du téléphone.';
+      }
+      if(!mounted)return;
+      setState(()=>draft.clear());
+      notice('Planning enregistré sur cet appareil. $alertMessage');
+    } finally {
+      if(mounted)setState(()=>saving=false);
+    }
   }
 
   String label(_PlanningTile tile)=>tile.kind=='conge' ? 'CONGÉ' : '24H';
@@ -72,9 +131,13 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
       notice('Les mois terminés ne sont pas modifiables.');
       return;
     }
-    final error=appStore.placePersonalEvent(to,kind:tile.kind,
-      from:tile.from);
-    if(error!=null)notice(error);
+    if(tile.from!=null) {
+      if(tile.from!.year!=month.year||tile.from!.month!=month.month){
+        notice('Déplacez les tuiles dans le même mois.');return;
+      }
+      if(dayKey(tile.from!)!=dayKey(to))stage(tile.from!,null);
+    }
+    stage(to,tile.kind);
   }
 
   Future<void> confirmRemove(_PlanningTile tile)async{
@@ -82,14 +145,13 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
     final confirmed=await showDialog<bool>(context:context,
       builder:(ctx)=>AlertDialog(
         title:const Text('Retirer cette tuile ?'),
-        content:Text('${label(tile)} du ${tile.from!.day}/${tile.from!.month}/${tile.from!.year}. '
-            'Cette opération modifie uniquement votre affectation du calendrier local.'),
+        content:Text('${paletteLabel(tile)} du ${tile.from!.day}/${tile.from!.month}/${tile.from!.year}.'),
         actions:[
           TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Annuler')),
           FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Retirer')),
         ],
       ));
-    if(confirmed==true&&mounted)appStore.removePersonalEvent(tile.from!,tile.kind);
+    if(confirmed==true&&mounted)stage(tile.from!,null);
   }
 
   Widget dragFeedback(_PlanningTile tile)=>Material(
@@ -130,11 +192,8 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
   }
 
   Widget day(DateTime date,{required bool highlighted}){
-    final isDuty=appStore.isMyDuty(date);
-    final leave=appStore.myLeave(date)!=null;
-    final tile=isDuty
-      ? _PlanningTile('garde',from:date)
-      : leave ? _PlanningTile('conge',from:date) : null;
+    final kind=kindAt(date);
+    final tile=kind==null?null:_PlanningTile(kind,from:date);
     final isToday=dayKey(date)==dayKey(DateTime.now());
     final hasEvent=tile!=null;
     return DragTarget<_PlanningTile>(
@@ -157,7 +216,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
                 if(isOldMonth)return;
                 if(!hasEvent){apply(selected,date);return;}
                 if(tile.kind==selected.kind){
-                  apply(_PlanningTile(selected.kind,from:date),date);
+                  if(selected.kind!=tile.kind)stage(date,selected.kind);
                 }else{
                   notice('Appui long pour déplacer la tuile, ou touchez × pour la retirer.');
                 }
@@ -258,8 +317,8 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
         body:Center(child:Text('Connectez-vous pour consulter votre planning personnel.')));
       final days=DateTime(month.year,month.month+1,0).day;
       final dates=List.generate(days,(i)=>DateTime(month.year,month.month,i+1));
-      final dutyCount=dates.where(appStore.isMyDuty).length;
-      final leaveCount=dates.where((d)=>appStore.myLeave(d)!=null).length;
+      final dutyCount=dates.where((d)=>kindAt(d)=='garde').length;
+      final leaveCount=dates.where((d)=>kindAt(d)=='conge').length;
       return Scaffold(
         backgroundColor:paper,
         appBar:AppBar(
@@ -267,14 +326,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
           backgroundColor:Colors.white,
           elevation:0,
           title:const Text('Planning personnel',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800)),
-          actions:[
-            TextButton.icon(
-              onPressed:()=>Navigator.push(context,MaterialPageRoute(
-                builder:(_)=>const PlanningPage())),
-              icon:const Icon(Icons.event_note_outlined,size:18),
-              label:const Text('Service',style:TextStyle(fontWeight:FontWeight.w700)),
-            ),
-          ],
+          actions:const [],
         ),
         body:SafeArea(child:Padding(
           padding:const EdgeInsets.fromLTRB(12,8,12,11),
@@ -333,17 +385,27 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
                     Icons.beach_access_outlined)),
                 ]),
                 const SizedBox(height:8),
-                const Text('Appui long + déplacer, ou choisir une tuile puis toucher un jour. '
-                  'Glissez une tuile existante sur une autre date pour la déplacer.',
+                const Text('Choisissez puis touchez une date, ou glissez une tuile.',
                   textAlign:TextAlign.center,
-                  style:TextStyle(color:muted,fontSize:10.5,height:1.4)),
+                  style:TextStyle(color:muted,fontSize:11,height:1.4)),
               ]),
             ),
-            const SizedBox(height:7),
-            const Text('Garde de service 24H et congé uniquement. '
-                'Planning local de démonstration, sans synchronisation entre médecins.',
+            const SizedBox(height:9),
+            SizedBox(height:48,child:FilledButton.icon(
+              onPressed:draft.isEmpty||saving||isOldMonth?null:save,
+              style:FilledButton.styleFrom(backgroundColor:deep),
+              icon:saving?const SizedBox(width:17,height:17,
+                child:CircularProgressIndicator(strokeWidth:2,color:Colors.white))
+                :const Icon(Icons.check_circle_outline_rounded),
+              label:Text(draft.isEmpty?'Planning enregistré'
+                :'Valider et enregistrer (${draft.length})',
+                style:const TextStyle(fontWeight:FontWeight.w800)),
+            )),
+            const SizedBox(height:5),
+            const Text('Rappels des gardes : veille à 18 h et jour J à 7 h '
+              '(application Android uniquement).',
               textAlign:TextAlign.center,
-              style:TextStyle(color:muted,fontSize:9.7,height:1.4)),
+              style:TextStyle(color:muted,fontSize:10,height:1.4)),
           ]),
         )),
       );
