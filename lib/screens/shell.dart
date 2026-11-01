@@ -10,6 +10,7 @@ import 'patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
+import 'bloc_program_section.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
@@ -164,6 +165,7 @@ class _MainShellState extends State<MainShell> {
   Widget _theatre(){
     final cases=appStore.theatre;
     return _scroll([_top('Interventions urgentes et programmées.','Programme du bloc'),const SizedBox(height:22),
+      const BlocProgramSection(),
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
       SectionHeading('À opérer'),...cases.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Expanded(child:Text(p.name,style:Theme.of(context).textTheme.titleMedium)),VTag(p.blockTiming=='Immédiat'?'URGENT':'PROGRAMMÉ',warn:p.blockTiming=='Immédiat')]),
