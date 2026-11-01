@@ -3,10 +3,10 @@ import '../store.dart';
 import '../planning_models.dart';
 import 'planning.dart';
 
-/// VISCERA : calendrier personnel façon GardeFlow : tuiles JOUR, NUIT,
-/// 24H (service uniquement) et CONGÉ ; appui long + déposer, ou toucher.
-/// Les types horaires restent déclaratifs et locaux : DutyDay représente
-/// toujours une seule astreinte par journée pour les dossiers cliniques.
+/// VISCERA : calendrier personnel façon GardeFlow à deux tuiles uniquement :
+/// GARDE DE SERVICE (24H) et CONGÉ, avec glisser-déposer ou toucher.
+/// Les affectations restent locales au prototype ; une date porte au plus
+/// une garde de service junior ou senior.
 class PersonalPlanningPage extends StatefulWidget {
   const PersonalPlanningPage({super.key});
 
@@ -15,15 +15,14 @@ class PersonalPlanningPage extends StatefulWidget {
 }
 
 class _PlanningTile {
-  const _PlanningTile(this.kind,{this.shift='24h',this.from});
-  final String kind; // garde, conge
-  final String shift; // jour, nuit, 24h
+  const _PlanningTile(this.kind,{this.from});
+  final String kind; // garde de service 24H ou congé
   final DateTime? from;
 }
 
 class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
   DateTime month=DateTime(DateTime.now().year,DateTime.now().month);
-  _PlanningTile selected=const _PlanningTile('garde',shift:'24h');
+  _PlanningTile selected=const _PlanningTile('garde');
 
   static const deep=Color(0xFF103F36);
   static const teal=Color(0xFF187A70);
@@ -52,22 +51,14 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
     if(date!=null && mounted)setState(()=>month=DateTime(date.year,date.month));
   }
 
-  String label(_PlanningTile tile)=>tile.kind=='conge'
-      ? 'CONGÉ'
-      : switch(tile.shift) {
-          'jour'=>'JOUR',
-          'nuit'=>'NUIT',
-          _=>'24H',
-        };
+  String label(_PlanningTile tile)=>tile.kind=='conge' ? 'CONGÉ' : '24H';
 
-  Color tileColor(_PlanningTile tile)=>tile.kind=='conge'
-      ? orange : tile.shift=='nuit'
-        ? const Color(0xFF365887) : tile.shift=='jour'
-          ? teal : deep;
+  String paletteLabel(_PlanningTile tile)=>
+      tile.kind=='conge' ? 'CONGÉ' : 'SERVICE · 24H';
 
-  Color tileSurface(_PlanningTile tile)=>tile.kind=='conge'
-      ? softOrange : tile.shift=='nuit'
-        ? const Color(0xFFE9ECF7) : softTeal;
+  Color tileColor(_PlanningTile tile)=>tile.kind=='conge' ? orange : deep;
+
+  Color tileSurface(_PlanningTile tile)=>tile.kind=='conge' ? softOrange : softTeal;
 
   void notice(String text){
     if(!mounted)return;
@@ -82,7 +73,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
       return;
     }
     final error=appStore.placePersonalEvent(to,kind:tile.kind,
-      shift:tile.shift,from:tile.from);
+      from:tile.from);
     if(error!=null)notice(error);
   }
 
@@ -109,12 +100,12 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
       child:Row(mainAxisSize:MainAxisSize.min,children:[
         const Icon(Icons.drag_indicator_rounded,size:18,color:Colors.white),
         const SizedBox(width:5),
-        Text(label(tile),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
+        Text(paletteLabel(tile),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
       ])),
   );
 
   Widget paletteTile(_PlanningTile tile,IconData icon){
-    final active=selected.kind==tile.kind && selected.shift==tile.shift;
+    final active=selected.kind==tile.kind;
     final color=tileColor(tile);
     final card=Material(color:active?tileSurface(tile):Colors.white,
       borderRadius:BorderRadius.circular(11),
@@ -127,7 +118,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
           child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
             Icon(icon,color:color,size:21),
             const SizedBox(height:4),
-            Text(label(tile),style:TextStyle(color:color,fontSize:11,fontWeight:FontWeight.w900)),
+            Text(paletteLabel(tile),style:TextStyle(color:color,fontSize:11,fontWeight:FontWeight.w900)),
           ]),
         )));
     if(isOldMonth)return Opacity(opacity:0.45,child:card);
@@ -142,7 +133,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
     final isDuty=appStore.isMyDuty(date);
     final leave=appStore.myLeave(date)!=null;
     final tile=isDuty
-      ? _PlanningTile('garde',shift:appStore.myServiceShift(date)??'24h',from:date)
+      ? _PlanningTile('garde',from:date)
       : leave ? _PlanningTile('conge',from:date) : null;
     final isToday=dayKey(date)==dayKey(DateTime.now());
     final hasEvent=tile!=null;
@@ -166,7 +157,7 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
                 if(isOldMonth)return;
                 if(!hasEvent){apply(selected,date);return;}
                 if(tile.kind==selected.kind){
-                  apply(_PlanningTile(selected.kind,shift:selected.shift,from:date),date);
+                  apply(_PlanningTile(selected.kind,from:date),date);
                 }else{
                   notice('Appui long pour déplacer la tuile, ou touchez × pour la retirer.');
                 }
@@ -335,23 +326,9 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
                 ]),
                 const SizedBox(height:8),
                 Row(children:[
-                  const Expanded(flex:3,child:Text('SERVICE',textAlign:TextAlign.center,
-                    style:TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900))),
-                  const SizedBox(width:5),
-                  const Expanded(child:Text('CONGÉ',textAlign:TextAlign.center,
-                    style:TextStyle(color:muted,fontSize:10,fontWeight:FontWeight.w900))),
-                ]),
-                const SizedBox(height:5),
-                Row(children:[
-                  Expanded(child:paletteTile(const _PlanningTile('garde',shift:'jour'),
-                    Icons.wb_sunny_outlined)),
-                  const SizedBox(width:5),
-                  Expanded(child:paletteTile(const _PlanningTile('garde',shift:'nuit'),
-                    Icons.nights_stay_outlined)),
-                  const SizedBox(width:5),
-                  Expanded(child:paletteTile(const _PlanningTile('garde',shift:'24h'),
-                    Icons.access_time_outlined)),
-                  const SizedBox(width:5),
+                  Expanded(child:paletteTile(const _PlanningTile('garde'),
+                    Icons.access_time_rounded)),
+                  const SizedBox(width:9),
                   Expanded(child:paletteTile(const _PlanningTile('conge'),
                     Icons.beach_access_outlined)),
                 ]),
@@ -363,8 +340,8 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
               ]),
             ),
             const SizedBox(height:7),
-            const Text('Planning local de démonstration. Les créneaux Jour/Nuit/24H '
-                'sont indicatifs ; l’astreinte officielle reste attribuée par date.',
+            const Text('Garde de service 24H et congé uniquement. '
+                'Planning local de démonstration, sans synchronisation entre médecins.',
               textAlign:TextAlign.center,
               style:TextStyle(color:muted,fontSize:9.7,height:1.4)),
           ]),

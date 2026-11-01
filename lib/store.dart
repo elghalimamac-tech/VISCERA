@@ -36,8 +36,8 @@ class AppStore extends ChangeNotifier {
   final Map<String, DutyDay> dutyDays = {};
   final List<ConsultationVacation> vacations = [];
   final List<LeaveEntry> leaves = [];
-  /// Créneaux personnels locaux Jour/Nuit/24H : n'altèrent pas les horaires
-  /// de l'astreinte officielle, qui reste définie au niveau de la date.
+  /// Compatibilité avec les anciens plannings locaux. Désormais une garde
+  /// personnelle est exclusivement une garde de SERVICE de 24H.
   final Map<String, String> personalServiceShifts = {};
   int _staffSerial = 0;
   bool _planningPersistenceEnabled = false;
@@ -457,24 +457,20 @@ class AppStore extends ChangeNotifier {
   String _personalSlotKey(LocalDoctorProfile doctor, DateTime date) =>
       '${doctor.id}|${dayKey(date)}';
 
-  /// Crénéau affiché sur les tuiles personnelles. Les gardes officielles
-  /// importées sont affichées en 24H par défaut, sans modifier leur source.
-  String? myServiceShift(DateTime date) {
-    final doctor=activeLocalProfile;
-    if(doctor==null || !isMyDuty(date))return null;
-    return personalServiceShifts[_personalSlotKey(doctor,date)] ?? '24h';
-  }
+  /// Tous les créneaux historiques sont présentés en 24H, sans changer
+  /// l'affectation médicale de la date.
+  String? myServiceShift(DateTime date) =>
+      activeLocalProfile != null && isMyDuty(date) ? '24h' : null;
 
-  /// Retourne null en cas de succès. La garde de service est conservée dans
-  /// DutyDay (une affectation par date) : le créneau Jour/Nuit/24H est
-  /// uniquement un indicateur VISUEL pour le planning personnel local.
-  /// L'attribution des patients par senior reste indépendante de cette étiquette.
+  /// Retourne null en cas de succès. La garde de service 24H est conservée
+  /// dans DutyDay (une affectation par date). Les congés restent distincts.
+  /// L'attribution des patients par senior n'est pas modifiée.
   String? placePersonalEvent(DateTime target,{
     required String kind,DateTime? from,String shift='24h'
   }){
     final p=activeLocalProfile;if(p==null)return 'Profil médecin indisponible.';
     if(!['garde','conge'].contains(kind))return 'Type inconnu.';
-    if(kind=='garde' && !['jour','nuit','24h'].contains(shift))return 'Créneau invalide.';
+    if(kind=='garde' && shift!='24h')return 'Seule la garde de service 24H est autorisée.';
     final sameDay=from!=null && dayKey(from)==dayKey(target);
     if(from!=null && !sameDay &&
         (kind=='garde' ? !isMyDuty(from) : myLeave(from)==null)) {
@@ -489,9 +485,6 @@ class AppStore extends ChangeNotifier {
       }else if(current?.juniorId!=null && current!.juniorId!=p.memberId){
         return 'Une garde junior est déjà attribuée à un autre médecin.';
       }
-      final originalShift=from!=null&&isMyDuty(from)
-          ? (personalServiceShifts[_personalSlotKey(p,from)]??'24h')
-          : shift;
       if(!sameDay && from!=null) {
         final prev=dutyOn(from);
         if(prev!=null) setDuty(from,seniorName:p.isSenior?null:prev.seniorName,
@@ -503,7 +496,7 @@ class AppStore extends ChangeNotifier {
         setDuty(target,seniorName:p.isSenior?_profileSeniorName(p):previous?.seniorName,
           juniorId:p.isSenior?previous?.juniorId:p.memberId);
       }
-      personalServiceShifts[_personalSlotKey(p,target)]=sameDay?shift:originalShift;
+      personalServiceShifts[_personalSlotKey(p,target)]='24h';
       _savePlanning();
       notifyListeners();
     }else{
