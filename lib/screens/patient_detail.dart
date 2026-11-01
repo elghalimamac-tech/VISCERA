@@ -5,6 +5,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'discharge.dart';
+import 'discharge_verification_sheet.dart';
 import 'daily_observations.dart';
 import '../voice_dictation.dart';
 import '../manual_admission_service.dart';
@@ -19,6 +20,26 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   void _openObservations()=>Navigator.push(
     context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p)));
 
+  Future<void> _openDischargeVerification() async {
+    if (!p.isPostOp || !p.physicallyAdmitted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => DischargeVerificationSheet(patient: p),
+    );
+    if (!mounted) return;
+    if (action == 'documents') {
+      await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => DischargePage(patient: p)));
+    } else if (action == 'confirmed') {
+      _notice('Sortie enregistrée. Le box est désormais libéré.');
+    }
+  }
+
   @override
   Widget build(BuildContext context)=>AnimatedBuilder(
     animation:appStore,
@@ -28,14 +49,36 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
         backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,
       ),
       // Point d'entrée clinique accessible à tout moment pendant le séjour.
-      floatingActionButton:(p.isActive||p.isProgrammed)?FloatingActionButton.extended(
-        heroTag:'observation-${p.id}',
-        backgroundColor:VColors.ink,foregroundColor:Colors.white,
-        icon:const Icon(Icons.add_rounded),
-        label:const Text('Observation clinique',
-          style:TextStyle(fontWeight:FontWeight.w700)),
-        tooltip:'Ajouter une observation clinique à ce dossier',
-        onPressed:()=>showClinicalObservationEditor(context,p),
+      floatingActionButton:(p.isActive||p.isProgrammed)?Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (p.isPostOp && p.physicallyAdmitted) ...[
+            FloatingActionButton.extended(
+              key: const Key('declare-discharge-fab'),
+              heroTag: 'discharge-${p.id}',
+              backgroundColor: const Color(0xFFB4232F),
+              foregroundColor: Colors.white,
+              elevation: 3,
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Déclarer la sortie',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+              tooltip: 'Vérifier les documents avant de déclarer la sortie',
+              onPressed: _openDischargeVerification,
+            ),
+            const SizedBox(height: 12),
+          ],
+          FloatingActionButton.extended(
+            heroTag: 'observation-${p.id}',
+            backgroundColor: VColors.ink,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Observation clinique',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+            tooltip: 'Ajouter une observation clinique à ce dossier',
+            onPressed: () => showClinicalObservationEditor(context,p),
+          ),
+        ],
       ):null,
       floatingActionButtonLocation:FloatingActionButtonLocation.endFloat,
       body:ListView(

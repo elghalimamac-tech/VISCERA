@@ -158,7 +158,7 @@ class ManualAdmissionService {
     if(response!=true)throw StateError('Rapprochement non confirmé.');
   }
 
-  Future<void> save(PatientCase patient) async {
+  Future<void> save(PatientCase patient, {Map<String,dynamic>? clinicalData}) async {
     if (!patient.fromManualAdmission || !patient.id.startsWith('MANUAL-')) {
       throw StateError('Admission manuelle persistée requise.');
     }
@@ -168,7 +168,7 @@ class ManualAdmissionService {
       params: {
         'p_id': id,
         'p_expected_version': patient.clinicalVersion,
-        'p_clinical_data': BlocClinicalRecordService.encode(patient),
+        'p_clinical_data': clinicalData ?? BlocClinicalRecordService.encode(patient),
       },
     );
     if (result is! int) throw StateError('Enregistrement non confirmé.');

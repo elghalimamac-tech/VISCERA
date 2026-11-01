@@ -14,7 +14,7 @@ class DischargePage extends StatefulWidget {
 }
 class _DischargePageState extends State<DischargePage> {
   late final TextEditingController prescription,stayReport,operationReport;
-  bool prescriptionChanged=false,clinicalValidated=false,farPrescriptionReady=false;
+  bool prescriptionChanged=false,clinicalValidated=false,farPrescriptionReady=false,saving=false;
   PatientCase get p=>widget.patient;
   @override void initState(){super.initState();
     prescription=TextEditingController(text:p.dischargePrescription.isNotEmpty?p.dischargePrescription:_prescriptionDraft(p));
@@ -39,7 +39,7 @@ class _DischargePageState extends State<DischargePage> {
       if(!widget.readOnly)...[
         SectionHeading('Validation médicale'),
         VCard(child:Column(children:[CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Évaluation clinique et documents relus, corrigés et validés par le médecin.',style:TextStyle(fontSize:12.8)),value:clinicalValidated,onChanged:(v)=>setState(()=>clinicalValidated=v??false)),if(p.isFar)CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Ordonnance sur support FAR préparée.',style:TextStyle(fontSize:12.8)),value:farPrescriptionReady,onChanged:(v)=>setState(()=>farPrescriptionReady=v??false))])),
-        const SizedBox(height:18),SizedBox(width:double.infinity,child:ElevatedButton.icon(onPressed:(clinicalValidated&&(!p.isFar||farPrescriptionReady)&&p.allChecked(ClinicalDocuments.discharge))?_confirm:null,icon:const Icon(Icons.check_circle_outline_rounded),label:const Text('Valider la sortie et libérer le box'))),
+        const SizedBox(height:18),SizedBox(width:double.infinity,child:ElevatedButton.icon(onPressed:(!saving&&p.canDeclareDischarge&&clinicalValidated&&(!p.isFar||farPrescriptionReady))?_confirm:null,icon:const Icon(Icons.check_circle_outline_rounded),label:const Text('Valider la sortie et libérer le box'))),
         if(!p.allChecked(ClinicalDocuments.discharge))const Padding(padding:EdgeInsets.only(top:9),child:Text('Sortie bloquée : vérifiez tous les documents obligatoires et leurs cachets. Pour les pièces absentes ou non requises, utilisez « Non applicable » lorsque proposé.',style:TextStyle(color:Color(0xFFA45633),fontSize:12))),
         const SizedBox(height:10),const Text('Les textes sont des brouillons. Aucun traitement médicamenteux n’est prescrit automatiquement. La validation ne remplace pas le dossier médical officiel.',style:TextStyle(color:VColors.muted,fontSize:11.5)),
       ]
@@ -50,8 +50,29 @@ class _DischargePageState extends State<DischargePage> {
   Future<void> _confirm() async{
     final ok=await showConfirmation(context,title:'Confirmer la sortie',message:'Le dossier sera marqué « Sorti » et le box libéré dans le tableau du service. Avez-vous vérifié l’aptitude clinique à la sortie et les documents ?',action:'Valider la sortie');
     if(!ok||!mounted)return;
-    appStore.confirmDischarge(p,prescription:prescription.text,report:stayReport.text,operationReport:operationReport.text);
-    Navigator.pop(context);
+    setState(()=>saving=true);
+    try {
+      final saved=await appStore.finalizeDischarge(p,
+        prescription:prescription.text,
+        report:stayReport.text,
+        operationReport:operationReport.text,
+        clinicalValidated:clinicalValidated,
+        farPrescriptionReady:farPrescriptionReady);
+      if(!mounted)return;
+      if(saved) {
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content:Text('Sortie bloquée : documents ou état clinique incomplets.')));
+      }
+    } catch (_) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content:Text('Sortie non enregistrée. Le box reste occupé.')));
+      }
+    } finally {
+      if(mounted)setState(()=>saving=false);
+    }
   }
   String _prescriptionDraft(PatientCase p){
     final standard=p.procedure==procedures[0]||p.procedure==procedures[1];

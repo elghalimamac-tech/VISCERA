@@ -36,6 +36,8 @@ class BlocClinicalRecordService {
     'expectedDays': patient.expectedDays,
     'confidentialEnvelopeDone': patient.confidentialEnvelopeDone,
     'dischargeAt': patient.dischargeAt?.toIso8601String(),
+    'dischargeMedicalValidation': patient.dischargeMedicalValidated,
+    'dischargeFarValidation': patient.dischargeFarValidated,
     'dischargePrescription': patient.dischargePrescription,
     'dischargeReport': patient.dischargeReport,
     'operationReport': patient.operationReport,
@@ -96,6 +98,8 @@ class BlocClinicalRecordService {
       ? data['expectedDays'] as int : 0;
     patient.confidentialEnvelopeDone = _bool(data['confidentialEnvelopeDone']);
     patient.dischargeAt = _date(data['dischargeAt']);
+    patient.dischargeMedicalValidated = _bool(data['dischargeMedicalValidation']);
+    patient.dischargeFarValidated = _bool(data['dischargeFarValidation']);
     patient.dischargePrescription = _text(data['dischargePrescription']);
     patient.dischargeReport = _text(data['dischargeReport']);
     patient.operationReport = _text(data['operationReport']);
@@ -138,7 +142,7 @@ class BlocClinicalRecordService {
     patient.dailyObservations.sort((a, b) => b.date.compareTo(a.date));
   }
 
-  Future<void> save(PatientCase patient) async {
+  Future<void> save(PatientCase patient, {Map<String,dynamic>? clinicalData}) async {
     if (!patient.fromBlocProgram || !patient.id.startsWith('BLOC-')) {
       throw StateError('Le dossier ne provient pas du programme officiel.');
     }
@@ -149,7 +153,7 @@ class BlocClinicalRecordService {
       params: {
         'p_entry_id': entryId,
         'p_expected_version': patient.clinicalVersion,
-        'p_clinical_data': encode(patient),
+        'p_clinical_data': clinicalData ?? encode(patient),
       },
     );
     if (result is! int) throw StateError('Enregistrement non confirmé.');

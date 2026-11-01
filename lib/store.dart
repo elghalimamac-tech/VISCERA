@@ -573,9 +573,77 @@ class AppStore extends ChangeNotifier {
   void startTheatre(PatientCase p) { if (p.stage != CaseStage.preoperative) return; p.stage = CaseStage.inTheatre; notifyListeners(); _saveIfImported(p); }
   void finishTheatre(PatientCase p) { if (p.stage != CaseStage.inTheatre) return; p.stage = CaseStage.postoperative; notifyListeners(); _saveIfImported(p); }
   void markForDischarge(PatientCase p) { if (p.stage != CaseStage.postoperative) return; p.stage = CaseStage.dischargeReady; notifyListeners(); _saveIfImported(p); }
-  void confirmDischarge(PatientCase p, {required String prescription,required String report,required String operationReport}) {
-    if (!p.allChecked(ClinicalDocuments.discharge)) return;
-    p.dischargePrescription=prescription;p.dischargeReport=report;p.operationReport=operationReport;p.dischargeAt=DateTime.now();p.stage=CaseStage.discharged;notifyListeners();_saveIfImported(p);
+  /// Conserver la compatibilité des tests locaux ; ne jamais utiliser cette
+  /// voie pour un dossier partagé, dont la sortie doit être confirmée
+  /// par le serveur AVANT de changer le statut ou libérer le box.
+  void confirmDischarge(PatientCase p, {
+    required String prescription, required String report,
+    required String operationReport,
+  }) {
+    if (p.fromManualAdmission || p.fromBlocProgram) {
+      throw StateError('Utiliser finalizeDischarge pour les dossiers partagés.');
+    }
+    if (!p.canDeclareDischarge) return;
+    p.dischargePrescription=prescription;
+    p.dischargeReport=report;
+    p.operationReport=operationReport;
+    p.dischargeAt=DateTime.now();
+    p.stage=CaseStage.discharged;
+    notifyListeners();
+  }
+
+  /// Sauvegarde atomique vérifiée : le box ne sera libéré dans l'interface
+  /// qu'après une réponse positive de Supabase. Les documents à cacheter
+  /// doivent avoir été vérifiés avant de déclencher la confirmation.
+  Future<bool> finalizeDischarge(PatientCase p, {
+    required String prescription,
+    required String report,
+    required String operationReport,
+    required bool clinicalValidated,
+    required bool farPrescriptionReady,
+  }) async {
+    if (!p.canDeclareDischarge || !clinicalValidated ||
+        (p.isFar && !farPrescriptionReady)) return false;
+    if (!p.fromManualAdmission && !p.fromBlocProgram) {
+      throw StateError('Dossier partagé nécessaire à la sortie.');
+    }
+    // Attendre les enregistrements de la checklist déjà déclenchés.
+    final pending = _clinicalWrites[p.id];
+    if (pending != null) await pending;
+    if (!p.canDeclareDischarge) return false;
+    final date = DateTime.now();
+    final data = BlocClinicalRecordService.encode(p);
+    data['stage'] = CaseStage.discharged.name;
+    data['dischargeAt'] = date.toIso8601String();
+    data['dischargePrescription'] = prescription;
+    data['dischargeReport'] = report;
+    data['operationReport'] = operationReport;
+    data['dischargeMedicalValidation'] = clinicalValidated;
+    data['dischargeFarValidation'] = farPrescriptionReady;
+    _clinicalState[p.id] = 'Validation de sortie en cours…';
+    notifyListeners();
+    try {
+      if (p.fromManualAdmission) {
+        await _manualService.save(p, clinicalData:data);
+      } else {
+        await _clinicalService.save(p, clinicalData:data);
+      }
+      p.dischargePrescription=prescription;
+      p.dischargeReport=report;
+      p.operationReport=operationReport;
+      p.dischargeAt=date;
+      p.dischargeMedicalValidated=clinicalValidated;
+      p.dischargeFarValidated=farPrescriptionReady;
+      p.stage=CaseStage.discharged;
+      _clinicalState[p.id] = 'Sortie enregistrée et box libéré';
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _clinicalState[p.id] =
+          'Sortie non enregistrée : le patient reste hospitalisé.';
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Pont TEMPORAIRE vers le planning local du prototype. Seul le serveur
