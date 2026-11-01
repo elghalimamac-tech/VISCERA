@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
+import 'bloc_clinical_record.dart';
 import 'planning_models.dart';
 
 class LocalDoctorProfile {
@@ -31,6 +32,39 @@ class AppStore extends ChangeNotifier {
   /// Le rôle administrateur est attesté par le profil approuvé Supabase Auth.
   bool get canManageTeam => activeLocalProfile?.isVisceraOwner == true;
   final List<PatientCase> patients = [];
+  final BlocClinicalRecordService _clinicalService = const BlocClinicalRecordService();
+  final Map<String, Future<void>> _clinicalWrites = {};
+  final Map<String, String> _clinicalState = {};
+
+  String clinicalSyncState(PatientCase patient) =>
+    !patient.fromBlocProgram ? 'Dossier local (non synchronisé)' :
+    (_clinicalState[patient.id] ?? 'Dossier partagé · modifications enregistrées');
+
+  Future<void> saveClinical(PatientCase patient) {
+    if (!patient.fromBlocProgram) return Future<void>.value();
+    final previous = _clinicalWrites[patient.id] ?? Future<void>.value();
+    final current = previous.catchError((Object _) {}).then((_) async {
+      _clinicalState[patient.id] = 'Enregistrement sécurisé en cours…';
+      notifyListeners();
+      try {
+        await _clinicalService.save(patient);
+        _clinicalState[patient.id] = 'Modifications enregistrées';
+      } catch (_) {
+        _clinicalState[patient.id] = 'Échec de l’enregistrement. Réessayez avant de quitter.';
+        rethrow;
+      } finally {
+        notifyListeners();
+      }
+    });
+    _clinicalWrites[patient.id] = current;
+    return current;
+  }
+
+  void _saveIfImported(PatientCase patient) {
+    if (patient.fromBlocProgram) {
+      unawaited(saveClinical(patient).catchError((Object _) {}));
+    }
+  }
   final List<TeamMember> professors = [];
   final List<TeamMember> juniors = [];
   /// Seniors (le document ne précise pas que tous sont professeurs).
@@ -322,6 +356,7 @@ class AppStore extends ChangeNotifier {
     patient.assignmentMode='Modification manuelle';
     patient.assignmentExplanation=reason.trim();
     notifyListeners();
+    _saveIfImported(patient);
   }
 
 
@@ -343,13 +378,27 @@ class AppStore extends ChangeNotifier {
   /// Remplace uniquement les projections officielles du bloc.
   /// Les dossiers issus d'une admission manuelle ne sont jamais supprimés.
   void replaceBlocProgramPatients(List<PatientCase> officialCases) {
+    final existing = <String, PatientCase>{
+      for (final patient in patients)
+        if (patient.fromBlocProgram) patient.id: patient
+    };
     patients.removeWhere((p) => p.fromBlocProgram);
     bool manualAlreadyExists(PatientCase incoming) => patients.any((existing) =>
       existing.name.trim().toUpperCase() == incoming.name.trim().toUpperCase() &&
       existing.blockAt.year == incoming.blockAt.year &&
       existing.blockAt.month == incoming.blockAt.month &&
       existing.blockAt.day == incoming.blockAt.day);
-    patients.addAll(officialCases.where((p) => !manualAlreadyExists(p)));
+    for (final official in officialCases.where((p) => !manualAlreadyExists(p))) {
+      final local = existing[official.id];
+      // Préserve la fiche actuellement ouverte ou en cours d'enregistrement.
+      if (local != null &&
+          (_clinicalWrites.containsKey(local.id) ||
+           local.clinicalVersion >= official.clinicalVersion)) {
+        patients.add(local);
+      } else {
+        patients.add(official);
+      }
+    }
     notifyListeners();
   }
 
@@ -380,9 +429,9 @@ class AppStore extends ChangeNotifier {
 
   String nextId() => 'LOCAL-${DateTime.now().microsecondsSinceEpoch}';
   void add(PatientCase patient) { patients.insert(0, patient); notifyListeners(); }
-  void refresh() => notifyListeners();
+  void refresh({PatientCase? changed}) { notifyListeners(); if (changed != null) _saveIfImported(changed); }
   void updateDocument(PatientCase p, DocumentRequirement requirement, {bool? verified, bool? stamped, bool? notApplicable}) {
-    if (!p.isActive) return;
+    if (!p.isActive && !p.isProgrammed) return;
     if (notApplicable == true && !requirement.optional) return;
     final check = p.check(requirement.key);
     if (notApplicable != null) {
@@ -398,10 +447,11 @@ class AppStore extends ChangeNotifier {
     check.checkedAt = DateTime.now();
     if (requirement.key == 'pli') p.confidentialEnvelopeDone = check.verified;
     notifyListeners();
+    _saveIfImported(p);
   }
 
-  /// L'observation n'est pas persistée dans ce prototype non sécurisé.
-  /// Après un report, une modification doit être reportée à nouveau.
+  /// Les observations des patients issus du bloc sont enregistrées dans Supabase.
+  /// Une modification nécessite à nouveau le report manuel dans Magica/Sillage.
   void saveDailyObservation(PatientCase p, DailyObservation note) {
     if (!p.isActive || !note.hasContent) return;
     final existingIndex = p.dailyObservations.indexWhere((item) =>
@@ -413,6 +463,7 @@ class AppStore extends ChangeNotifier {
     }
     p.dailyObservations.sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
+    _saveIfImported(p);
   }
 
   void setObservationReported(PatientCase p, DailyObservation note, {bool? magica, bool? sillage}) {
@@ -426,18 +477,19 @@ class AppStore extends ChangeNotifier {
       note.reportedSillageAt = sillage ? DateTime.now() : null;
     }
     notifyListeners();
+    _saveIfImported(p);
   }
 
   void toggleEnvelope(PatientCase p) {
     final requirement = ClinicalDocuments.admission[1];
     updateDocument(p, requirement, verified: !p.check('pli').verified);
   }
-  void startTheatre(PatientCase p) { if (p.stage != CaseStage.preoperative) return; p.stage = CaseStage.inTheatre; notifyListeners(); }
-  void finishTheatre(PatientCase p) { if (p.stage != CaseStage.inTheatre) return; p.stage = CaseStage.postoperative; notifyListeners(); }
-  void markForDischarge(PatientCase p) { if (p.stage != CaseStage.postoperative) return; p.stage = CaseStage.dischargeReady; notifyListeners(); }
+  void startTheatre(PatientCase p) { if (p.stage != CaseStage.preoperative) return; p.stage = CaseStage.inTheatre; notifyListeners(); _saveIfImported(p); }
+  void finishTheatre(PatientCase p) { if (p.stage != CaseStage.inTheatre) return; p.stage = CaseStage.postoperative; notifyListeners(); _saveIfImported(p); }
+  void markForDischarge(PatientCase p) { if (p.stage != CaseStage.postoperative) return; p.stage = CaseStage.dischargeReady; notifyListeners(); _saveIfImported(p); }
   void confirmDischarge(PatientCase p, {required String prescription,required String report,required String operationReport}) {
     if (!p.allChecked(ClinicalDocuments.discharge)) return;
-    p.dischargePrescription=prescription;p.dischargeReport=report;p.operationReport=operationReport;p.dischargeAt=DateTime.now();p.stage=CaseStage.discharged;notifyListeners();
+    p.dischargePrescription=prescription;p.dischargeReport=report;p.operationReport=operationReport;p.dischargeAt=DateTime.now();p.stage=CaseStage.discharged;notifyListeners();_saveIfImported(p);
   }
 
   /// Pont TEMPORAIRE vers le planning local du prototype. Seul le serveur
@@ -464,6 +516,7 @@ class AppStore extends ChangeNotifier {
   void clearAuthenticatedProfile() {
     localProfiles.clear();
     patients.clear(); // Retirer toute donnée patient de la session à la déconnexion.
+    _clinicalState.clear();
     activeLocalProfileId = null;
     notifyListeners();
   }
