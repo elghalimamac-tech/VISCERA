@@ -403,12 +403,10 @@ class AppStore extends ChangeNotifier {
         if (patient.fromBlocProgram) patient.id: patient
     };
     patients.removeWhere((p) => p.fromBlocProgram);
-    bool manualAlreadyExists(PatientCase incoming) => patients.any((existing) =>
-      existing.name.trim().toUpperCase() == incoming.name.trim().toUpperCase() &&
-      existing.blockAt.year == incoming.blockAt.year &&
-      existing.blockAt.month == incoming.blockAt.month &&
-      existing.blockAt.day == incoming.blockAt.day);
-    for (final official in officialCases.where((p) => !manualAlreadyExists(p))) {
+    // Ne jamais masquer un programme seulement parce qu'un nom et une date
+    // correspondent : deux homonymes pourraient être deux personnes différentes.
+    // Seule la relation vérifiée manual_bloc_links supprime le doublon apparent.
+    for (final official in officialCases) {
       final local = existing[official.id];
       // Préserve la fiche actuellement ouverte ou en cours d'enregistrement.
       if (local != null &&
