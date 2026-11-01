@@ -463,6 +463,7 @@ class AppStore extends ChangeNotifier {
 
   void clearAuthenticatedProfile() {
     localProfiles.clear();
+    patients.clear(); // Retirer toute donnée patient de la session à la déconnexion.
     activeLocalProfileId = null;
     notifyListeners();
   }
