@@ -27,7 +27,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
         backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,
       ),
       // Point d'entrée clinique accessible à tout moment pendant le séjour.
-      floatingActionButton:p.isActive?FloatingActionButton.extended(
+      floatingActionButton:(p.isActive||p.isProgrammed)?FloatingActionButton.extended(
         heroTag:'observation-${p.id}',
         backgroundColor:VColors.ink,foregroundColor:Colors.white,
         icon:const Icon(Icons.add_rounded),
@@ -51,7 +51,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               Text(p.name,style:const TextStyle(color:Colors.white,fontSize:23,
                 fontWeight:FontWeight.w800)),
               const SizedBox(height:5),
-              Text('${p.age} ans · ${p.origin}',style:const TextStyle(
+              Text('${p.age == '—' ? 'Âge non renseigné' : '${p.age} ans'} · ${p.origin}',style:const TextStyle(
                 color:Color(0xFFD8EAE4),fontSize:13)),
               const SizedBox(height:13),
               Wrap(spacing:7,runSpacing:7,children:[
@@ -60,13 +60,49 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 if(p.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),
               ]),
             ])),
+          if(p.fromBlocProgram)...[
+            const SizedBox(height:11),
+            VCard(color:VColors.softMint,child:Row(children:[
+              const Icon(Icons.cloud_done_outlined,color:VColors.ink),
+              const SizedBox(width:10),
+              Expanded(child:Text(appStore.clinicalSyncState(p),
+                style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700))),
+              IconButton(
+                tooltip:'Enregistrer le dossier dans VISCERA',
+                onPressed:() async{
+                  try{
+                    await appStore.saveClinical(p);
+                    if(mounted)_notice('Dossier enregistré dans VISCERA.');
+                  }catch(_){
+                    if(mounted)_notice('Enregistrement impossible. Actualisez et vérifiez les modifications.');
+                  }
+                },
+                icon:const Icon(Icons.save_outlined)),
+            ])),
+            if(p.isProgrammed)...[
+              const SizedBox(height:10),
+              VCard(color:VColors.orangeSoft,child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                const Text('Patient programmé · Provenance Consultation',
+                  style:TextStyle(fontWeight:FontWeight.w800)),
+                const SizedBox(height:7),
+                const Text('Le programme opératoire ne confirme pas une admission hospitalière. '
+                  'Le dossier est modifiable avant admission ; aucun lit ou séjour n’est supposé.',
+                  style:TextStyle(fontSize:12)),
+                const SizedBox(height:12),
+                FilledButton.icon(onPressed:_confirmAdmission,
+                  icon:const Icon(Icons.how_to_reg_outlined),
+                  label:const Text('Confirmer l’admission réelle')),
+              ])),
+            ],
+          ],
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
-              '${p.currentUnit} · ${p.currentBox}')),
+              p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}')),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
-              appStore.responsibleById(p.professorId)?.name??'À attribuer')),
+              appStore.responsibleById(p.professorId)?.name??(p.programSurgeon.isNotEmpty ? p.programSurgeon : 'À attribuer')),
           ]),
           if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
             const SizedBox(height:11),
@@ -103,9 +139,13 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 icon:const Icon(Icons.visibility_outlined,size:18),
                 label:const Text('Consulter les observations')),
             ])),
-          SectionHeading('Dossier clinique',trailing:TextButton.icon(
+          SectionHeading('Dossier clinique',trailing:Row(children:[
+            TextButton.icon(onPressed:_editIdentity,
+              icon:const Icon(Icons.badge_outlined,size:16),
+              label:const Text('Identité')),
+            TextButton.icon(
             onPressed:_editClinical,icon:const Icon(Icons.edit_outlined,size:16),
-            label:const Text('Modifier'))),
+            label:const Text('Modifier'))]),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             _clinical('Motif de prise en charge',p.motive),
             const Divider(height:1,color:VColors.line),
@@ -132,7 +172,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             ],
             const Divider(height:22),
             _line(Icons.medical_services_outlined,'Médecin responsable',
-              appStore.responsibleById(p.professorId)?.name??'À attribuer'),
+              appStore.responsibleById(p.professorId)?.name??(p.programSurgeon.isNotEmpty ? p.programSurgeon : 'À attribuer')),
             const SizedBox(height:5),
             Text('${p.assignmentMode} · ${p.assignmentExplanation}',
               style:const TextStyle(fontSize:11,color:VColors.muted)),
@@ -144,12 +184,12 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             _line(Icons.medical_services_outlined,'Bloc',
               '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
             const Divider(height:22),
-            _line(Icons.bed_outlined,'Avant le bloc','${p.beforeUnit} · Box ${p.beforeBox}'),
+            _line(Icons.bed_outlined,'Avant le bloc',p.beforeBox.isEmpty ? 'Non attribué' : '${p.beforeUnit} · Box ${p.beforeBox}'),
             const Divider(height:22),
-            _line(Icons.bed_outlined,'Après le bloc','${p.afterUnit} · Box ${p.afterBox}'),
+            _line(Icons.bed_outlined,'Après le bloc',p.afterBox.isEmpty ? 'Non attribué' : '${p.afterUnit} · Box ${p.afterBox}'),
             const Divider(height:22),
             _line(Icons.event_available_outlined,'Sortie estimée',
-              '${_date(p.expectedDischargeAt)} · ${p.expectedDays} jour(s)'),
+              p.expectedDays == 0 ? 'Non renseignée' : '${_date(p.expectedDischargeAt)} · ${p.expectedDays} jour(s)'),
             const SizedBox(height:12),
             OutlinedButton.icon(onPressed:_changeBed,
               icon:const Icon(Icons.edit_location_alt_outlined,size:18),
@@ -193,6 +233,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
   Widget _envelope()=>VCard(color:p.confidentialEnvelopeDone?VColors.softMint:VColors.orangeSoft,child:Row(children:[Icon(p.confidentialEnvelopeDone?Icons.check_circle_outline_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.isFar?'Pli confidentiel — FAR':'Pli confidentiel',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text(p.confidentialEnvelopeDone?'Marqué comme effectué':'À créer / à demander',style:const TextStyle(fontSize:12,color:VColors.muted))])),Switch(value:p.confidentialEnvelopeDone,onChanged:(_)=>appStore.toggleEnvelope(p))]));
   Widget _actions()=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    if(p.stage==CaseStage.scheduled)ElevatedButton.icon(onPressed:_confirmAdmission,icon:const Icon(Icons.how_to_reg_outlined),label:const Text('Confirmer l’admission avant le bloc')),
     if(p.stage==CaseStage.preoperative)ElevatedButton.icon(onPressed:_startTheatre,icon:const Icon(Icons.medical_services_outlined),label:const Text('Confirmer l’entrée au bloc')),
     if(p.stage==CaseStage.inTheatre)ElevatedButton.icon(onPressed:_finishTheatre,icon:const Icon(Icons.check_rounded),label:const Text('Fin du bloc → postopératoire')),
     if(p.stage==CaseStage.postoperative)ElevatedButton.icon(onPressed:()=>appStore.markForDischarge(p),icon:const Icon(Icons.assignment_turned_in_outlined),label:const Text('Préparer la sortie')),
@@ -226,14 +267,96 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     String current=postoperative?p.afterUnit:p.beforeUnit;
     final controller=TextEditingController(text:postoperative?p.afterBox:p.beforeBox);
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>StatefulBuilder(builder:(sheetContext,refresh)=>Padding(padding:EdgeInsets.fromLTRB(22,8,22,MediaQuery.of(sheetContext).viewInsets.bottom+25),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text(postoperative?'Modifier l’unité postopératoire':'Modifier l’unité préopératoire',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:15),DropdownButtonFormField<String>(value:current,decoration:const InputDecoration(labelText:'Unité'),items:hospitalUnits.map((u)=>DropdownMenuItem(value:u.code,child:Text(u.code))).toList(),onChanged:(v)=>refresh(()=>current=v!)),const SizedBox(height:13),TextField(controller:controller,decoration:const InputDecoration(labelText:'Numéro du box')),const SizedBox(height:17),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(controller.text.trim().isEmpty){_notice('Numéro de box requis.');return;}final conflicting=appStore.conflictingBox(current,controller.text,exceptPatientId:p.id);if(conflicting!=null){_notice('Box déjà occupé par ${conflicting.name}.');return;}if(postoperative){p.afterUnit=current;p.afterBox=controller.text.trim();}else{p.beforeUnit=current;p.beforeBox=controller.text.trim();}appStore.refresh();Navigator.pop(sheetContext);},child:const Text('Enregistrer l’affectation'))),
+      Text(postoperative?'Modifier l’unité postopératoire':'Modifier l’unité préopératoire',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:15),DropdownButtonFormField<String>(value:hospitalUnits.any((u)=>u.code==current)?current:null,decoration:const InputDecoration(labelText:'Unité'),items:hospitalUnits.map((u)=>DropdownMenuItem(value:u.code,child:Text(u.code))).toList(),onChanged:(v)=>refresh(()=>current=v!)),const SizedBox(height:13),TextField(controller:controller,decoration:const InputDecoration(labelText:'Numéro du box')),const SizedBox(height:17),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(controller.text.trim().isEmpty){_notice('Numéro de box requis.');return;}final conflicting=appStore.conflictingBox(current,controller.text,exceptPatientId:p.id);if(conflicting!=null){_notice('Box déjà occupé par ${conflicting.name}.');return;}if(postoperative){p.afterUnit=current;p.afterBox=controller.text.trim();}else{p.beforeUnit=current;p.beforeBox=controller.text.trim();}appStore.refresh(changed:p);Navigator.pop(sheetContext);},child:const Text('Enregistrer l’affectation'))),
     ]))));
     controller.dispose();
   }
+
+  Future<void> _editIdentity() async {
+    final age = TextEditingController(text:p.age == '—' ? '' : p.age);
+    final insurance = TextEditingController(
+      text:p.insurance == 'À préciser' ? '' : p.insurance);
+    final days = TextEditingController(
+      text:p.expectedDays == 0 ? '' : p.expectedDays.toString());
+    DateTime? consultation = p.consultationAt;
+    await showModalBottomSheet<void>(context:context,isScrollControlled:true,
+      showDragHandle:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>
+      Padding(padding:EdgeInsets.fromLTRB(20,10,20,
+        MediaQuery.of(ctx).viewInsets.bottom+24),
+      child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Compléter le dossier patient',
+          style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+        const SizedBox(height:6),
+        const Text('Provenance : Consultation. Le nom et l’intervention du programme officiel ne sont pas modifiés.',
+          style:TextStyle(fontSize:12,color:VColors.muted)),
+        const SizedBox(height:16),
+        TextField(controller:age,keyboardType:TextInputType.number,
+          decoration:const InputDecoration(labelText:'Âge (si connu)')),
+        const SizedBox(height:10),
+        TextField(controller:insurance,
+          decoration:const InputDecoration(labelText:'Mutuelle / assurance (si connue)')),
+        const SizedBox(height:10),
+        TextField(controller:days,keyboardType:TextInputType.number,
+          decoration:const InputDecoration(labelText:'Durée prévisionnelle (jours, si connue)')),
+        const SizedBox(height:10),
+        OutlinedButton.icon(icon:const Icon(Icons.calendar_month),
+          label:Text(consultation==null?'Renseigner la date de consultation':
+            'Consultation : ${_date(consultation!)}'),
+          onPressed:() async{
+            final picked=await showDatePicker(context:ctx,
+              initialDate:consultation??DateTime.now(),
+              firstDate:DateTime(2020),lastDate:DateTime(2100));
+            if(picked!=null) refresh(()=>consultation=picked);
+          }),
+        const SizedBox(height:16),
+        SizedBox(width:double.infinity,child:FilledButton(
+          onPressed:(){
+            final parsedAge=int.tryParse(age.text.trim());
+            final parsedDays=days.text.trim().isEmpty?0:int.tryParse(days.text.trim());
+            if((age.text.trim().isNotEmpty && (parsedAge==null || parsedAge<0 || parsedAge>130))
+              || parsedDays==null || parsedDays<0 || parsedDays>365){
+              _notice('Vérifiez l’âge et la durée prévisionnelle.');return;
+            }
+            p.age=age.text.trim().isEmpty?'—':age.text.trim();
+            p.insurance=insurance.text.trim().isEmpty?'À préciser':insurance.text.trim();
+            p.expectedDays=parsedDays;
+            p.consultationAt=consultation;
+            appStore.refresh(changed:p);
+            Navigator.pop(ctx);
+          },child:const Text('Enregistrer les informations'))),
+      ]))));
+    age.dispose();insurance.dispose();days.dispose();
+  }
+
+  Future<void> _confirmAdmission() async {
+    if(!p.isProgrammed) return;
+    final today=DateTime.now();
+    final day=await showDatePicker(context:context,initialDate:today,
+      firstDate:DateTime(2020),lastDate:today);
+    if(day==null || !mounted) return;
+    final clock=await showTimePicker(context:context,
+      initialTime:TimeOfDay.fromDateTime(today));
+    if(clock==null || !mounted)return;
+    final arrival=DateTime(day.year,day.month,day.day,clock.hour,clock.minute);
+    if(arrival.isAfter(DateTime.now().add(const Duration(minutes:1)))){
+      _notice('L’heure d’admission ne peut pas être future.');return;
+    }
+    final confirmed=await showConfirmation(context,
+      title:'Confirmer l’admission hospitalière',
+      message:'Avez-vous vérifié l’admission réelle de ${p.name} le ${_format(arrival)} ? '
+        'Cette validation activera le suivi préopératoire. Aucun box ne sera attribué automatiquement.',
+      action:'Confirmer l’admission');
+    if(!confirmed)return;
+    p.admittedAt=arrival;
+    p.admissionTiming='Confirmée';
+    p.stage=CaseStage.preoperative;
+    appStore.refresh(changed:p);
+  }
+
   Future<void> _editClinical() async {
     final controllers=[p.motive,p.history,p.exam,p.investigations,p.labs,p.immediatePlan].map((value) => TextEditingController(text: value)).toList();
     final labels=['Motif','Histoire de la maladie','Examen clinique','Examens complémentaires','Bilans','Conduite à tenir immédiate'];
-    await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>Padding(padding:EdgeInsets.fromLTRB(20,8,20,MediaQuery.of(sheetContext).viewInsets.bottom+12),child:FlexibleClinicalEditor(controllers:controllers,labels:labels,onSave:(){p.motive=controllers[0].text;p.history=controllers[1].text;p.exam=controllers[2].text;p.investigations=controllers[3].text;p.labs=controllers[4].text;p.immediatePlan=controllers[5].text;appStore.refresh();Navigator.pop(sheetContext);})));for(final c in controllers){c.dispose();}
+    await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>Padding(padding:EdgeInsets.fromLTRB(20,8,20,MediaQuery.of(sheetContext).viewInsets.bottom+12),child:FlexibleClinicalEditor(controllers:controllers,labels:labels,onSave:(){p.motive=controllers[0].text;p.history=controllers[1].text;p.exam=controllers[2].text;p.investigations=controllers[3].text;p.labs=controllers[4].text;p.immediatePlan=controllers[5].text;appStore.refresh(changed:p);Navigator.pop(sheetContext);})));for(final c in controllers){c.dispose();}
   }
   String _date(DateTime d)=>'${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}';
   String _format(DateTime d)=>'${_date(d)} à ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
