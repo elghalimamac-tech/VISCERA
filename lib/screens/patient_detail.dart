@@ -7,6 +7,7 @@ import '../widgets.dart';
 import 'discharge.dart';
 import 'daily_observations.dart';
 import '../voice_dictation.dart';
+import '../manual_admission_service.dart';
 
 class PatientDetailPage extends StatefulWidget {
   const PatientDetailPage({super.key,required this.patient});
@@ -53,6 +54,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               const SizedBox(height:5),
               Text('${p.age == '—' ? 'Âge non renseigné' : '${p.age} ans'} · ${p.origin}',style:const TextStyle(
                 color:Color(0xFFD8EAE4),fontSize:13)),
+              if(p.birthDate!=null)...[
+                const SizedBox(height:5),
+                Text('Né(e) le ${_date(p.birthDate!)}',
+                  style:const TextStyle(color:Colors.white70,fontSize:12)),
+              ],
               const SizedBox(height:13),
               Wrap(spacing:7,runSpacing:7,children:[
                 VTag(p.stage.label,highlight:true),
@@ -96,6 +102,24 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   label:const Text('Confirmer l’admission réelle')),
               ])),
             ],
+          ],
+          if(p.fromManualAdmission && p.origin=='Consultation')...[
+            const SizedBox(height:10),
+            VCard(color:VColors.softMint,child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(p.linkedProgramEntryId==null
+                ? 'Programme opératoire non encore associé'
+                : 'Programme opératoire associé au dossier de consultation',
+                style:const TextStyle(fontWeight:FontWeight.w700)),
+              if(p.linkedProgramEntryId!=null && p.programRoom.isNotEmpty)
+                Text('Salle ${p.programRoom} · ${p.programScheduledTime} · ${p.programSurgeon}',
+                  style:const TextStyle(fontSize:12)),
+              if(p.linkedProgramEntryId==null)...[
+                const SizedBox(height:8),
+                OutlinedButton.icon(onPressed:_reconcileBloc,
+                  icon:const Icon(Icons.link),label:const Text('Rapprocher avec le programme du bloc')),
+              ],
+            ])),
           ],
           const SizedBox(height:11),
           Row(children:[
@@ -180,6 +204,9 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             OutlinedButton.icon(onPressed:_changeProfessor,
               icon:const Icon(Icons.manage_accounts_outlined,size:17),
               label:const Text('Modifier le responsable')),
+            const Divider(height:22),
+            _line(Icons.category_outlined,'Type de chirurgie',
+              p.surgeryType.isEmpty ? 'À renseigner' : p.surgeryType),
             const Divider(height:22),
             _line(Icons.medical_services_outlined,'Bloc',
               '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
@@ -279,6 +306,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     final days = TextEditingController(
       text:p.expectedDays == 0 ? '' : p.expectedDays.toString());
     DateTime? consultation = p.consultationAt;
+    DateTime? born = p.birthDate;
+    final surgical = TextEditingController(text:p.surgeryType);
     await showModalBottomSheet<void>(
       context:context, isScrollControlled:true, showDragHandle:true,
       builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>Padding(
@@ -295,6 +324,20 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               Text('Provenance : ${p.origin}. Le nom et l’intervention d’origine ne sont pas modifiés.',
                 style:TextStyle(fontSize:12,color:VColors.muted)),
               const SizedBox(height:16),
+              OutlinedButton.icon(icon:const Icon(Icons.cake_outlined),
+                label:Text(born==null?'Renseigner la date de naissance'
+                  :'Naissance : ${_date(born!)}'),
+                onPressed:()async{
+                  final now=DateTime.now();
+                  final picked=await showDatePicker(context:ctx,
+                    initialDate:born??DateTime(now.year-35,now.month,now.day),
+                    firstDate:DateTime(1900),lastDate:now);
+                  if(picked!=null)refresh(()=>born=picked);
+                }),
+              const SizedBox(height:10),
+              TextField(controller:surgical,
+                decoration:const InputDecoration(labelText:'Type de chirurgie')),
+              const SizedBox(height:10),
               TextField(controller:age,keyboardType:TextInputType.number,
                 decoration:const InputDecoration(labelText:'Âge (si connu)')),
               const SizedBox(height:10),
@@ -324,6 +367,15 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                     || parsedDays==null || parsedDays<0 || parsedDays>365){
                     _notice('Vérifiez l’âge et la durée prévisionnelle.');return;
                   }
+                  if(p.fromManualAdmission && born==null){
+                    _notice('Date de naissance obligatoire pour les admissions.');
+                    return;
+                  }
+                  if(p.fromManualAdmission && surgical.text.trim().isEmpty){
+                    _notice('Précisez le type de chirurgie.');return;
+                  }
+                  p.birthDate=born;
+                  p.surgeryType=surgical.text.trim();
                   p.age=age.text.trim().isEmpty?'—':age.text.trim();
                   p.insurance=insurance.text.trim().isEmpty?'À préciser':insurance.text.trim();
                   p.expectedDays=parsedDays;
@@ -335,7 +387,66 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           )),
         ),
       )));
-    age.dispose();insurance.dispose();days.dispose();
+    age.dispose();insurance.dispose();days.dispose();surgical.dispose();
+  }
+
+  Future<void> _reconcileBloc() async {
+    if(!p.fromManualAdmission || p.origin!='Consultation' || p.birthDate==null){
+      _notice('La date de naissance et la provenance Consultation sont nécessaires.');
+      return;
+    }
+    String key(String text)=>text.trim().replaceAll(RegExp(r'\s+'),' ').toUpperCase();
+    bool sameDate(DateTime a,DateTime b)=>
+      a.year==b.year && a.month==b.month && a.day==b.day;
+    final choices=appStore.patients.where((candidate)=>
+      candidate.fromBlocProgram && key(candidate.name)==key(p.name) &&
+      sameDate(candidate.blockAt,p.blockAt)).toList();
+    if(choices.isEmpty){
+      _notice('Aucun programme non associé ne correspond à ce nom et à cette date. '
+        'Actualisez les dossiers si nécessaire.');
+      return;
+    }
+    final picked=await showModalBottomSheet<PatientCase>(context:context,
+      showDragHandle:true,builder:(ctx)=>SafeArea(child:Padding(
+        padding:const EdgeInsets.all(16),child:Column(
+          mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            const Text('Programme correspondant à vérifier',
+              style:TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
+            const SizedBox(height:8),
+            Text('Dossier existant : ${p.name} · né(e) le ${_date(p.birthDate!)}',
+              style:const TextStyle(fontWeight:FontWeight.w600)),
+            const SizedBox(height:8),
+            const Text('Le programme ne contient pas la date de naissance. '
+              'Vérifiez l’identité auprès du service avant d’associer les dossiers.',
+              style:TextStyle(fontSize:12,color:VColors.muted)),
+            const SizedBox(height:12),
+            ...choices.map((candidate)=>ListTile(
+              leading:const Icon(Icons.medical_services_outlined),
+              title:Text(candidate.procedure),
+              subtitle:Text('${candidate.name} · ${_date(candidate.blockAt)} · '
+                'Salle ${candidate.programRoom}'),
+              trailing:const Icon(Icons.chevron_right),
+              onTap:()=>Navigator.pop(ctx,candidate))),
+          ],
+        ))));
+    if(picked==null || !mounted)return;
+    final verified=await showConfirmation(context,
+      title:'Vérifier et associer les dossiers',
+      message:'Confirmez-vous avoir vérifié que le patient du programme '
+        '(${picked.name}, ${_date(picked.blockAt)}) est bien '
+        '${p.name}, né(e) le ${_date(p.birthDate!)} ? '
+        'Le dossier de consultation existant sera conservé.',
+      action:'Identité vérifiée · associer');
+    if(!verified || !mounted)return;
+    try{
+      await ManualAdmissionService().linkToProgram(p,picked);
+      if(!mounted)return;
+      appStore.attachVerifiedProgram(p,picked);
+      _notice('Programme associé. Le dossier original de consultation est conservé.');
+    }catch(_){
+      if(mounted)_notice('Rapprochement impossible. Vérifiez les données et les observations du programme.');
+    }
   }
 
   Future<void> _confirmAdmission() async {
