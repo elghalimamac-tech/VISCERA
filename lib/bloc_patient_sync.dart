@@ -71,7 +71,7 @@ class BlocPatientSync {
           immediatePlan: '',
           procedure: procedure,
           blockTiming: 'Différé',
-          admissionTiming: 'Non admis',
+          admissionTiming: 'À confirmer',
           beforeUnit: '',
           beforeBox: '',
           afterUnit: '',
