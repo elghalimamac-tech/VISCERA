@@ -632,6 +632,8 @@ class AppStore extends ChangeNotifier {
       p.dischargeReport=report;
       p.operationReport=operationReport;
       p.dischargeAt=date;
+      p.dischargeMedicalValidated=clinicalValidated;
+      p.dischargeFarValidated=farPrescriptionReady;
       p.stage=CaseStage.discharged;
       _clinicalState[p.id] = 'Sortie enregistrée et box libéré';
       notifyListeners();
