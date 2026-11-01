@@ -327,7 +327,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               OutlinedButton.icon(icon:const Icon(Icons.cake_outlined),
                 label:Text(born==null?'Renseigner la date de naissance'
                   :'Naissance : ${_date(born!)}'),
-                onPressed:()async{
+                onPressed:p.linkedProgramEntryId!=null ? null : ()async{
                   final now=DateTime.now();
                   final picked=await showDatePicker(context:ctx,
                     initialDate:born??DateTime(now.year-35,now.month,now.day),
