@@ -299,7 +299,7 @@ class _PlanningPageState extends State<PlanningPage> {
     if(appStore.professors.isEmpty)const VCard(child:Text('Aucun professeur enregistré.')),
     ...appStore.professors.map((p)=>_teamMember(p.name,Icons.school_outlined)),
     SectionHeading('Autres consultants'),
-    ...referenceConsultationDoctors.map((name)=>_teamMember(name,Icons.stethoscope_outlined)),
+    ...referenceConsultationDoctors.map((name)=>_teamMember(name,Icons.medical_services_outlined)),
     SectionHeading('Médecins seniors',trailing:appStore.canManageTeam
       ?TextButton.icon(onPressed:_addSenior,
         icon:const Icon(Icons.add,size:18),label:const Text('Ajouter')):null),
