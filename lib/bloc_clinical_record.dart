@@ -138,7 +138,7 @@ class BlocClinicalRecordService {
     patient.dailyObservations.sort((a, b) => b.date.compareTo(a.date));
   }
 
-  Future<void> save(PatientCase patient) async {
+  Future<void> save(PatientCase patient, {Map<String,dynamic>? clinicalData}) async {
     if (!patient.fromBlocProgram || !patient.id.startsWith('BLOC-')) {
       throw StateError('Le dossier ne provient pas du programme officiel.');
     }
@@ -149,7 +149,7 @@ class BlocClinicalRecordService {
       params: {
         'p_entry_id': entryId,
         'p_expected_version': patient.clinicalVersion,
-        'p_clinical_data': encode(patient),
+        'p_clinical_data': clinicalData ?? encode(patient),
       },
     );
     if (result is! int) throw StateError('Enregistrement non confirmé.');
