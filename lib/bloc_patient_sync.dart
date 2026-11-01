@@ -28,6 +28,8 @@ class BlocPatientSync {
   static Future<List<PatientCase>> fetch() async {
     final api = Supabase.instance.client;
     const pageSize = 500;
+    final links = await api.from('manual_bloc_links').select('entry_id');
+    final linkedIds = links.map((r)=>r['entry_id']).whereType<int>().toSet();
     final result = <PatientCase>[];
     var offset = 0;
     while (true) {
@@ -58,7 +60,7 @@ class BlocPatientSync {
         final procedure = _str(row['procedure_name']);
         final surgeon = _str(row['surgeon']);
         final rowId = row['id'];
-        if (name.isEmpty || procedure.isEmpty || surgeon.isEmpty || rowId == null) continue;
+        if (name.isEmpty || procedure.isEmpty || surgeon.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
         final scheduledAt = _scheduledAt(date, _str(row['scheduled_time']));
         if (scheduledAt == null) continue;
         String? professorId;
