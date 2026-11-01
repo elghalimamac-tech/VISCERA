@@ -599,8 +599,11 @@ class AppStore extends ChangeNotifier {
     required String prescription,
     required String report,
     required String operationReport,
+    required bool clinicalValidated,
+    required bool farPrescriptionReady,
   }) async {
-    if (!p.canDeclareDischarge) return false;
+    if (!p.canDeclareDischarge || !clinicalValidated ||
+        (p.isFar && !farPrescriptionReady)) return false;
     if (!p.fromManualAdmission && !p.fromBlocProgram) {
       throw StateError('Dossier partagé nécessaire à la sortie.');
     }
@@ -615,6 +618,8 @@ class AppStore extends ChangeNotifier {
     data['dischargePrescription'] = prescription;
     data['dischargeReport'] = report;
     data['operationReport'] = operationReport;
+    data['dischargeMedicalValidation'] = clinicalValidated;
+    data['dischargeFarValidation'] = farPrescriptionReady;
     _clinicalState[p.id] = 'Validation de sortie en cours…';
     notifyListeners();
     try {
