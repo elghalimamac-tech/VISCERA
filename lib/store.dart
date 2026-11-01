@@ -336,19 +336,34 @@ class AppStore extends ChangeNotifier {
     for (var i=0; i<october2026SeniorByDay.length; i++) {
       setDuty(DateTime(2026,10,i+1),seniorName:october2026SeniorByDay[i]);
     }
-    // Données patients intégralement fictives. Aucun dossier réel dans le prototype.
-    final now = DateTime.now();
-    DateTime at(int dayOffset, int hour, int minute) => DateTime(now.year, now.month, now.day + dayOffset, hour, minute);
-    patients.addAll([
-      PatientCase(id:'DEMO-001',name:'Patient Démo A',age:'42',origin:'Urgences',insurance:'FAR',motive:'Douleurs de fosse iliaque droite',history:'Évolution clinique à compléter.',exam:'Examen abdominal à compléter.',investigations:'Imagerie à renseigner.',labs:'Biologie à renseigner.',immediatePlan:'Surveillance et bilan préopératoire.',procedure:procedures[0],blockTiming:'Immédiat',admissionTiming:'Immédiate',beforeUnit:'TC1',beforeBox:'03',afterUnit:'TC1',afterBox:'03',expectedDays:1,blockAt:at(0,16,30),admittedAt:at(0,9,15)),
-      PatientCase(id:'DEMO-002',name:'Patient Démo B',age:'55',origin:'Consultation',insurance:'CNSS',motive:'Lithiase vésiculaire symptomatique',history:'Éléments à préciser.',exam:'À compléter.',investigations:'À compléter.',labs:'À compléter.',immediatePlan:'Programmation opératoire.',procedure:procedures[1],blockTiming:'Différé',admissionTiming:'Le jour du bloc',beforeUnit:'HDJCH 1',beforeBox:'02',afterUnit:'HGO',afterBox:'08',expectedDays:1,blockAt:at(1,9,0),admittedAt:at(0,11,0)),
-      PatientCase(id:'DEMO-003',name:'Patient Démo C',age:'66',origin:'Urgences',insurance:'Assurance privée',motive:'Occlusion intestinale',history:'À compléter.',exam:'À compléter.',investigations:'À compléter.',labs:'À compléter.',immediatePlan:'Surveillance postopératoire.',procedure:'Autre intervention',blockTiming:'Immédiat',admissionTiming:'Immédiate',beforeUnit:'TC2',beforeBox:'04',afterUnit:'REA ADULTE',afterBox:'06',expectedDays:4,blockAt:at(-2,13,0),admittedAt:at(-2,6,0),stage:CaseStage.postoperative,confidentialEnvelopeDone:true),
-      PatientCase(id:'DEMO-004',name:'Patient Démo D',age:'39',origin:'Consultation',insurance:'FAR',motive:'Appendicite opérée',history:'À compléter.',exam:'À compléter.',investigations:'À compléter.',labs:'À compléter.',immediatePlan:'Sortie conditionnelle après évaluation.',procedure:procedures[0],blockTiming:'Différé',admissionTiming:'Le jour du bloc',beforeUnit:'HDJM 1',beforeBox:'05',afterUnit:'TC2',afterBox:'07',expectedDays:1,blockAt:at(-1,10,0),admittedAt:at(-1,7,0),stage:CaseStage.dischargeReady),
-    ]);
+    // Aucune donnée patient de démonstration : les programmes officiels
+    // sont chargés depuis Supabase après connexion du médecin approuvé.
   }
 
+  /// Remplace uniquement les projections officielles du bloc.
+  /// Les dossiers issus d'une admission manuelle ne sont jamais supprimés.
+  void replaceBlocProgramPatients(List<PatientCase> officialCases) {
+    patients.removeWhere((p) => p.fromBlocProgram);
+    bool manualAlreadyExists(PatientCase incoming) => patients.any((existing) =>
+      existing.name.trim().toUpperCase() == incoming.name.trim().toUpperCase() &&
+      existing.blockAt.year == incoming.blockAt.year &&
+      existing.blockAt.month == incoming.blockAt.month &&
+      existing.blockAt.day == incoming.blockAt.day);
+    patients.addAll(officialCases.where((p) => !manualAlreadyExists(p)));
+    notifyListeners();
+  }
+
+  List<PatientCase> get programmed => patients.where((p) => p.isProgrammed).toList()
+    ..sort((a,b) => b.blockAt.compareTo(a.blockAt));
   List<PatientCase> get active => patients.where((p) => p.isActive).toList();
-  List<PatientCase> get theatre => active.where((p) => p.stage == CaseStage.preoperative || p.stage == CaseStage.inTheatre).toList()..sort((a,b) => a.blockAt.compareTo(b.blockAt));
+  List<PatientCase> get theatre {
+    final today = DateTime.now();
+    final earliest = DateTime(today.year, today.month, today.day);
+    return patients.where((p) =>
+      (p.isProgrammed && !p.blockAt.isBefore(earliest)) ||
+      (p.isActive && (p.stage == CaseStage.preoperative || p.stage == CaseStage.inTheatre))
+    ).toList()..sort((a,b) => a.blockAt.compareTo(b.blockAt));
+  }
   List<PatientCase> get toDischarge => active.where((p) => p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
   int get occupiedBoxes => active.where((p) => p.physicallyAdmitted && p.stage != CaseStage.inTheatre).length;
 
@@ -363,7 +378,7 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  String nextId() => 'LOCAL-${(patients.length + 1).toString().padLeft(3,'0')}';
+  String nextId() => 'LOCAL-${DateTime.now().microsecondsSinceEpoch}';
   void add(PatientCase patient) { patients.insert(0, patient); notifyListeners(); }
   void refresh() => notifyListeners();
   void updateDocument(PatientCase p, DocumentRequirement requirement, {bool? verified, bool? stamped, bool? notApplicable}) {
@@ -417,9 +432,9 @@ class AppStore extends ChangeNotifier {
     final requirement = ClinicalDocuments.admission[1];
     updateDocument(p, requirement, verified: !p.check('pli').verified);
   }
-  void startTheatre(PatientCase p) { p.stage = CaseStage.inTheatre; notifyListeners(); }
-  void finishTheatre(PatientCase p) { p.stage = CaseStage.postoperative; notifyListeners(); }
-  void markForDischarge(PatientCase p) { p.stage = CaseStage.dischargeReady; notifyListeners(); }
+  void startTheatre(PatientCase p) { if (p.stage != CaseStage.preoperative) return; p.stage = CaseStage.inTheatre; notifyListeners(); }
+  void finishTheatre(PatientCase p) { if (p.stage != CaseStage.inTheatre) return; p.stage = CaseStage.postoperative; notifyListeners(); }
+  void markForDischarge(PatientCase p) { if (p.stage != CaseStage.postoperative) return; p.stage = CaseStage.dischargeReady; notifyListeners(); }
   void confirmDischarge(PatientCase p, {required String prescription,required String report,required String operationReport}) {
     if (!p.allChecked(ClinicalDocuments.discharge)) return;
     p.dischargePrescription=prescription;p.dischargeReport=report;p.operationReport=operationReport;p.dischargeAt=DateTime.now();p.stage=CaseStage.discharged;notifyListeners();
@@ -448,6 +463,7 @@ class AppStore extends ChangeNotifier {
 
   void clearAuthenticatedProfile() {
     localProfiles.clear();
+    patients.clear(); // Retirer toute donnée patient de la session à la déconnexion.
     activeLocalProfileId = null;
     notifyListeners();
   }

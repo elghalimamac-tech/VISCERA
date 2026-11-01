@@ -112,7 +112,9 @@ Future<void> showClinicalObservationEditor(
                   icon: const Icon(Icons.event_outlined),
                   label: Text('Date : ${_obsDate(selected)}'),
                   onPressed: initial == null ? () async {
-                    final start = DateTime(p.admittedAt.year, p.admittedAt.month, p.admittedAt.day);
+                    final admission = p.admittedAt;
+                    if (admission == null) return;
+                    final start = DateTime(admission.year, admission.month, admission.day);
                     final today = DateTime.now();
                     final first = start.isAfter(today) ? today : start;
                     final picked = await showDatePicker(context: sheetContext,

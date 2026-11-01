@@ -1,22 +1,55 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../push_device_registration.dart';
 import '../models.dart';
+import '../bloc_patient_sync.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
+import 'scheduled_patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
-import 'bloc_program_section.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
   int selected=0;String query='';String filter='Tous';String unit='Tous';
+  Timer? _programTimer;
+  bool _syncInProgress = false;
+  String? _syncProblem;
+
+  @override void initState() {
+    super.initState();
+    unawaited(_refreshProgrammedPatients());
+    _programTimer = Timer.periodic(const Duration(minutes: 15),
+      (_) => unawaited(_refreshProgrammedPatients()));
+  }
+
+  @override void dispose() {
+    _programTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshProgrammedPatients() async {
+    if (_syncInProgress) return;
+    _syncInProgress = true;
+    try {
+      final officialPatients = await BlocPatientSync.fetch();
+      if (!mounted) return;
+      appStore.replaceBlocProgramPatients(officialPatients);
+      setState(() => _syncProblem = null);
+    } catch (_) {
+      if (mounted) setState(() =>
+        _syncProblem = 'Impossible de charger les programmes. Réessayez.');
+    } finally {
+      _syncInProgress = false;
+    }
+  }
   final GlobalKey<ScaffoldState> shellKey=GlobalKey<ScaffoldState>();
-  void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:p)));
+  void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>p.isProgrammed ? ScheduledPatientPage(patient:p) : PatientDetailPage(patient:p)));
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
@@ -127,7 +160,10 @@ class _MainShellState extends State<MainShell> {
       ]),
       if(urgent>0)...[SectionHeading('À prioriser'),VCard(color:VColors.orangeSoft,onTap:()=>setState(()=>selected=2),child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),Expanded(child:Text('$urgent patient(s) avec bloc immédiat à organiser',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.chevron_right_rounded)]))],
       if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties potentielles'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
-      SectionHeading('Dossiers en cours',trailing:TextButton(onPressed:()=>setState(()=>selected=1),child:const Text('Tout voir'))),...active.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      SectionHeading('Patients programmés',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Programmés';}),child:const Text('Tout voir'))),
+      ...appStore.programmed.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      if(appStore.programmed.isEmpty)const VCard(child:Text('Aucun patient programmé chargé.')),
+      SectionHeading('Dossiers en cours',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),...active.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(active.isEmpty)const VCard(child:Text('Aucun patient actif. Créez votre première admission.')),
 
     ]);
@@ -154,23 +190,29 @@ class _MainShellState extends State<MainShell> {
   Widget _patientList(){
     final results=appStore.patients.where((p){
       final matches='${p.name} ${p.motive} ${p.id} ${p.beforeUnit} ${p.afterUnit}'.toLowerCase().contains(query.toLowerCase());
-      return matches && (filter=='Tous'||(filter=='Actifs'&&p.isActive)||(filter=='Sortis'&&!p.isActive));
+      return matches && (filter=='Tous'||(filter=='Programmés'&&p.isProgrammed)||(filter=='Actifs'&&p.isActive)||(filter=='Sortis'&&p.stage==CaseStage.discharged));
     }).toList();
     return _scroll([_top('Dossiers et suivi individuel.','Patients'),const SizedBox(height:22),TextField(onChanged:(v)=>setState(()=>query=v),decoration:const InputDecoration(hintText:'Rechercher nom, motif, box...',prefixIcon:Icon(Icons.search_rounded),hintStyle:TextStyle(color:VColors.muted))),const SizedBox(height:14),
-      Wrap(spacing:8,children:['Tous','Actifs','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
-      SectionHeading('${results.length} dossier(s)'),...results.map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),if(results.isEmpty)const VCard(child:Text('Aucun patient trouvé.')),
+      Wrap(spacing:8,children:['Tous','Programmés','Actifs','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
+      Row(children:[Expanded(child:Text(_syncProblem ?? 'Programmes officiels synchronisés depuis Supabase',
+        style:const TextStyle(fontSize:11,color:VColors.muted))),
+        IconButton(tooltip:'Actualiser les programmes officiels',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
+      SectionHeading('${results.length} patient(s)'),...results.map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),if(results.isEmpty)const VCard(child:Text('Aucun patient trouvé.')),
     ]);
   }
 
   Widget _theatre(){
     final cases=appStore.theatre;
     return _scroll([_top('Interventions urgentes et programmées.','Programme du bloc'),const SizedBox(height:22),
-      const BlocProgramSection(),
+      Row(children:[Expanded(child:Text(_syncProblem ?? 'Patients du programme officiel · provenance Consultation',
+        style:const TextStyle(fontSize:12,color:VColors.muted))),
+        IconButton(tooltip:'Actualiser le programme du bloc',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
+      const SizedBox(height:10),
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
       SectionHeading('À opérer'),...cases.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Expanded(child:Text(p.name,style:Theme.of(context).textTheme.titleMedium)),VTag(p.blockTiming=='Immédiat'?'URGENT':'PROGRAMMÉ',warn:p.blockTiming=='Immédiat')]),
-        const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Médecin responsable : ${appStore.responsibleById(p.professorId)?.name??'Non attribué'}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
-        const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
+        const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Médecin responsable : ${p.isProgrammed ? p.programSurgeon : (appStore.responsibleById(p.professorId)?.name??'Non attribué')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
+        const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else if(p.stage==CaseStage.inTheatre)FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
       ]))),if(cases.isEmpty)const VCard(child:Text('Aucune intervention en attente.')),
       SectionHeading('Après bloc'),...appStore.active.where((p)=>p.isPostOp).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
     ]);
@@ -191,7 +233,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _startTheatre(PatientCase p) async { if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ? La localisation sera actualisée.',action:'Confirmer'))appStore.startTheatre(p); }
   Future<void> _finishTheatre(PatientCase p) async { final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);if(conflict!=null){_error('Le box ${p.afterBox} de ${p.afterUnit} est déjà attribué à ${conflict.name}.');return;}if(await showConfirmation(context,title:'Fin d’intervention',message:'Transférer ${p.name} vers ${p.afterUnit}, box ${p.afterBox} ?',action:'Valider'))appStore.finishTheatre(p);}
   void _error(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
-  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'Prototype 0.1',children:[const Text('Application de démonstration hors production : pas d’authentification, pas de base de données, pas de données réelles.')]);
+  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires importés automatiquement ; les dossiers cliniques saisis manuellement ne sont pas encore persistés sur le serveur.')]);
 }
 
 String _formatDate(DateTime date)=>'${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}  •  ${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
