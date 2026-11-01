@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/auth_gate.dart';
 import 'theme.dart';
+import 'branding.dart';
 import 'store.dart';
 
 /// Activer avec --dart-define=ENABLE_FIREBASE_PUSH=true UNIQUEMENT après flutterfire configure.
@@ -37,7 +38,9 @@ class VisceraApp extends StatelessWidget {
     title:'VISCERA — Chirurgie',debugShowCheckedModeBanner:false,theme:visceraTheme(),
     home: supabaseUrl.isEmpty || supabasePublishableKey.isEmpty
       ? const Scaffold(body:Center(child:Padding(padding:EdgeInsets.all(24),
-          child:Text('Configuration VISCERA requise.\n\nAjoutez SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY lors du lancement Flutter.\n\nVoir docs/AUTH_CONFIGURATION.md.',textAlign:TextAlign.center))))
+          child:Column(mainAxisSize:MainAxisSize.min,children:[
+            VisceraBrandLockup(markSize:56),SizedBox(height:24),
+            Text('Configuration VISCERA requise.\n\nAjoutez SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY lors du lancement Flutter.\n\nVoir docs/AUTH_CONFIGURATION.md.',textAlign:TextAlign.center)]))))
       : const AuthGate(),
   );
 }
