@@ -317,13 +317,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Widget _theatre(){
     final cases=appStore.theatre;
+    final review=cases.where((p)=>p.isPostopReviewDay(DateTime.now())).toList();
+    final upcoming=cases.where((p)=>!p.isPostopReviewDay(DateTime.now())).toList();
     return _scroll([_top('Interventions urgentes et programmées.','Programme du bloc'),const SizedBox(height:22),
       Row(children:[Expanded(child:Text(_syncProblem ?? 'Admissions manuelles et programmes officiels',
         style:const TextStyle(fontSize:12,color:VColors.muted))),
         IconButton(tooltip:'Actualiser les admissions et programmes',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
       const SizedBox(height:10),
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
-      SectionHeading('À opérer'),...cases.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      if(review.isNotEmpty)...[
+        SectionHeading('Postopératoire du jour — vérification requise'),
+        const VCard(color:VColors.orangeSoft,
+          child:Text('Programme du jour : confirmer individuellement le retour postopératoire avant de valider le séjour.')),
+        ...review.map((p)=>VCard(
+          margin:const EdgeInsets.only(bottom:10),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(p.name,style:Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height:5),Text(p.procedure),
+            const SizedBox(height:8),
+            const Text('Postopératoire à confirmer'),
+            OutlinedButton(onPressed:()=>openCase(p),
+              child:const Text('Vérifier le dossier')),
+          ]),
+        )),
+      ],
+      SectionHeading('À opérer'),...upcoming.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Expanded(child:Text(p.name,style:Theme.of(context).textTheme.titleMedium)),VTag(p.blockTiming=='Immédiat'?'URGENT':'PROGRAMMÉ',warn:p.blockTiming=='Immédiat')]),
         const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Médecin responsable : ${p.isProgrammed ? p.programSurgeon : (appStore.responsibleById(p.professorId)?.name??'Non attribué')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
         const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else if(p.stage==CaseStage.inTheatre)FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
