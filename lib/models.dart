@@ -146,6 +146,10 @@ class PatientCase {
     this.operationReport = '',
     this.dischargeMedicalValidated = false,
     this.dischargeFarValidated = false,
+    this.cpaStatus = 'a_verifier',
+    this.preopLabStatus = 'a_verifier',
+    this.admissionPrescriptionStatus = 'a_verifier',
+    this.admissionPrescriptionDetails = '',
   });
 
   final String id, name, origin;
@@ -183,10 +187,18 @@ class PatientCase {
   DateTime? dischargeAt;
   String dischargePrescription, dischargeReport, operationReport;
   bool dischargeMedicalValidated, dischargeFarValidated;
+  /// États de préparation préopératoire : jamais validés automatiquement.
+  String cpaStatus, preopLabStatus, admissionPrescriptionStatus;
+  /// Ordonnance à l'admission : contenu facultatif, librement renseigné.
+  String admissionPrescriptionDetails;
 
   bool get isFar => insurance == 'FAR';
   bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled;
   bool get isProgrammed => stage == CaseStage.scheduled;
+  /// Projection de travail sur la journée du bloc (n'atteste pas la réalisation).
+  bool isPostopReviewDay(DateTime now) => isProgrammed &&
+      blockAt.year == now.year && blockAt.month == now.month &&
+      blockAt.day == now.day && dischargeAt == null;
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
   /// Autorisation documentaire et clinique nécessaire avant la sortie.
   bool get canDeclareDischarge =>
