@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:postgrest/postgrest.dart';
 import '../models.dart';
+import '../surgery_classification.dart';
 import '../document_checklist.dart';
 import '../planning_models.dart';
 import 'planning.dart';
@@ -36,6 +37,17 @@ class _IntakePageState extends State<IntakePage> {
   bool get manualOverride => professorOverrideId!=null && match.professorId!=null && professorOverrideId!=match.professorId;
   String origin='Urgences',insurance='À préciser',procedure=procedures.first,blockTiming='Différé',admissionTiming='Le jour du bloc',preUnit='TC1',postUnit='TC1';
   DateTime blockAt=DateTime.now().add(const Duration(days:1));
+  @override void initState() {
+    super.initState();
+    _applyRecommendedType(procedure);
+  }
+
+  void _applyRecommendedType(String title) {
+    final classified = classifySurgery(title);
+    surgeryType.text = classified.recognized ? classified.label : '';
+    length.text = classified.standardReviewDays.toString();
+  }
+
   @override void dispose(){for(final c in [name,age,surgeryType,motive,history,exam,investigations,labs,plan,preBox,postBox,length,assignmentReason]){c.dispose();}super.dispose();}
 
   void alert(String message)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
@@ -195,9 +207,9 @@ class _IntakePageState extends State<IntakePage> {
     _field('Conduite à tenir immédiate',plan,maxLines:3),
   ];
   List<Widget> _organization()=>[
-    _field('Type de chirurgie *',surgeryType,hint:'Ex. laparoscopie, chirurgie ouverte'),
+    _field('Type de chirurgie harmonisé *',surgeryType,hint:'Déduit automatiquement ou à préciser'),
     const SizedBox(height:14),
-    _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;if(v==procedures[0]||v==procedures[1]){length.text='1';admissionTiming='Le jour du bloc';}})),const SizedBox(height:16),
+    _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;_applyRecommendedType(v);}))),const SizedBox(height:16),
     const Overline('BLOC OPÉRATOIRE'),const SizedBox(height:9),_chips(['Immédiat','Différé'],blockTiming,(v)=>setState(()=>blockTiming=v)),
     if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date prévue du bloc : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
     const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),
@@ -212,7 +224,11 @@ class _IntakePageState extends State<IntakePage> {
     _picker('Unité avant bloc',preUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>preUnit=v)),const SizedBox(height:12),_field('Numéro de box avant bloc',preBox,hint:'Ex. 03'),const SizedBox(height:20),
     _picker('Unité après bloc',postUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>postUnit=v)),const SizedBox(height:12),_field('Numéro de box après bloc',postBox,hint:'Ex. 08'),const SizedBox(height:20),
     _field('Durée prévisionnelle du séjour (jours)',length,number:true),const SizedBox(height:12),
-    if(procedure==procedures[0]||procedure==procedures[1])const VCard(color:VColors.softMint,child:Text('Parcours standard proposé : hospitalisation le jour du bloc, J0–J1. À adapter selon l’état clinique, le protocole local et la décision du chirurgien.',style:TextStyle(fontSize:12.5))),
+    VCard(color:VColors.softMint,child:Text(
+      'Première révision de sortie proposée à J${classifySurgery(procedure).standardReviewDays} '
+      'après l’admission effective, uniquement si l’intervention est terminée. '
+      'Durée indicative, décision médicale indispensable.',
+      style:const TextStyle(fontSize:12.5))),
   ];
   List<Widget> _review()=>[
     _reviewBlock('PATIENT',['${name.text}  •  ${age.text.isEmpty?'Âge non renseigné':'${age.text} ans'}',
