@@ -29,7 +29,7 @@ def nested_symbol(source, x, y, width, height, monochrome=False):
     inner = source.split(">", 1)[1].rsplit("</svg>", 1)[0]
     if monochrome:
         # Icônes monochromes Android : uniquement des silhouettes blanches.
-        inner = re.sub(r'fill="url\\(#[^"]+\\)"', 'fill="#FFFFFF"', inner)
+        inner = re.sub(r'fill="url\([^)]+\)"', 'fill="#FFFFFF"', inner)
     return ('<svg x="' + str(x) + '" y="' + str(y) + '" width="' +
             str(width) + '" height="' + str(height) +
             '" viewBox="' + SYMBOL_VIEWBOX + '">' + inner + '</svg>')
