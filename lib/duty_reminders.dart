@@ -120,13 +120,6 @@ Future<String> scheduleDutyReminders(DateTime month, List<DateTime> dates, {
   } catch (_) {
     exact = false;
   }
-  final mode = exact ? AndroidScheduleMode.exactAllowWhileIdle
-      : AndroidScheduleMode.inexactAllowWhileIdle;
-  const details = NotificationDetails(android: AndroidNotificationDetails(
-    'viscera_service_duty_v2', 'Alarmes de garde',
-    channelDescription: 'Gardes de service personnelles, sans données patient',
-    importance: Importance.high, priority: Priority.high,
-  ));
   final now=tz.TZDateTime.now(tz.local);
   final nativeRows=<Map<String,dynamic>>[];
   var count=0;
