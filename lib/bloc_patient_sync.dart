@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
+import 'surgery_classification.dart';
 import 'bloc_clinical_record.dart';
 import 'store.dart';
 
@@ -88,6 +89,7 @@ class BlocPatientSync {
           labs: '',
           immediatePlan: '',
           procedure: procedure,
+          surgeryType: classifySurgery(procedure).label,
           blockTiming: 'Différé',
           admissionTiming: 'À confirmer',
           beforeUnit: '',
