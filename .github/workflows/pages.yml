@@ -31,7 +31,7 @@ jobs:
           channel: stable
       - run: flutter create --platforms=web --project-name viscera --org com.viscera .
       - run: flutter pub get
-      - run: flutter build web --release --base-href /VISCERA/ --dart-define=SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
+      - run: flutter build web --release --base-href /VISCERA/ --dart-define=SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8 --dart-define=ENABLE_FIREBASE_PUSH=true
       - name: Contrôler les scripts et le chemin du site
         run: python3 tool/check_web_build.py
       - run: touch build/web/.nojekyll
