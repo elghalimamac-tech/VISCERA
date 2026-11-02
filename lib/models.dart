@@ -27,7 +27,7 @@ const healthInsurances = <String>[
   'FAR', 'CNOPS', 'CNSS', 'Assurance privée', 'AMO / autre', 'Sans mutuelle', 'À préciser',
 ];
 
-enum CaseStage { scheduled, preoperative, inTheatre, postoperative, dischargeReady, discharged }
+enum CaseStage { scheduled, preoperative, inTheatre, postoperative, dischargeReady, discharged, notAdmitted }
 
 extension CaseStageLabel on CaseStage {
   String get label => switch (this) {
@@ -37,6 +37,7 @@ extension CaseStageLabel on CaseStage {
     CaseStage.postoperative => 'Postopératoire',
     CaseStage.dischargeReady => 'Sortie à valider',
     CaseStage.discharged => 'Sorti',
+    CaseStage.notAdmitted => 'Non admis',
   };
 }
 
@@ -168,7 +169,7 @@ class PatientCase {
   DateTime? admittedAt;
   DateTime? consultationAt;
   int clinicalVersion = 0;
-  /// Programme officiel uniquement, sans admission ni dossier clinique inventé.
+  /// Programme officiel source ; l'admission de suivi peut être déduite automatiquement.
   final bool fromBlocProgram;
   final bool fromManualAdmission;
   String programRoom, programSurgeon, programSourceService, programScheduledTime;
@@ -196,7 +197,11 @@ class PatientCase {
   String admissionPrescriptionDetails;
 
   bool get isFar => insurance == 'FAR';
-  bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled;
+  bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled &&
+      stage != CaseStage.notAdmitted;
+  bool get isOmitted => stage == CaseStage.notAdmitted;
+  bool get isAutoAdmitted => fromBlocProgram && isActive &&
+      admissionTiming.startsWith('Admission automatique');
   bool get isProgrammed => stage == CaseStage.scheduled;
   /// Projection de travail sur la journée du bloc (n'atteste pas la réalisation).
   bool isPostopReviewDay(DateTime now) => isProgrammed &&
