@@ -15,6 +15,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   DutyAlarmPreferences preferences = const DutyAlarmPreferences();
   bool busy = true;
   String? status;
+  Map<String,dynamic> deviceStatus = {};
+  bool checkingDevice = false;
   Map<String,bool> pushTypes = {'program_updates':true,'urgent_admissions':true,'access_updates':true,'discharge_review':true};
   bool pushBusy = false;
   String? get userId => appStore.activeLocalProfile?.id;
@@ -23,6 +25,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     super.initState();
     _load();
     _loadPush();
+    _checkDevice();
   }
 
   Future<void> _load() async {
@@ -32,6 +35,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     if (mounted) setState(() { preferences = value; busy = false; });
   }
 
+
+  Future<void> _checkDevice() async {
+    if(!dutyAlarmSupported)return;
+    setState(()=>checkingDevice=true);
+    try {
+      final value=await dutyAlarmDeviceStatus();
+      if(mounted)setState(()=>deviceStatus=value);
+    } catch (_) {
+      if(mounted)setState(()=>status='Impossible de lire les autorisations Android.');
+    } finally {
+      if(mounted)setState(()=>checkingDevice=false);
+    }
+  }
 
   Future<void> _loadPush() async {
     final id = Supabase.instance.client.auth.currentUser?.id;
@@ -150,6 +166,65 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           _timeOption('Heure du jour J', preferences.sameDayHour,
             busy ? (_) {} : (v) => setState(() =>
               preferences = preferences.copyWith(sameDayHour: v))),
+        SwitchListTile(
+          secondary: const Icon(Icons.alarm_rounded),
+          title: const Text('Alarme forte plein écran'),
+          subtitle: const Text('Sonnerie répétée jusqu’à 3 minutes, '
+            'écran dédié et boutons Arrêter / Reporter 10 min. '
+            'Fonction disponible sur Android uniquement.'),
+          value: preferences.loudFullScreen,
+          onChanged: busy || !preferences.enabled || !dutyAlarmSupported
+              ? null : (v) => setState(() =>
+                  preferences = preferences.copyWith(loudFullScreen:v)),
+        ),
+        if(dutyAlarmSupported) ...[
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.volume_up_rounded),
+            title: const Text('Volume des alarmes Android'),
+            subtitle: Text(deviceStatus['maxVolume'] is num &&
+                    (deviceStatus['maxVolume'] as num)>0
+                ? 'Niveau actuel : '+(((deviceStatus['volume'] as num? ?? 0) /
+                  (deviceStatus['maxVolume'] as num))*100).round().toString()+' %'
+                : 'Consultez le volume Alarme du téléphone.'),
+            trailing: TextButton(
+              onPressed: () async {
+                await openDutyAlarmVolumeSettings();
+                if(mounted) _checkDevice();
+              },
+              child: const Text('Régler'),
+            ),
+          ),
+          ListTile(
+            leading: Icon(deviceStatus['fullScreen']==true
+              ? Icons.check_circle_outline : Icons.phonelink_ring_outlined),
+            title: const Text('Affichage sur écran verrouillé'),
+            subtitle: Text(deviceStatus['fullScreen']==true
+                ? 'Accès plein écran autorisé sur cet appareil'
+                : 'Autorisation spéciale Android nécessaire'),
+            trailing: TextButton(
+              onPressed: () async {
+                await openDutyFullScreenSettings();
+                if(mounted) _checkDevice();
+              },
+              child: const Text('Autoriser'),
+            ),
+          ),
+          ListTile(
+            leading: Icon(deviceStatus['exact']==true
+                ? Icons.check_circle_outline : Icons.schedule),
+            title: const Text('Horaires des alarmes'),
+            subtitle: Text(deviceStatus['exact']==true
+              ? 'Alarmes exactes autorisées'
+              : 'Précision limitée : Android peut retarder une alarme. '
+                'Enregistrez les rappels pour demander l’autorisation.'),
+          ),
+          OutlinedButton.icon(
+            onPressed: checkingDevice ? null : _checkDevice,
+            icon: const Icon(Icons.rule_rounded),
+            label: const Text('Vérifier les autorisations de mon téléphone'),
+          ),
+        ],
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: busy ? null : _save,
@@ -167,7 +242,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             }
           },
           icon: const Icon(Icons.notification_add_outlined),
-          label: const Text('Tester une alarme sur ce téléphone'),
+          label: const Text('Tester la sonnerie forte et le plein écran'),
         ),
         if (status != null) Padding(
           padding: const EdgeInsets.only(top: 12),
