@@ -11,7 +11,7 @@ on:
       - "tool/**"
       - ".github/workflows/android-apk.yml"
   pull_request:
-    branches: [main]
+    branches: [main, feature/viscera-branding-app-web-20261101]
     paths:
       - "assets/**"
       - "lib/**"
