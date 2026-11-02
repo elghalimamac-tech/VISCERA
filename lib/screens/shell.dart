@@ -274,9 +274,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       ]),
       if(urgent>0)...[SectionHeading('À prioriser'),VCard(color:VColors.orangeSoft,onTap:()=>setState(()=>selected=2),child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),Expanded(child:Text('$urgent patient(s) avec bloc immédiat à organiser',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.chevron_right_rounded)]))],
       if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties à réévaluer'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
-      SectionHeading('Patients programmés',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Programmés';}),child:const Text('Tout voir'))),
-      ...appStore.programmed.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
-      if(appStore.programmed.isEmpty)const VCard(child:Text('Aucun patient programmé chargé.')),
+      SectionHeading('Admissions automatiques du programme',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),
+      ...appStore.active.where((p)=>p.fromBlocProgram).take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      if(appStore.active.where((p)=>p.fromBlocProgram).isEmpty)const VCard(child:Text('Aucun programme opératoire actif chargé.')),
       SectionHeading('Dossiers en cours',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),...active.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(active.isEmpty)const VCard(child:Text('Aucun patient actif. Créez votre première admission.')),
 
@@ -304,10 +304,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Widget _patientList(){
     final results=appStore.patients.where((p){
       final matches='${p.name} ${p.motive} ${p.id} ${p.beforeUnit} ${p.afterUnit}'.toLowerCase().contains(query.toLowerCase());
-      return matches && (filter=='Tous'||(filter=='Programmés'&&p.isProgrammed)||(filter=='Actifs'&&p.isActive)||(filter=='Sortis'&&p.stage==CaseStage.discharged));
+      return matches && (filter=='Tous'||(filter=='Programmés'&&p.isProgrammed)||(filter=='Actifs'&&p.isActive)||(filter=='Sortis'&&p.stage==CaseStage.discharged)||(filter=='Non admis'&&p.isOmitted));
     }).toList();
     return _scroll([_top('Dossiers et suivi individuel.','Patients'),const SizedBox(height:22),TextField(onChanged:(v)=>setState(()=>query=v),decoration:const InputDecoration(hintText:'Rechercher nom, motif, box...',prefixIcon:Icon(Icons.search_rounded),hintStyle:TextStyle(color:VColors.muted))),const SizedBox(height:14),
-      Wrap(spacing:8,children:['Tous','Programmés','Actifs','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
+      Wrap(spacing:8,children:['Tous','Programmés','Actifs','Non admis','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
       Row(children:[Expanded(child:Text(_syncProblem ?? 'Dossiers partagés synchronisés depuis Supabase',
         style:const TextStyle(fontSize:11,color:VColors.muted))),
         IconButton(tooltip:'Actualiser les dossiers partagés',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
@@ -326,7 +326,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       const SizedBox(height:10),
       VCard(color:VColors.softMint,child:Row(children:[const Icon(Icons.calendar_month_outlined,color:VColors.ink),const SizedBox(width:12),Expanded(child:Text('${cases.length} intervention(s) à organiser',style:const TextStyle(fontWeight:FontWeight.w800)))])),
       if(review.isNotEmpty)...[
-        SectionHeading('Postopératoire du jour — vérification requise'),
+        SectionHeading('Admission postopératoire à confirmer'),
         const VCard(color:VColors.orangeSoft,
           child:Text('Programme du jour : confirmer individuellement le retour postopératoire avant de valider le séjour.')),
         ...review.map((p)=>VCard(
@@ -346,13 +346,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:6),Text('Responsable admission : ${appStore.responsibleById(p.professorId)?.name??'À attribuer'} · Responsable bloc : ${appStore.responsibleById(p.blockResponsibleId)?.name??(p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
         const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else if(p.stage==CaseStage.inTheatre)FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
       ]))),if(cases.isEmpty)const VCard(child:Text('Aucune intervention en attente.')),
-      SectionHeading('Après bloc'),...appStore.active.where((p)=>p.isPostOp).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      SectionHeading('Postopératoire du jour / après bloc'),
+       ...appStore.active.where((p)=>p.isPostOp).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
     ]);
   }
 
   Widget _beds(){
-    final patients=appStore.active.where((p)=>p.physicallyAdmitted && p.stage!=CaseStage.inTheatre && (unit=='Tous'||p.currentUnit==unit)).toList();
-    final occupied=appStore.active.where((p)=>p.physicallyAdmitted && p.stage!=CaseStage.inTheatre).toList();
+    final patients=appStore.active.where((p)=>p.physicallyAdmitted && p.currentUnit.trim().isNotEmpty &&
+      p.currentBox.trim().isNotEmpty && p.stage!=CaseStage.inTheatre && (unit=='Tous'||p.currentUnit==unit)).toList();
+    final occupied=appStore.active.where((p)=>p.physicallyAdmitted && p.currentUnit.trim().isNotEmpty &&
+      p.currentBox.trim().isNotEmpty && p.stage!=CaseStage.inTheatre).toList();
     return _scroll([_top('Localisation pré- et postopératoire.','Gestion des lits'),const SizedBox(height:22),
       VCard(color:VColors.softMint,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[const Icon(Icons.bed_outlined),const SizedBox(width:9),Text('${occupied.length} box attribué(s)',style:const TextStyle(fontWeight:FontWeight.w800))]),const SizedBox(height:8),const Text('Les capacités et boxes disponibles seront configurés par le service. Aucun taux d’occupation fictif.',style:TextStyle(fontSize:12,color:VColors.muted))])),
       const SizedBox(height:13),SizedBox(height:44,child:ListView(scrollDirection:Axis.horizontal,children:['Tous',...hospitalUnits.map((e)=>e.code)].map((v)=>Padding(padding:const EdgeInsets.only(right:7),child:ChoiceChip(label:Text(v),selected:unit==v,onSelected:(_)=>setState(()=>unit=v),selectedColor:VColors.softMint,showCheckmark:false))).toList())),

@@ -1,6 +1,7 @@
 import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
+import '../program_admission.dart';
 import '../document_checklist.dart';
 import '../preoperative_readiness.dart';
 import '../store.dart';
@@ -165,22 +166,34 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 },
                 icon:const Icon(Icons.save_outlined)),
             ])),
-            if(p.isProgrammed)...[
+            if(p.fromBlocProgram)...[
+              const SizedBox(height:10),
+              VCard(color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
+                child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(p.isOmitted
+                    ? 'Patient non admis · retiré du suivi'
+                    : 'Admission automatique · programme opératoire',
+                    style:const TextStyle(fontWeight:FontWeight.w800)),
+                  const SizedBox(height:7),
+                  Text(p.isOmitted
+                    ? 'L’admission est omise ; la ligne officielle du programme est conservée.'
+                    : 'Dossier intégré automatiquement au suivi VISCERA. '
+                      'La présence physique et la fin de l’intervention ne sont pas '
+                      'attestées par le seul programme.',
+                    style:const TextStyle(fontSize:12)),
+                ])),
+            ],
+            if(p.isProgrammed && !p.fromBlocProgram)...[
               const SizedBox(height:10),
               VCard(color:VColors.orangeSoft,child:Column(
                 crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text('Patient programmé · Provenance ${p.origin}',
-                  style:TextStyle(fontWeight:FontWeight.w800)),
-                const SizedBox(height:7),
-                Text(p.blockAt.isBefore(DateTime(DateTime.now().year,DateTime.now().month,DateTime.now().day))
-                  ? 'Programmation antérieure : le devenir clinique doit être vérifié. Aucune admission n’est présumée.'
-                  : 'Le programme opératoire ne confirme pas une admission hospitalière. Le dossier est modifiable avant admission ; aucun lit ou séjour n’est supposé.',
-                  style:TextStyle(fontSize:12)),
-                const SizedBox(height:12),
-                FilledButton.icon(onPressed:_confirmAdmission,
-                  icon:const Icon(Icons.how_to_reg_outlined),
-                  label:const Text('Confirmer l’admission réelle')),
-              ])),
+                  const Text('Admission manuelle programmée',
+                    style:TextStyle(fontWeight:FontWeight.w800)),
+                  const SizedBox(height:9),
+                  FilledButton.icon(onPressed:_confirmAdmission,
+                    icon:const Icon(Icons.how_to_reg_outlined),
+                    label:const Text('Confirmer l’admission réelle')),
+                ])),
             ],
           ],
           if(p.fromManualAdmission && p.origin=='Consultation')...[
@@ -331,6 +344,22 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             VCard(color:VColors.softMint,child:Text(
               'Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.')),
           ],
+          if(p.fromBlocProgram && p.stage!=CaseStage.discharged)...[
+            const SizedBox(height:18),
+            const Divider(),
+            OutlinedButton.icon(
+              key:Key(p.isOmitted?'restore-program-admission':'omit-program-admission'),
+              onPressed:()=>_setProgramOmitted(!p.isOmitted),
+              icon:Icon(p.isOmitted?Icons.undo_rounded:Icons.person_off_outlined),
+              label:Text(p.isOmitted
+                ? 'Rétablir l’admission automatique'
+                : 'Le patient n’a pas été réellement admis'),
+              style:OutlinedButton.styleFrom(
+                foregroundColor:p.isOmitted?VColors.ink:const Color(0xFFB4232F),
+                minimumSize:const Size(double.infinity,48)),
+            ),
+            const SizedBox(height:12),
+          ],
         ],
       ),
     ),
@@ -352,11 +381,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
   Widget _envelope()=>VCard(color:p.confidentialEnvelopeDone?VColors.softMint:VColors.orangeSoft,child:Row(children:[Icon(p.confidentialEnvelopeDone?Icons.check_circle_outline_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.isFar?'Pli confidentiel — FAR':'Pli confidentiel',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text(p.confidentialEnvelopeDone?'Marqué comme effectué':'À créer / à demander',style:const TextStyle(fontSize:12,color:VColors.muted))])),Switch(value:p.confidentialEnvelopeDone,onChanged:(_)=>appStore.toggleEnvelope(p))]));
   Widget _actions()=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-    if(p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
+    if(!p.fromBlocProgram && p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
       onPressed:_confirmPostopDay,
       icon:const Icon(Icons.how_to_reg_outlined),
       label:const Text('Confirmer admission postopératoire réelle')),
-    if(p.stage==CaseStage.scheduled)ElevatedButton.icon(onPressed:_confirmAdmission,icon:const Icon(Icons.how_to_reg_outlined),label:const Text('Confirmer l’admission avant le bloc')),
+    if(!p.fromBlocProgram && p.stage==CaseStage.scheduled)ElevatedButton.icon(onPressed:_confirmAdmission,icon:const Icon(Icons.how_to_reg_outlined),label:const Text('Confirmer l’admission avant le bloc')),
     if(p.stage==CaseStage.preoperative)ElevatedButton.icon(onPressed:_startTheatre,icon:const Icon(Icons.medical_services_outlined),label:const Text('Confirmer l’entrée au bloc')),
     if(p.stage==CaseStage.inTheatre)ElevatedButton.icon(onPressed:_finishTheatre,icon:const Icon(Icons.check_rounded),label:const Text('Fin du bloc → postopératoire')),
     if(p.stage==CaseStage.postoperative)ElevatedButton.icon(onPressed:()=>appStore.markForDischarge(p),icon:const Icon(Icons.assignment_turned_in_outlined),label:const Text('Préparer la sortie')),
@@ -587,6 +616,39 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       _notice('Programme associé. Le dossier original de consultation est conservé.');
     }catch(_){
       if(mounted)_notice('Rapprochement impossible. Vérifiez les données et les observations du programme.');
+    }
+  }
+
+  Future<void> _setProgramOmitted(bool omit) async {
+    if(!p.fromBlocProgram || p.stage==CaseStage.discharged ||
+       p.isOmitted==omit)return;
+    final confirmed=await showConfirmation(context,
+      title:omit?'Patient non réellement admis':'Rétablir l’admission',
+      message:omit
+        ? 'Omettre ce patient des admissions actives ? Son programme opératoire '
+          'et les informations déjà saisies sont conservés. '
+          'Cette opération peut être annulée depuis le dossier.'
+        : 'Réintégrer ce patient au suivi automatique du programme opératoire ?',
+      action:omit?'Omettre cette admission':'Rétablir');
+    if(!confirmed || !mounted)return;
+    final stage=p.stage, date=p.admittedAt, timing=p.admissionTiming;
+    if(omit) { ProgramAdmission.omit(p); }
+    else { ProgramAdmission.restore(p,DateTime.now()); }
+    try {
+      await appStore.saveClinical(p);
+      if(!mounted)return;
+      appStore.refresh();
+      setState((){});
+      _notice(omit?'Admission omise. Programme conservé.':'Admission rétablie.');
+    } catch(_) {
+      p.stage=stage;
+      p.admittedAt=date;
+      p.admissionTiming=timing;
+      if(mounted){
+        appStore.refresh();
+        setState((){});
+        _notice('Sauvegarde impossible : la modification n’a pas été appliquée.');
+      }
     }
   }
 

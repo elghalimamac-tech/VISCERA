@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'surgery_classification.dart';
 import 'bloc_clinical_record.dart';
+import 'program_admission.dart';
 import 'store.dart';
 
 /// Projections des patients issus des programmes officiels du bloc.
@@ -66,12 +67,13 @@ class BlocPatientSync {
         final procedure = _str(row['procedure_name']);
         final surgeon = _str(row['surgeon']);
         final rowId = row['id'];
-        if (name.isEmpty || procedure.isEmpty || surgeon.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
+        if (name.isEmpty || procedure.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
         final scheduledAt = _scheduledAt(date, _str(row['scheduled_time']));
         if (scheduledAt == null) continue;
         // Le chirurgien du programme est proposé pour le bloc, même s'il
         // n'est pas professeur. Il ne détermine PAS le responsable admission.
-        final blockResponsibleId = appStore.responsibleIdForName(surgeon);
+        final blockResponsibleId = surgeon.isEmpty
+          ? null : appStore.responsibleIdForName(surgeon);
         final patient = PatientCase(
           id: 'BLOC-$rowId',
           name: name,
@@ -87,7 +89,7 @@ class BlocPatientSync {
           procedure: procedure,
           surgeryType: classifySurgery(procedure).label,
           blockTiming: 'Différé',
-          admissionTiming: 'À confirmer',
+          admissionTiming: ProgramAdmission.source,
           beforeUnit: '',
           beforeBox: '',
           afterUnit: '',
@@ -106,6 +108,7 @@ class BlocPatientSync {
           programSourceService: _str(row['source_service']),
           programScheduledTime: _str(row['scheduled_time']),
         );
+        ProgramAdmission.apply(patient, DateTime.now());
         final saved = clinical[rowId];
         if (saved != null && saved['clinical_data'] is Map) {
           BlocClinicalRecordService.apply(
@@ -114,6 +117,7 @@ class BlocPatientSync {
             saved['version'] is int ? saved['version'] as int : 0,
           );
         }
+        ProgramAdmission.apply(patient, DateTime.now());
         result.add(patient);
       }
       if (response.length < pageSize) break;

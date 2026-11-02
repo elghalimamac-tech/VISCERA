@@ -85,16 +85,38 @@ class BlocClinicalRecordService {
     patient.admissionPrescriptionStatus = _text(data['admissionPrescriptionStatus']).isEmpty ? 'a_verifier' : _text(data['admissionPrescriptionStatus']);
     patient.admissionPrescriptionDetails = _text(data['admissionPrescriptionDetails']);
     final admitted = _date(data['admittedAt']);
-    patient.admittedAt = admitted;
     patient.consultationAt = _date(data['consultationAt']);
-    // Un dossier programmé n'acquiert pas le statut hospitalisé par la date du bloc.
     final requestedStage = _text(data['stage']);
-    patient.stage = admitted == null ? CaseStage.scheduled :
-      CaseStage.values.firstWhere(
-        (value) => value.name == requestedStage,
-        orElse: () => CaseStage.preoperative);
-    patient.admissionTiming = admitted == null
-      ? 'À confirmer' : _text(data['admissionTiming']);
+    if(patient.fromBlocProgram) {
+      // L'exclusion est explicite et prévaut toujours sur le programme.
+      // Les anciennes sauvegardes "scheduled" ne désactivent plus
+      // l'admission de suivi automatique.
+      if(requestedStage == CaseStage.notAdmitted.name) {
+        patient.stage = CaseStage.notAdmitted;
+        patient.admittedAt = null;
+        patient.admissionTiming = 'Non admis · exclusion confirmée';
+      } else {
+        if(admitted != null) patient.admittedAt = admitted;
+        if(requestedStage.isNotEmpty &&
+           requestedStage != CaseStage.scheduled.name) {
+          patient.stage = CaseStage.values.firstWhere(
+            (stage)=>stage.name == requestedStage,
+            orElse:()=>patient.stage);
+        }
+        final timing = _text(data['admissionTiming']);
+        if(timing.isNotEmpty && timing != 'À confirmer') {
+          patient.admissionTiming = timing;
+        }
+      }
+    } else {
+      patient.admittedAt = admitted;
+      patient.stage = admitted == null ? CaseStage.scheduled :
+        CaseStage.values.firstWhere(
+          (stage)=>stage.name == requestedStage,
+          orElse:()=>CaseStage.preoperative);
+      patient.admissionTiming = admitted == null
+        ? 'À confirmer' : _text(data['admissionTiming']);
+    }
     patient.professorId = data['professorId'] is String
       ? data['professorId'] as String : patient.professorId;
     patient.blockResponsibleId = data['blockResponsibleId'] is String

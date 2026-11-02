@@ -571,7 +571,9 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
     _saveIfImported(manual);
   }
-  int get occupiedBoxes => active.where((p) => p.physicallyAdmitted && p.stage != CaseStage.inTheatre).length;
+  int get occupiedBoxes => active.where((p) =>
+    p.physicallyAdmitted && p.stage != CaseStage.inTheatre &&
+    p.currentUnit.trim().isNotEmpty && p.currentBox.trim().isNotEmpty).length;
 
   // Détecte un box déjà occupé; l'inventaire réel des boxes devra être importé par l'administrateur.
   PatientCase? conflictingBox(String unit, String box, {String? exceptPatientId}) {
