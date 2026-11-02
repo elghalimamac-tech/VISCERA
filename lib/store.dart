@@ -323,14 +323,14 @@ class AppStore extends ChangeNotifier {
     if(professor != null) return professor;
     final junior=juniorById(id);
     if(junior != null) return junior;
+    for(final person in responsibleOptions(forEmergencies:false)) {
+      if(person.id == id) return person;
+    }
     if(id.startsWith('SENIOR-')) {
       final senior=id.substring('SENIOR-'.length);
       if(seniorNames.contains(senior)) {
         return TeamMember(id:id,name:senior);
       }
-    }
-    for(final person in responsibleOptions(forEmergencies:false)) {
-      if(person.id == id) return person;
     }
     return null;
   }
