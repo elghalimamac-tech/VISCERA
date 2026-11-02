@@ -15,6 +15,7 @@ import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
 import 'notification_settings.dart';
+import 'notification_inbox.dart';
 import '../duty_reminders.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
@@ -60,6 +61,7 @@ class _MainShellState extends State<MainShell> {
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
+  void openInbox()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationInboxPage()));
   void openNotificationSettings()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationSettingsPage()));
   void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
@@ -116,6 +118,7 @@ class _MainShellState extends State<MainShell> {
     const SizedBox(height:24),const Overline('ÉQUIPE & PLANIFICATION'),const SizedBox(height:10),
     _drawerItem(Icons.schedule_rounded,'Planning · gardes et congés',(){Navigator.pop(context);openPlanning();}),
     _drawerItem(Icons.notifications_active_outlined,'Alarmes et notifications',(){Navigator.pop(context);openNotificationSettings();}),
+    _drawerItem(Icons.notifications_none_rounded,'Centre de notifications',(){Navigator.pop(context);openInbox();}),
     _drawerItem(Icons.event_note_outlined,'Consultations',(){Navigator.pop(context);openReferencePlanning();}),
     _drawerItem(Icons.groups_outlined,'Professeurs et médecins',(){Navigator.pop(context);openReferencePlanning();}),
     if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
