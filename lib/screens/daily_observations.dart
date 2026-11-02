@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../store.dart';
@@ -17,7 +18,7 @@ class DailyObservationsPage extends StatefulWidget {
 class _DailyObservationsPageState extends State<DailyObservationsPage> {
   PatientCase get p => widget.patient;
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Observations quotidiennes'), backgroundColor: VColors.background),
+    appBar: AppBar(title: const VisceraPageTitle('Observations quotidiennes'), backgroundColor: VColors.background),
     body: AnimatedBuilder(animation: appStore, builder: (context, _) => ListView(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 100),
       children: [
