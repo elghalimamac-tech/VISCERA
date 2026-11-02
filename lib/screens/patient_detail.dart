@@ -1,6 +1,7 @@
 import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
+import '../program_admission.dart';
 import '../document_checklist.dart';
 import '../preoperative_readiness.dart';
 import '../store.dart';
@@ -165,25 +166,36 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 },
                 icon:const Icon(Icons.save_outlined)),
             ])),
-            if(p.isProgrammed)...[
+            if(p.fromBlocProgram)...[
+              const SizedBox(height:10),
+              VCard(color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
+                child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(p.isOmitted
+                    ? 'Patient non admis · retiré du suivi'
+                    : 'Admission automatique · programme opératoire',
+                    style:const TextStyle(fontWeight:FontWeight.w800)),
+                  const SizedBox(height:7),
+                  Text(p.isOmitted
+                    ? 'Cette admission est omise. La ligne du programme est conservée.'
+                    : 'Le patient est inclus automatiquement dans VISCERA. '
+                      'La présence réelle et la fin de l’intervention ne sont pas attestées par le programme.',
+                    style:const TextStyle(fontSize:12)),
+                ])),
+            ],
+            if(p.isProgrammed && !p.fromBlocProgram)...[
               const SizedBox(height:10),
               VCard(color:VColors.orangeSoft,child:Column(
                 crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text('Patient programmé · Provenance ${p.origin}',
-                  style:TextStyle(fontWeight:FontWeight.w800)),
-                const SizedBox(height:7),
-                Text(p.blockAt.isBefore(DateTime(DateTime.now().year,DateTime.now().month,DateTime.now().day))
-                  ? 'Programmation antérieure : le devenir clinique doit être vérifié. Aucune admission n’est présumée.'
-                  : 'Le programme opératoire ne confirme pas une admission hospitalière. Le dossier est modifiable avant admission ; aucun lit ou séjour n’est supposé.',
-                  style:TextStyle(fontSize:12)),
-                const SizedBox(height:12),
-                FilledButton.icon(onPressed:_confirmAdmission,
-                  icon:const Icon(Icons.how_to_reg_outlined),
-                  label:const Text('Confirmer l’admission réelle')),
-              ])),
+                  const Text('Admission manuelle planifiée',
+                    style:TextStyle(fontWeight:FontWeight.w800)),
+                  const SizedBox(height:9),
+                  FilledButton.icon(onPressed:_confirmAdmission,
+                    icon:const Icon(Icons.how_to_reg_outlined),
+                    label:const Text('Confirmer l’admission réelle')),
+                ])),
             ],
           ],
-          if(p.fromManualAdmission && p.origin=='Consultation')...[
+                    if(p.fromManualAdmission && p.origin=='Consultation')...[
             const SizedBox(height:10),
             VCard(color:VColors.softMint,child:Column(
               crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -344,7 +356,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
   Widget _envelope()=>VCard(color:p.confidentialEnvelopeDone?VColors.softMint:VColors.orangeSoft,child:Row(children:[Icon(p.confidentialEnvelopeDone?Icons.check_circle_outline_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.isFar?'Pli confidentiel — FAR':'Pli confidentiel',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text(p.confidentialEnvelopeDone?'Marqué comme effectué':'À créer / à demander',style:const TextStyle(fontSize:12,color:VColors.muted))])),Switch(value:p.confidentialEnvelopeDone,onChanged:(_)=>appStore.toggleEnvelope(p))]));
   Widget _actions()=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-    if(p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
+    if(!p.fromBlocProgram && p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
       onPressed:_confirmPostopDay,
       icon:const Icon(Icons.how_to_reg_outlined),
       label:const Text('Confirmer admission postopératoire réelle')),
