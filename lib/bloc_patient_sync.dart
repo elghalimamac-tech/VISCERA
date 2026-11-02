@@ -67,12 +67,13 @@ class BlocPatientSync {
         final procedure = _str(row['procedure_name']);
         final surgeon = _str(row['surgeon']);
         final rowId = row['id'];
-        if (name.isEmpty || procedure.isEmpty || surgeon.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
+        if (name.isEmpty || procedure.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
         final scheduledAt = _scheduledAt(date, _str(row['scheduled_time']));
         if (scheduledAt == null) continue;
         // Le chirurgien du programme est proposé pour le bloc, même s'il
         // n'est pas professeur. Il ne détermine PAS le responsable admission.
-        final blockResponsibleId = appStore.responsibleIdForName(surgeon);
+        final blockResponsibleId = surgeon.isEmpty
+          ? null : appStore.responsibleIdForName(surgeon);
         final patient = PatientCase(
           id: 'BLOC-$rowId',
           name: name,
