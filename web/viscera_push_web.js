@@ -22,6 +22,28 @@
     setTimeout(() => notice.remove(), 5500);
   }
 
+  // Firebase CDN ne doit JAMAIS bloquer l'ouverture de l'application médicale.
+  // Chargement seulement quand le médecin demande les notifications Web.
+  let sdkPromise = null;
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = url;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Bibliothèque Firebase indisponible"));
+      document.head.appendChild(script);
+    });
+  }
+  function ensureFirebaseSdk() {
+    if (w.firebase && w.firebase.messaging) return Promise.resolve();
+    if (!sdkPromise) {
+      sdkPromise = loadScript("https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js")
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/13.0.0/firebase-messaging-compat.js"));
+    }
+    return sdkPromise;
+  }
+
   function getMessaging() {
     if (!w.firebase || !w.firebase.messaging || !w.visceraFirebaseConfig) {
       throw new Error("Firebase Web n'est pas chargé.");
@@ -58,6 +80,7 @@
         throw new Error("Autorisez les notifications dans les paramètres du navigateur.");
       }
     }
+    await ensureFirebaseSdk();
     if (!(await w.firebase.messaging.isSupported())) {
       throw new Error("Firebase Messaging n'est pas disponible dans ce navigateur.");
     }

@@ -27,9 +27,10 @@
       animation: spin .85s linear infinite;
     }
     #viscera-loading button {
-      margin-top: 12px; padding: 11px 17px; border: 0; background: #083B46;
+      margin: 8px 4px 0; padding: 11px 17px; border: 0; background: #083B46;
       color: white; border-radius: 10px; font-size: 14px; cursor: pointer;
     }
+    #viscera-compatible { background: #EAF6F7 !important; color: #083B46 !important; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -42,33 +43,54 @@
       <button id="viscera-retry" type="button" style="display:none" onclick="window.location.reload()">
         Réessayer
       </button>
+      <button id="viscera-compatible" type="button" style="display:none" onclick="window.visceraLoadCompatible()">
+        Mode graphique compatible
+      </button>
     </div>
   </div>
   <script>
     (function () {
       var finished = false;
+      var timeoutId;
       function done() {
         if (finished) return;
         finished = true;
+        if (timeoutId) clearTimeout(timeoutId);
         var splash = document.getElementById('viscera-loading');
         if (splash) splash.remove();
       }
-      function failed() {
+      function failed(stage) {
         if (finished) return;
         var message = document.getElementById('viscera-loading-message');
         var retry = document.getElementById('viscera-retry');
-        if (message) message.textContent = 'Le site ne parvient pas à se charger. Vérifiez votre connexion et réessayez.';
+        var compatible = document.getElementById('viscera-compatible');
+        var cpuMode = new URLSearchParams(location.search).get('viscera_cpu') === '1';
+        if (message) message.textContent =
+          stage === 'timeout'
+            ? 'Le chargement prend trop de temps. Vous pouvez réessayer.'
+            : 'Le démarrage de VISCERA a échoué. Réessayez ou utilisez le mode compatible.';
         if (retry) retry.style.display = 'inline-block';
+        if (compatible && !cpuMode) compatible.style.display = 'inline-block';
         var spinner = document.querySelector('#viscera-loading .spinner');
         if (spinner) spinner.style.display = 'none';
       }
+      window.visceraStartupReady = done;
+      window.visceraStartupFailed = failed;
+      window.visceraLoadCompatible = function () {
+        var url = new URL(location.href);
+        url.searchParams.set('viscera_cpu', '1');
+        location.assign(url.toString());
+      };
       window.addEventListener('flutter-first-frame', done);
       document.addEventListener('flutter-first-frame', done);
       window.addEventListener('error', function (event) {
-        if (event.target && event.target.tagName === 'SCRIPT') failed();
+        if (event.target && event.target.tagName === 'SCRIPT') failed('script');
       }, true);
-      window.addEventListener('unhandledrejection', failed);
-      // Fallback pour certaines versions de Flutter qui ne diffusent pas l'événement first-frame.
+      window.addEventListener('unhandledrejection', function (event) {
+        console.error('VISCERA startup promise rejected', event.reason);
+        failed('promise');
+      });
+      // Si la vue Flutter existe sans premier événement, retirer le splash.
       var observer = new MutationObserver(function () {
         if (document.querySelector('flutter-view, flt-glass-pane')) {
           observer.disconnect();
@@ -76,12 +98,11 @@
         }
       });
       observer.observe(document.documentElement, {childList:true,subtree:true});
-      setTimeout(failed, 18000);
+      timeoutId = setTimeout(function () { failed('timeout'); }, 25000);
     }());
   </script>
-  <!-- Only browser-safe Firebase client config is embedded here; never admin keys. -->
-  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-messaging-compat.js" defer></script>
+  <!-- Le pont push est non bloquant : les bibliothèques Firebase externes
+       ne sont téléchargées que si le médecin active les notifications. -->
   <script src="viscera_firebase_config.js" defer></script>
   <script src="viscera_push_web.js" defer></script>
   <script src="flutter_bootstrap.js" defer></script>
