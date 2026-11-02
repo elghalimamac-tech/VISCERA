@@ -10,9 +10,20 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 const zone = "Africa/Casablanca";
 type Stay = { procedure: string; clinical: Record<string, unknown> };
 function localDay(value: Date): string {
-  return new Intl.DateTimeFormat("en-CA",{
+  const parts = new Intl.DateTimeFormat("en-GB",{
     timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit",
-  }).format(value);
+  }).formatToParts(value);
+  const get = (name:string)=>parts.find((p)=>p.type===name)?.value || "";
+  return get("year")+"-"+get("month")+"-"+get("day");
+}
+function admissionDay(raw:string): string {
+  // Flutter conserve parfois les heures locales en ISO sans fuseau.
+  // Ne pas interpréter de façon arbitraire un 23h30 local comme de l'UTC.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) &&
+      !/(Z|[+\-]\d{2}:?\d{2})$/i.test(raw)) {
+    return raw.slice(0,10);
+  }
+  return localDay(new Date(raw));
 }
 function epochDay(date: string): number {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -45,7 +56,7 @@ function reviewDue(stay: Stay, nowDay: string): boolean {
   if (room.startsWith("REA") || room.includes("RÉANIMATION")) return false;
   const days = Math.max(standardDays(stay.procedure),
     Number.isInteger(clinical.expectedDays) ? Math.max(0,Number(clinical.expectedDays)) : 0);
-  const elapsed = epochDay(nowDay) - epochDay(localDay(admittedDate));
+  const elapsed = epochDay(nowDay) - epochDay(admissionDay(admitted));
   // Pas de sortie automatique. Rappel du jour de seuil, puis une fois/jour si non traité.
   return Number.isFinite(elapsed) && elapsed >= days && elapsed >= 0;
 }
