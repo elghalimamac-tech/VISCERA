@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:postgrest/postgrest.dart';
@@ -129,7 +130,7 @@ class _IntakePageState extends State<IntakePage> {
   }
 
   @override Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('Nouvelle admission',style:TextStyle(fontWeight:FontWeight.w800)),backgroundColor:VColors.background,surfaceTintColor:Colors.transparent),
+    appBar:AppBar(title:const VisceraPageTitle('Nouvelle admission'),backgroundColor:VColors.background,surfaceTintColor:Colors.transparent),
     body:SafeArea(child:Column(children:[
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),

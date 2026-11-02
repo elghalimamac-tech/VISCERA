@@ -3,6 +3,8 @@ import '../auth_controller.dart';
 import '../doctor_registration_options.dart';
 import '../push_device_registration.dart';
 import '../theme.dart';
+import '../build_info.dart';
+import '../branding.dart';
 import 'shell.dart';
 
 class AuthGate extends StatefulWidget {
@@ -69,7 +71,7 @@ class _AuthGateState extends State<AuthGate> {
                         child: _screen(),
                       ),
                       const SizedBox(height: 21),
-                      const Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.',
+                      Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.\nVersion $visceraBuildShort',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
                     ],
@@ -83,17 +85,7 @@ class _AuthGateState extends State<AuthGate> {
     },
   );
 
-  Widget _brand() => Row(children: [
-    Container(width: 46, height: 46,
-      decoration: BoxDecoration(color: const Color(0xFF142B38), borderRadius: BorderRadius.circular(12)),
-      alignment: Alignment.center,
-      child: const Text('V',style: TextStyle(color: Colors.white, fontSize: 27,fontWeight: FontWeight.w800))),
-    const SizedBox(width: 13),
-    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('VISCERA', style: TextStyle(color: Color(0xFF142B38), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: .7)),
-      Text('HUIM6 BOUSKOURA · CHIRURGIE VISCÉRALE', style: TextStyle(color: VColors.muted,fontSize: 10,fontWeight: FontWeight.w600,letterSpacing: 1)),
-    ]),
-  ]);
+  Widget _brand() => const VisceraBrandLockup(markSize: 49);
 
   Widget _screen() {
     switch (auth.screen) {

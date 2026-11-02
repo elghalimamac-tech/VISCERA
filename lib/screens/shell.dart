@@ -7,12 +7,17 @@ import '../bloc_patient_sync.dart';
 import '../manual_admission_service.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../build_info.dart';
+import '../branding.dart';
 import '../widgets.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
+import 'notification_settings.dart';
+import 'notification_inbox.dart';
+import '../duty_reminders.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
@@ -57,6 +62,8 @@ class _MainShellState extends State<MainShell> {
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
+  void openInbox()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationInboxPage()));
+  void openNotificationSettings()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationSettingsPage()));
   void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
   @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
@@ -98,7 +105,7 @@ class _MainShellState extends State<MainShell> {
   );
   Widget _drawer()=>Drawer(backgroundColor:Colors.white,child:SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(17,20,17,18),children:[
     Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:VColors.ink,borderRadius:BorderRadius.circular(20)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Icon(Icons.medical_services_outlined,color:Colors.white,size:28),SizedBox(height:13),
+      VisceraMark(size:39,onDark:true),SizedBox(height:13),
       Text('VISCERA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:23,letterSpacing:1)),
       Text('Chirurgie viscérale • HUIM6',style:TextStyle(color:Color(0xFFC9E7DC),fontSize:12)),
     ])),
@@ -111,13 +118,15 @@ class _MainShellState extends State<MainShell> {
     _drawerItem(Icons.logout_rounded,'Sorties à préparer',(){Navigator.pop(context);setState((){selected=1;filter='Actifs';});}),
     const SizedBox(height:24),const Overline('ÉQUIPE & PLANIFICATION'),const SizedBox(height:10),
     _drawerItem(Icons.schedule_rounded,'Planning · gardes et congés',(){Navigator.pop(context);openPlanning();}),
+    _drawerItem(Icons.notifications_active_outlined,'Alarmes et notifications',(){Navigator.pop(context);openNotificationSettings();}),
+    _drawerItem(Icons.notifications_none_rounded,'Centre de notifications',(){Navigator.pop(context);openInbox();}),
     _drawerItem(Icons.event_note_outlined,'Consultations',(){Navigator.pop(context);openReferencePlanning();}),
     _drawerItem(Icons.groups_outlined,'Professeurs et médecins',(){Navigator.pop(context);openReferencePlanning();}),
     if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
       const SizedBox(height:24),const Overline('ESPACE ADMINISTRATEUR'),const SizedBox(height:10),
       _drawerItem(Icons.admin_panel_settings_outlined,'Administration VISCERA',(){Navigator.pop(context);openAdmin();}),
     ],
-    _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
+    _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await cancelAllDutyReminders();await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
     const SizedBox(height:28),const Divider(color:VColors.line),
 
   ])));
@@ -130,7 +139,7 @@ class _MainShellState extends State<MainShell> {
   Widget _scroll(List<Widget> children)=>ListView(padding:const EdgeInsets.fromLTRB(20,23,20,32),children:children);
   Widget _top(String section,String title,{Widget? action})=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Row(children:[IconButton(tooltip:'Ouvrir le menu',icon:const Icon(Icons.menu_rounded,color:VColors.ink),onPressed:()=>shellKey.currentState?.openDrawer()),
-    const SizedBox(width:3),const Expanded(child:Overline('VISCERA   /   CHIRURGIE VISCÉRALE')),if(action!=null)action]),
+    const SizedBox(width:3),const Expanded(child:VisceraBrandLockup(markSize:31,subtitle:null)),if(action!=null)action]),
     const SizedBox(height:15),Text(title,style:Theme.of(context).textTheme.headlineLarge),const SizedBox(height:5),Text(section,style:const TextStyle(color:VColors.muted,fontSize:13)),
   ]);
 
@@ -237,7 +246,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _startTheatre(PatientCase p) async { if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ? La localisation sera actualisée.',action:'Confirmer'))appStore.startTheatre(p); }
   Future<void> _finishTheatre(PatientCase p) async { final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);if(conflict!=null){_error('Le box ${p.afterBox} de ${p.afterUnit} est déjà attribué à ${conflict.name}.');return;}if(await showConfirmation(context,title:'Fin d’intervention',message:'Transférer ${p.name} vers ${p.afterUnit}, box ${p.afterBox} ?',action:'Valider'))appStore.finishTheatre(p);}
   void _error(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
-  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
+  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14 · $visceraBuildShort',applicationIcon:const VisceraMark(size:50),children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
 }
 
 String _formatDate(DateTime date)=>'${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}  •  ${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';

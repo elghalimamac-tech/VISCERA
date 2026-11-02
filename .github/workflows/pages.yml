@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'assets/**'
+      - 'tool/apply_viscera_branding.py'
       - 'web/**'
       - 'tool/check_web_build.py'
       - 'pubspec.yaml'
@@ -13,6 +15,8 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'assets/**'
+      - 'tool/apply_viscera_branding.py'
       - 'web/**'
       - 'pubspec.yaml'
       - 'tool/check_web_build.py'
@@ -30,8 +34,13 @@ jobs:
         with:
           channel: stable
       - run: flutter create --platforms=web --project-name viscera --org com.viscera .
+      - name: Générer les icônes VISCERA identiques à Android
+        run: |
+          python3 -m pip install --disable-pip-version-check cairosvg
+          python3 tool/apply_viscera_branding.py
       - run: flutter pub get
-      - run: flutter build web --release --base-href /VISCERA/ --dart-define=SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8 --dart-define=ENABLE_FIREBASE_PUSH=true
+      - run: flutter test
+      - run: flutter build web --release --base-href /VISCERA/ --dart-define=SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8 --dart-define=ENABLE_FIREBASE_PUSH=true --dart-define="VISCERA_BUILD_SHA=${{ github.sha }}"
       - name: Contrôler le JavaScript de démarrage
         run: node --check build/web/flutter_bootstrap.js
       - name: Contrôler les scripts et le chemin du site

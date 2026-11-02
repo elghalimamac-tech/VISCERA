@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_svg: ^2.2.1
   shared_preferences: ^2.3.2
   speech_to_text: ^7.4.0
   supabase_flutter: 2.18.3
@@ -23,3 +24,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/
