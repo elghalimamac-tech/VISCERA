@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'branding.dart';
 import 'package:flutter/material.dart';
 import 'models.dart';
@@ -28,6 +29,99 @@ class SectionHeading extends StatelessWidget {
   @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.only(top:23,bottom:12),child:Row(children:[Expanded(child:Text(title,style:Theme.of(context).textTheme.titleLarge)),if(trailing!=null)trailing!]));
 }
 
+/// Compteur J1 / J2 / J3… basé sur le jour civil du programme ou de
+/// l'admission réelle. Se recalcule au changement de journée et au réveil
+/// de l'application, sans modifier les données médicales.
+class HospitalizationDayCounter extends StatefulWidget {
+  const HospitalizationDayCounter({
+    super.key, required this.patient, this.showStartDate = false,
+  });
+  final PatientCase patient;
+  final bool showStartDate;
+
+  @override
+  State<HospitalizationDayCounter> createState()=>_HospitalizationDayCounterState();
+}
+class _HospitalizationDayCounterState extends State<HospitalizationDayCounter>
+    with WidgetsBindingObserver {
+  Timer? _midnight;
+
+  @override void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleMidnight();
+  }
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    final now=DateTime.now();
+    final midnight=DateTime(now.year,now.month,now.day+1);
+    _midnight=Timer(midnight.difference(now)+const Duration(milliseconds:150),(){
+      if(!mounted)return;
+      setState((){});
+      _scheduleMidnight();
+    });
+  }
+  @override void didChangeAppLifecycleState(AppLifecycleState state) {
+    if(state==AppLifecycleState.resumed && mounted) {
+      setState((){});
+      _scheduleMidnight();
+    }
+  }
+  @override void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _midnight?.cancel();
+    super.dispose();
+  }
+  @override Widget build(BuildContext context) {
+    final p=widget.patient;
+    if(p.isOmitted) {
+      return const VTag('Non admis',warn:true);
+    }
+    final start=p.hospitalizationStartDate;
+    final day=p.hospitalizationDay;
+    String label;
+    if(day!=null){
+      label='J$day';
+    }else if(start!=null) {
+      label='J1 à venir';
+    }else{
+      label='Admission à confirmer';
+    }
+    if(!widget.showStartDate){
+      return VTag(label,highlight:day!=null);
+    }
+    final source=p.fromBlocProgram
+      ? 'Programme opératoire' : 'Admission urgences / consultation';
+    String date='Date d’admission non renseignée';
+    if(start!=null){
+      date='${start.day.toString().padLeft(2,'0')}/'
+        '${start.month.toString().padLeft(2,'0')}/${start.year}';
+    }
+    return Row(children:[
+      const Icon(Icons.today_rounded,color:VColors.ink,size:25),
+      const SizedBox(width:12),
+      Container(
+        key:const Key('hospitalization-day-counter'),
+        padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),
+        decoration:BoxDecoration(color:VColors.softMint,
+          borderRadius:BorderRadius.circular(13)),
+        child:Text(label,style:const TextStyle(fontSize:22,
+          fontWeight:FontWeight.w900,color:VColors.ink)),
+      ),
+      const SizedBox(width:12),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(p.stage==CaseStage.discharged
+            ? 'Durée du séjour à la sortie'
+            : 'Jour d’hospitalisation',
+          style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+        const SizedBox(height:3),
+        Text('$source · $date',
+          style:const TextStyle(fontSize:11,color:VColors.muted)),
+      ])),
+    ]);
+  }
+}
+
 class PatientTile extends StatelessWidget {
   const PatientTile({super.key,required this.patient,required this.onTap});
   final PatientCase patient;final VoidCallback onTap;
@@ -38,7 +132,7 @@ class PatientTile extends StatelessWidget {
         const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(patient.name,style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:3),Text(patient.isProgrammed ? 'Consultation • Bloc programmé' : '${patient.age} ans  •  ${patient.origin}',style:const TextStyle(fontSize:12,color:VColors.muted))])),
         const Icon(Icons.chevron_right_rounded,color:VColors.muted)
       ]),const SizedBox(height:13),Text(patient.isProgrammed ? patient.procedure : patient.motive,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:13,color:VColors.ink)),const SizedBox(height:13),
-      Wrap(spacing:6,runSpacing:6,children:[VTag(patient.stage.label,highlight:patient.isPostOp,warn:patient.stage==CaseStage.dischargeReady),if(patient.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),if(patient.physicallyAdmitted)VTag('${patient.currentUnit} • Box ${patient.currentBox}'), if(!patient.isProgrammed)VTag('Docs sortie ${patient.completedCount(ClinicalDocuments.discharge)}/10')])
+      Wrap(spacing:6,runSpacing:6,children:[VTag(patient.stage.label,highlight:patient.isPostOp,warn:patient.stage==CaseStage.dischargeReady),HospitalizationDayCounter(patient:patient),if(patient.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),if(patient.physicallyAdmitted)VTag('${patient.currentUnit} • Box ${patient.currentBox}'), if(!patient.isProgrammed)VTag('Docs sortie ${patient.completedCount(ClinicalDocuments.discharge)}/10')])
     ]),
   );
 }
