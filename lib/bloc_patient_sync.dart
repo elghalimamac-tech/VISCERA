@@ -116,6 +116,7 @@ class BlocPatientSync {
             saved['version'] is int ? saved['version'] as int : 0,
           );
         }
+        ProgramAdmission.apply(patient, DateTime.now());
         result.add(patient);
       }
       if (response.length < pageSize) break;
