@@ -1,0 +1,38 @@
+name: VISCERA - Daily discharge review push
+on:
+  workflow_dispatch:
+  schedule:
+    # Deux fenêtres : le décalage horaire de Casablanca varie avec la saison.
+    # La file garantit au maximum un rappel par compte et par jour.
+    - cron: '0 7,9 * * *'
+permissions:
+  contents: read
+jobs:
+  discharge_review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Vérifier la configuration du serveur
+        env:
+          VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$VISCERA_SERVICE_KEY" ]; then
+            echo "::warning::Secret GitHub VISCERA_SUPABASE_SERVICE_ROLE_KEY manquant. Aucun push serveur envoyé."
+            exit 1
+          fi
+      - name: Identifier les dossiers à réévaluer sans informations de patient
+        env:
+          VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error --retry 2 --request POST \
+            --header "Authorization: Bearer $VISCERA_SERVICE_KEY" \
+            --header 'Content-Type: application/json' --data '{}' \
+            https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-discharge-review
+      - name: Distribuer les messages FCM anonymisés
+        env:
+          VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error --retry 2 --request POST \
+            --header "Authorization: Bearer $VISCERA_SERVICE_KEY" \
+            --header 'Content-Type: application/json' --data '{}' \
+            https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-push-dispatch
