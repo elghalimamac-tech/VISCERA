@@ -200,6 +200,36 @@ class PatientCase {
   bool get isActive => stage != CaseStage.discharged && stage != CaseStage.scheduled &&
       stage != CaseStage.notAdmitted;
   bool get isOmitted => stage == CaseStage.notAdmitted;
+  /// Jour civil J1 du suivi hospitalier. Les dossiers du programme utilisent
+  /// EXCLUSIVEMENT la date opératoire officielle, et non l'heure d'import.
+  /// Les admissions des urgences/consultations utilisent la date réelle
+  /// d'admission, pas la date de consultation ni celle du bloc.
+  DateTime? get hospitalizationStartDate {
+    if (stage == CaseStage.notAdmitted) return null;
+    if (fromBlocProgram) {
+      return DateTime(blockAt.year, blockAt.month, blockAt.day);
+    }
+    final admission = admittedAt;
+    return admission == null ? null :
+      DateTime(admission.year, admission.month, admission.day);
+  }
+
+  /// J1 = premier jour civil, J2 = lendemain. Avant le premier jour,
+  /// ne pas afficher de jours d'hospitalisation fictifs.
+  /// Un séjour terminé se fige à la date de sortie validée.
+  int? hospitalizationDayOn(DateTime now) {
+    final start = hospitalizationStartDate;
+    if (start == null) return null;
+    final end = dischargeAt != null && dischargeAt!.isBefore(now)
+        ? dischargeAt! : now;
+    final first = DateTime.utc(start.year, start.month, start.day);
+    final last = DateTime.utc(end.year, end.month, end.day);
+    final days = last.difference(first).inDays + 1;
+    return days > 0 ? days : null;
+  }
+
+  int? get hospitalizationDay => hospitalizationDayOn(DateTime.now());
+
   bool get isAutoAdmitted => fromBlocProgram && isActive &&
       admissionTiming.startsWith('Admission automatique');
   bool get isProgrammed => stage == CaseStage.scheduled;
