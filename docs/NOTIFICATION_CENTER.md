@@ -11,15 +11,21 @@ de messages non lus (99+ au-delà de 99).
 - Affiche le titre générique, le contenu, la date et l'heure.
 - Filtre `Toutes / Non lues`, pagination et actualisation.
 - Toucher une notification non lue la marque comme lue.
-- Bouton `Tout effacer` avec confirmation : **archive toutes les alertes de
-  l'utilisateur sur l'ensemble de ses appareils**, sans limite de 80 éléments.
+- Bouton `Tout effacer` **réservé aux administrateurs VISCERA approuvés**,
+  avec confirmation : archive uniquement les notifications personnelles de
+  l'administrateur, sur ses appareils, sans limite de 80 éléments.
+- Les juniors, résidents et seniors non administrateurs peuvent consulter
+  leurs notifications et les marquer comme lues, mais ne peuvent les effacer.
 - Une notification archivée n'apparaît plus, et son badge disparaît.
   Le serveur FCM ignore également les alertes en attente déjà archivées.
 
 ## Sécurité
 
 L'action `Tout effacer` met seulement à jour `dismissed_at` sur les lignes
-appartenant au compte identifié par Supabase Auth. Les lignes restent conservées
+appartenant au compte identifié par Supabase Auth. Le rôle administrateur est
+vérifié depuis `doctor_profiles.is_admin` et `approval_status='approved'`.
+Un déclencheur SQL refuse toute modification de `dismissed_at` par un
+non-administrateur, même si l'utilisateur contourne l'interface Flutter. Les lignes restent conservées
 en base pour audit. Les droits RLS empêchent la suppression des notifications
 des collègues. Les données patients ne sont jamais modifiées.
 

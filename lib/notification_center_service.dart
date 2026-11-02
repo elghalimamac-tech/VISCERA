@@ -44,12 +44,27 @@ class NotificationCenterService {
         .isFilter('dismissed_at', null);
   }
 
+  /// Le statut admin vient d'une ligne protégée de doctor_profiles,
+  /// pas d'un champ utilisateur modifiable dans le JWT.
+  Future<bool> canClearAll() async {
+    final id = _userId;
+    if (id == null) return false;
+    final profile = await _client.from('doctor_profiles')
+        .select('is_admin,approval_status')
+        .eq('user_id', id)
+        .maybeSingle();
+    return profile?['is_admin'] == true &&
+        profile?['approval_status'] == 'approved';
+  }
+
   /// Archive toutes les notifications visibles du compte, sans limite de page.
   /// Les enregistrements sont conservés côté serveur pour l'audit et
   /// ne réapparaissent pas au prochain lancement.
   Future<void> clearAll() async {
     final id = _userId;
-    if (id == null) return;
+    if (id == null || !await canClearAll()) {
+      throw StateError('Cette action est réservée à l’administrateur VISCERA.');
+    }
     await _client.from('viscera_notifications')
         .update({'dismissed_at': DateTime.now().toUtc().toIso8601String()})
         .eq('user_id', id)

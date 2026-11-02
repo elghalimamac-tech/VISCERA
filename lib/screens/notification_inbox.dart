@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../branding.dart';
 import '../notification_center_service.dart';
+import '../admin_clear_notifications_action.dart';
 
 /// Toutes les notifications persistées pour le médecin connecté (Supabase RLS).
 class NotificationInboxPage extends StatefulWidget {
@@ -12,6 +13,7 @@ class NotificationInboxPage extends StatefulWidget {
 class _NotificationInboxPageState extends State<NotificationInboxPage> {
   final NotificationCenterService _service = NotificationCenterService();
   late Future<List<Map<String, dynamic>>> _items;
+  late Future<bool> _canClearAll;
   bool _busy = false;
   bool _unreadOnly = false;
   int _limit = 80;
@@ -20,6 +22,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
   void initState() {
     super.initState();
     _items = _service.fetch(limit: _limit);
+    _canClearAll = _service.canClearAll();
   }
 
   void _refresh() {
@@ -47,10 +50,19 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
 
   Future<void> _clearAll() async {
     if (_busy) return;
+    // Vérification supplémentaire, indispensable si le rôle a été révoqué
+    // depuis l'ouverture de cet écran.
+    try {
+      if (!await _service.canClearAll()) return;
+    } catch (_) {
+      if (mounted) _notice('Accès administrateur impossible à vérifier.');
+      return;
+    }
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Effacer toutes mes notifications ?'),
+        title: const Text('Administrateur · Effacer toutes mes notifications ?'),
         content: const Text(
           'Les notifications seront retirées de votre centre sur tous vos '
           'appareils. Cette action ne peut pas être annulée. '
@@ -157,11 +169,10 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
                     ],
                   ),
                 ),
-                TextButton.icon(
-                  key: const Key('clear_all_notifications'),
-                  onPressed: _busy ? null : _clearAll,
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 20),
-                  label: const Text('Tout effacer'),
+                AdminClearNotificationsAction(
+                  permission: _canClearAll,
+                  busy: _busy,
+                  onClear: _clearAll,
                 ),
               ],
             ),
