@@ -18,6 +18,41 @@ class PatientDetailPage extends StatefulWidget {
 }
 class _PatientDetailPageState extends State<PatientDetailPage> {
   PatientCase get p=>widget.patient;
+  @override void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && p.dischargeDue) _showDischargeReview();
+    });
+  }
+
+  Future<void> _showDischargeReview() async {
+    if (!mounted || !p.dischargeDue) return;
+    final date = p.dischargeReviewAt;
+    final result = await showDialog<bool>(
+      context:context,
+      builder:(ctx)=>AlertDialog(
+        title:const Row(children:[
+          Icon(Icons.event_available_outlined,color:Color(0xFFA45633)),
+          SizedBox(width:10),
+          Expanded(child:Text('Sortie à réévaluer')),
+        ]),
+        content:Text(
+          'Le dossier a atteint sa date indicative de révision de sortie'
+          '${date == null ? '' : ' (${_date(date)})'}.\n\n'
+          'Vérifiez l’état clinique, les complications éventuelles, '
+          'les prescriptions et les documents obligatoires. '
+          'La sortie nécessite une décision médicale et une validation explicite.',
+        ),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx,false),
+            child:const Text('Plus tard')),
+          FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+            child:const Text('Vérifier la sortie')),
+        ],
+      ),
+    );
+    if (result==true && mounted) await _openDischargeVerification();
+  }
   void _openObservations()=>Navigator.push(
     context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p)));
 
@@ -250,7 +285,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               label:const Text('Modifier le responsable')),
             const Divider(height:22),
             _line(Icons.category_outlined,'Type de chirurgie',
-              p.surgeryType.isEmpty ? 'À renseigner' : p.surgeryType),
+              p.standardizedSurgeryType),
             const Divider(height:22),
             _line(Icons.medical_services_outlined,'Bloc',
               '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
@@ -260,7 +295,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             _line(Icons.bed_outlined,'Après le bloc',p.afterBox.isEmpty ? 'Non attribué' : '${p.afterUnit} · Box ${p.afterBox}'),
             const Divider(height:22),
             _line(Icons.event_available_outlined,'Sortie estimée',
-              p.expectedDays == 0 ? 'Non renseignée' : '${_date(p.expectedDischargeAt)} · ${p.expectedDays} jour(s)'),
+              p.dischargeReviewAt == null ? 'Admission à confirmer' : '${_date(p.expectedDischargeAt)} · proposition à vérifier'),
             const SizedBox(height:12),
             OutlinedButton.icon(onPressed:_changeBed,
               icon:const Icon(Icons.edit_location_alt_outlined,size:18),

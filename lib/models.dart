@@ -1,3 +1,4 @@
+import 'surgery_classification.dart';
 class ServiceUnit {
   const ServiceUnit(this.code, this.label);
   final String code;
@@ -192,8 +193,27 @@ class PatientCase {
       isPostOp && physicallyAdmitted && allChecked(ClinicalDocuments.discharge);
   bool get physicallyAdmitted =>
       isActive && admittedAt != null;
-  DateTime get expectedDischargeAt => DateTime(blockAt.year, blockAt.month, blockAt.day + expectedDays);
-  bool get dischargeDue => expectedDays > 0 && isPostOp && !DateTime.now().isBefore(expectedDischargeAt);
+  /// Uniformisation depuis le LIBELLÉ du programme, sans changer le texte source.
+  SurgeryClassification get surgeryClassification => classifySurgery(procedure);
+  String get standardizedSurgeryType => surgeryClassification.recognized
+      ? surgeryClassification.label
+      : (surgeryType.trim().isNotEmpty && surgeryType.trim() != 'À préciser'
+          ? surgeryType.trim() : surgeryClassification.label);
+  /// Propositions de révision, jamais une décision médicale de sortie.
+  DateTime? get dischargeReviewAt => admittedAt == null ? null
+      : proposedDischargeReviewDate(admittedAt!,expectedDays,surgeryClassification);
+  DateTime get expectedDischargeAt =>
+      dischargeReviewAt ?? DateTime(blockAt.year,blockAt.month,blockAt.day + expectedDays);
+  bool dischargeReviewDueOn(DateTime now) {
+    final review = dischargeReviewAt;
+    if (!isPostOp || !physicallyAdmitted || dischargeAt != null || review == null ||
+        currentUnit.trim().toUpperCase().startsWith('REA')) {
+      return false;
+    }
+    final dueDate = DateTime(review.year,review.month,review.day);
+    return !DateTime(now.year,now.month,now.day).isBefore(dueDate);
+  }
+  bool get dischargeDue => dischargeReviewDueOn(DateTime.now());
   String get currentUnit => isPostOp ? afterUnit : beforeUnit;
   String get currentBox => isPostOp ? afterBox : beforeBox;
 }
