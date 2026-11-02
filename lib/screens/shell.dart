@@ -14,6 +14,8 @@ import 'patient_detail.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
+import 'notification_settings.dart';
+import '../duty_reminders.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> {
@@ -58,6 +60,7 @@ class _MainShellState extends State<MainShell> {
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
+  void openNotificationSettings()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationSettingsPage()));
   void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
   @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
@@ -112,13 +115,14 @@ class _MainShellState extends State<MainShell> {
     _drawerItem(Icons.logout_rounded,'Sorties à préparer',(){Navigator.pop(context);setState((){selected=1;filter='Actifs';});}),
     const SizedBox(height:24),const Overline('ÉQUIPE & PLANIFICATION'),const SizedBox(height:10),
     _drawerItem(Icons.schedule_rounded,'Planning · gardes et congés',(){Navigator.pop(context);openPlanning();}),
+    _drawerItem(Icons.notifications_active_outlined,'Alarmes et notifications',(){Navigator.pop(context);openNotificationSettings();}),
     _drawerItem(Icons.event_note_outlined,'Consultations',(){Navigator.pop(context);openReferencePlanning();}),
     _drawerItem(Icons.groups_outlined,'Professeurs et médecins',(){Navigator.pop(context);openReferencePlanning();}),
     if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
       const SizedBox(height:24),const Overline('ESPACE ADMINISTRATEUR'),const SizedBox(height:10),
       _drawerItem(Icons.admin_panel_settings_outlined,'Administration VISCERA',(){Navigator.pop(context);openAdmin();}),
     ],
-    _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
+    _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await cancelAllDutyReminders();await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
     const SizedBox(height:28),const Divider(color:VColors.line),
 
   ])));
