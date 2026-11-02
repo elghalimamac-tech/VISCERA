@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// Checklist clinique modifiable ; les dossiers issus du bloc sont sauvegardés dans Supabase.
 class DocumentChecklist extends StatelessWidget {
@@ -29,6 +30,10 @@ class DocumentChecklist extends StatelessWidget {
         const SizedBox(height:6),
         const Text('Cochez « fait / vérifié », puis contrôlez le cachet séparément.',style:TextStyle(fontSize:11,color:VColors.muted)),
         const SizedBox(height:12),
+        if (identical(requirements, ClinicalDocuments.discharge)) ...[
+          DischargeDocumentsBulkAction(patient:patient,readOnly:readOnly),
+          const SizedBox(height:12),
+        ],
         ...requirements.map((item)=>_row(context,item)),
       ]),
     );
@@ -72,4 +77,88 @@ class DocumentChecklist extends StatelessWidget {
         shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(10))),
       child:Text(text,style:TextStyle(fontSize:11,fontWeight:selected?FontWeight.w800:FontWeight.w600,
         color:selected?VColors.ink:VColors.muted)));
+}
+/// Raccourci de sortie : attestation explicite, jamais une signature ou un cachet automatique.
+class DischargeDocumentsBulkAction extends StatefulWidget {
+  const DischargeDocumentsBulkAction({
+    super.key, required this.patient, this.readOnly = false,
+  });
+  final PatientCase patient;
+  final bool readOnly;
+
+  @override
+  State<DischargeDocumentsBulkAction> createState() =>
+      _DischargeDocumentsBulkActionState();
+}
+
+class _DischargeDocumentsBulkActionState
+    extends State<DischargeDocumentsBulkAction> {
+  bool _saving = false;
+
+  Future<void> _verifyAll() async {
+    final patient = widget.patient;
+    if (_saving || widget.readOnly || !patient.isPostOp ||
+        !patient.physicallyAdmitted ||
+        patient.allChecked(ClinicalDocuments.discharge)) return;
+
+    final confirmed = await showConfirmation(
+      context,
+      title: 'Tous les documents vérifiés et cachetés',
+      message: 'Je confirme avoir contrôlé réellement toutes les pièces '
+          'de sortie et les cachets requis dans le dossier médical. '
+          'Les pièces déjà déclarées « Non applicable » resteront '
+          'inchangées. Cette validation ne déclare pas la sortie du patient.',
+      action: 'Valider les documents',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await appStore.verifyAndStampAllDischargeDocuments(patient);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(saved
+            ? 'Documents de sortie vérifiés et cachetés : validation enregistrée.'
+            : 'Enregistrement impossible. Les vérifications précédentes sont conservées.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: appStore,
+    builder: (context, _) {
+      final patient = widget.patient;
+      final allVerified = patient.allChecked(ClinicalDocuments.discharge);
+      final enabled = !widget.readOnly && !_saving && !allVerified &&
+          patient.isPostOp && patient.physicallyAdmitted;
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: double.infinity, child: FilledButton.icon(
+          key: const Key('bulk-verify-discharge-documents'),
+          style: FilledButton.styleFrom(
+            backgroundColor: VColors.ink,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          ),
+          onPressed: enabled ? _verifyAll : null,
+          icon: _saving
+              ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                    color: Colors.white))
+              : const Icon(Icons.fact_check_rounded),
+          label: Text(_saving ? 'Enregistrement des vérifications…'
+              : allVerified ? 'Documents vérifiés et cachetés'
+              : 'Tous les documents vérifiés et cachetés',
+              textAlign: TextAlign.center),
+        )),
+        const SizedBox(height: 6),
+        const Text(
+          'À utiliser uniquement après contrôle réel des documents et cachets. '
+          'La décision médicale de sortie reste séparée.',
+          style: TextStyle(fontSize: 11, color: VColors.muted),
+        ),
+      ]);
+    },
+  );
 }
