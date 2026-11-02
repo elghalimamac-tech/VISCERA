@@ -9,7 +9,8 @@ required = [html_path, base / 'flutter_bootstrap.js',
             base / 'main.dart.js', base / 'manifest.json',
             base / 'firebase-messaging-sw.js',
             base / 'viscera_firebase_config.js',
-            base / 'viscera_push_web.js']
+            base / 'viscera_push_web.js',
+            base / 'viscera-splash-logo.svg']
 missing = [str(f) for f in required if not f.is_file() or f.stat().st_size == 0]
 if missing:
     sys.exit('Build Web incomplet : ' + ', '.join(missing))
@@ -21,6 +22,10 @@ if 'src="flutter_bootstrap.js"' not in html:
     sys.exit('Bootstrap Flutter absent du HTML')
 if 'viscera-loading' not in html:
     sys.exit('Ecran de chargement/erreur manquant')
+if 'src="viscera-splash-logo.svg"' not in html:
+    sys.exit('Splash avec logo sombre vectoriel absent')
+if 'viscera-slide' not in html or 'class="spinner"' not in html:
+    sys.exit('Barre de chargement turquoise absente du splash')
 if 'src="viscera_push_web.js"' not in html:
     sys.exit('Pont Firebase web absent de la page')
 if 'src="viscera_firebase_config.js"' not in html:

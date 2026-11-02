@@ -7,6 +7,7 @@ Les écrans Flutter utilisent les SVG sources versionnées dans assets/branding/
 from __future__ import annotations
 import json
 import plistlib
+import shutil
 import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -92,13 +93,15 @@ def android():
         background=False, maskable=True, monochrome=True)
     png(res / "drawable-nodpi" / "viscera_notification.png", 96,
         background=False, maskable=True, monochrome=True)
+    # Logo sombre haute fidélité sur fond clair, sans texte, avant Flutter.
     png(res / "drawable-nodpi" / "viscera_splash.png", 256, background=False)
     colors = res / "values" / "viscera_colors.xml"
     colors.parent.mkdir(parents=True, exist_ok=True)
     colors.write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<resources><color name="viscera_primary">' + DARK +
-        '</color></resources>\n', encoding="utf-8"
+        '</color><color name="viscera_splash_bg">#F5FAFB</color></resources>\n',
+        encoding="utf-8"
     )
     adaptive = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -118,9 +121,24 @@ def android():
         splash.write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">'
-        '<item android:drawable="@color/viscera_primary"/>'
+        '<item android:drawable="@color/viscera_splash_bg"/>'
         '<item><bitmap android:gravity="center" android:src="@drawable/viscera_splash"/>'
         '</item></layer-list>\n', encoding="utf-8"
+    )
+    # Android 12+ : l'écran système utilise le même logo sombre sur fond clair.
+    # Le splash natif ne sait pas afficher de véritable barre animée :
+    # Flutter affiche ensuite la barre de progression liée au chargement réel.
+    v31 = res / "values-v31" / "styles.xml"
+    v31.parent.mkdir(parents=True, exist_ok=True)
+    v31.write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<resources>'
+        '<style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">'
+        '<item name="android:windowSplashScreenBackground">@color/viscera_splash_bg</item>'
+        '<item name="android:windowSplashScreenAnimatedIcon">@drawable/viscera_splash</item>'
+        '<item name="android:windowBackground">@drawable/launch_background</item>'
+        '</style>'
+        '</resources>\n', encoding="utf-8"
     )
     manifest = app / "AndroidManifest.xml"
     if manifest.exists():
@@ -171,6 +189,9 @@ def web():
     site = ROOT / "web"
     if not site.exists():
         return
+    # Chargement pré-Flutter : SVG maître lisible même avant main.dart.js.
+    shutil.copyfile(BRAND / "viscera-symbol.svg",
+                    site / "viscera-splash-logo.svg")
     png(site / "favicon.png", 128)
     png(site / "apple-touch-icon.png", 180)
     png(site / "icons" / "Icon-192.png", 192)
