@@ -207,7 +207,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}')),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
-              appStore.responsibleById(p.professorId)?.name??(p.programSurgeon.isNotEmpty ? p.programSurgeon : 'À attribuer'))),
+              appStore.responsibleById(p.professorId)?.name??'À attribuer')),
           ]),
           if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
             const SizedBox(height:11),
