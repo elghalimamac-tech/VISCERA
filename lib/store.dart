@@ -255,26 +255,67 @@ class AppStore extends ChangeNotifier {
   String responsibleIdForSenior(String name) =>
       _matchingProfessor(name)?.id ?? 'SENIOR-${_normalizeClinician(name)}';
 
-  TeamMember? responsibleById(String? id) {
-    final professor = professorById(id);
-    if (professor != null) return professor;
-    if (id == null || !id.startsWith('SENIOR-')) return null;
-    final name = id.substring('SENIOR-'.length);
-    if (!seniorNames.contains(name)) return null;
-    return TeamMember(id: id, name: name);
+  /// Identifiant stable ; un nom de garde, de vacation ou de programme
+  /// peut désigner un Dr sans titre de professeur.
+  String responsibleIdForName(String name) {
+    final normal = _normalizeClinician(name);
+    final prof = _matchingProfessor(name);
+    if (prof != null) return prof.id;
+    for (final doctor in juniors) {
+      if (_normalizeClinician(doctor.name) == normal) return doctor.id;
+    }
+    if (seniorNames.contains(normal)) return 'SENIOR-$normal';
+    return 'DOCTOR-$normal';
   }
 
+  /// Référentiel unifié : professeurs, seniors, juniors, vacations,
+  /// astreintes enregistrées et chirurgiens du programme officiel.
+  /// Déduplication par identité normalisée, sans promouvoir un Dr en Pr.
   List<TeamMember> responsibleOptions({required bool forEmergencies}) {
-    final options = <TeamMember>[...professors];
-    if (forEmergencies) {
-      for (final senior in seniorNames) {
-        final id = responsibleIdForSenior(senior);
-        if (!options.any((x) => x.id == id)) {
-          options.add(TeamMember(id: id, name: senior));
-        }
+    final byName = <String,TeamMember>{};
+    void add(TeamMember member) {
+      final key = _normalizeClinician(member.name);
+      if (key.isEmpty || key == 'MEDECIN DE GARDE') return;
+      final existing = byName[key];
+      if (existing == null || member.id.startsWith('PROF-')) {
+        byName[key] = member;
       }
     }
-    return options..sort((a,b) => a.name.compareTo(b.name));
+    for(final p in professors) add(p);
+    for(final j in juniors) add(j);
+    for(final senior in seniorNames) {
+      add(TeamMember(id:responsibleIdForName(senior),name:senior));
+    }
+    for(final duty in dutyDays.values) {
+      final name = duty.seniorName;
+      if(name != null && name.trim().isNotEmpty) {
+        add(TeamMember(id:responsibleIdForName(name),name:name));
+      }
+      final junior = juniorById(duty.juniorId);
+      if(junior != null) add(junior);
+    }
+    for(final slot in weeklyVisceralConsultations) {
+      if(slot.consultantName != 'Médecin de garde') {
+        add(TeamMember(id:responsibleIdForName(slot.consultantName),
+          name:slot.consultantName));
+      }
+    }
+    for(final patient in patients) {
+      final surgeon = patient.programSurgeon.trim();
+      if(surgeon.isNotEmpty) {
+        add(TeamMember(id:responsibleIdForName(surgeon),name:surgeon));
+      }
+    }
+    return byName.values.toList()
+      ..sort((a,b)=>a.name.toUpperCase().compareTo(b.name.toUpperCase()));
+  }
+
+  TeamMember? responsibleById(String? id) {
+    if(id == null || id.isEmpty) return null;
+    for(final person in responsibleOptions(forEmergencies:false)) {
+      if(person.id == id) return person;
+    }
+    return null;
   }
 
   // Initialisation du référentiel et activation de profils déjà approuvés.
@@ -328,7 +369,7 @@ class AppStore extends ChangeNotifier {
   void removeLeave(String id){leaves.removeWhere((l)=>l.id==id);notifyListeners();_savePlanning();}
 
   bool addVacation({required String professorId,required DateTime start,required DateTime end}) {
-    if (professorById(professorId)==null || !end.isAfter(start)) return false;
+    if (responsibleById(professorId)==null || !end.isAfter(start)) return false;
     vacations.add(ConsultationVacation(id:'VAC-${++_staffSerial}',professorId:professorId,start:start,end:end));
     vacations.sort((a,b)=>a.start.compareTo(b.start)); notifyListeners(); _savePlanning(); return true;
   }
@@ -349,27 +390,39 @@ class AppStore extends ChangeNotifier {
       }
       return const ProfessorMatch(explanation:'Aucune astreinte senior renseignée pour cette date. Sélectionnez le médecin responsable manuellement.',mode:'À confirmer',requiresSelection:true);
     }
-    final matches=vacations.where((v)=>!at.isBefore(v.start)&&at.isBefore(v.end)&&professorById(v.professorId)!=null).toList();
+    final matches=vacations.where((v)=>!at.isBefore(v.start)&&at.isBefore(v.end)&&responsibleById(v.professorId)!=null).toList();
     final ids=matches.map((v)=>v.professorId).toSet();
-    if (ids.length==1) return ProfessorMatch(professorId:ids.first,explanation:'Professeur de la vacation de consultation à la date et l’heure indiquées.',mode:'Vacation de consultation',requiresSelection:false);
-    if (ids.length>1) return const ProfessorMatch(explanation:'Plusieurs vacations de professeurs se chevauchent. Attribution manuelle obligatoire.',mode:'Conflit de vacations',requiresSelection:true);
+    if (ids.length==1) return ProfessorMatch(professorId:ids.first,explanation:'Médecin de la vacation de consultation à la date et l’heure indiquées.',mode:'Vacation de consultation',requiresSelection:false);
+    if (ids.length>1) return const ProfessorMatch(explanation:'Plusieurs vacations de médecins se chevauchent. Attribution manuelle obligatoire.',mode:'Conflit de vacations',requiresSelection:true);
     // Grille hebdomadaire permanente, communiquée par le service.
     // Les exceptions datées ont déjà été examinées en priorité.
     final slot=referenceConsultantAt(at);
-    if (slot!=null) {
-      if(slot.professorName==null) {
-        return ProfessorMatch(explanation:'Consultation : ${slot.consultantName}. Le document ne désigne aucun professeur responsable pour ce créneau : attribution manuelle obligatoire.',mode:'Consultant sans professeur identifié',requiresSelection:true);
+    if(slot!=null) {
+      if(slot.consultantName=='Médecin de garde') {
+        final senior=seniorOnName(at);
+        if(senior!=null && senior.trim().isNotEmpty) {
+          return ProfessorMatch(professorId:responsibleIdForName(senior),
+            explanation:'Médecin de garde : $senior.',
+            mode:'Médecin de garde',requiresSelection:false);
+        }
+        return const ProfessorMatch(explanation:'Médecin de garde à sélectionner.',
+          mode:'Médecin de garde',requiresSelection:true);
       }
-      final name=slot.professorName!;
-      TeamMember? found;
-      for (final person in professors) {
-        if(person.name.toLowerCase()==name.toLowerCase()){found=person;break;}
-      }
-      if(found!=null) return ProfessorMatch(professorId:found.id,explanation:'Planning hebdomadaire annuel confirmé : ${slot.consultantName} (${slot.startHour}h–${slot.endHour}h).',mode:'Vacation hebdomadaire',requiresSelection:false);
-      return ProfessorMatch(explanation:'Consultant ${slot.consultantName} identifié, mais professeur absent de l’annuaire. Attribution manuelle obligatoire.',mode:'À confirmer',requiresSelection:true);
+      final id=responsibleIdForName(slot.consultantName);
+      return ProfessorMatch(professorId:id,
+        explanation:'Vacation hebdomadaire : ${slot.consultantName} '
+          '(${slot.startHour}h–${slot.endHour}h).',
+        mode:'Vacation hebdomadaire',requiresSelection:false);
     }
     return const ProfessorMatch(explanation:'Aucune consultation programmée dans ce créneau (ou dimanche). Attribution manuelle obligatoire.',mode:'Hors vacation',requiresSelection:true);
   }
+  void changeBlockResponsible(PatientCase patient,String doctorId,String reason) {
+    if(responsibleById(doctorId)==null || reason.trim().isEmpty)return;
+    patient.blockResponsibleId=doctorId;
+    notifyListeners();
+    _saveIfImported(patient);
+  }
+
   void changeProfessor(PatientCase patient,String professorId,String reason) {
     if(responsibleById(professorId)==null || reason.trim().isEmpty) return;
     patient.professorId=professorId;
