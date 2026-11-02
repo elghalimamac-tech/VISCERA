@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../store.dart';
 import '../planning_models.dart';
 import '../duty_reminders.dart';
+import 'notification_settings.dart';
 
 /// Calendrier personnel : garde de service 24H et congé.
 class PersonalPlanningPage extends StatefulWidget {
@@ -99,7 +100,10 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
         .where(appStore.isMyDuty).toList();
       String alertMessage;
       try {
-        alertMessage=await scheduleDutyReminders(month,duties);
+        final doctorId = appStore.activeLocalProfile?.id;
+        final settings = doctorId == null ? const DutyAlarmPreferences()
+            : await loadDutyAlarmPreferences(doctorId);
+        alertMessage=await scheduleDutyReminders(month,duties,settings:settings);
       } catch (_) {
         alertMessage='Rappels non activés. Vérifiez les autorisations du téléphone.';
       }
@@ -327,7 +331,10 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
           backgroundColor:Colors.white,
           elevation:0,
           title:const VisceraPageTitle('Planning personnel'),
-          actions:const [],
+          actions:[IconButton(tooltip:'Configurer les alarmes',
+            icon:const Icon(Icons.notifications_active_outlined),
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>const NotificationSettingsPage())))],
         ),
         body:SafeArea(child:Padding(
           padding:const EdgeInsets.fromLTRB(12,8,12,11),
@@ -403,8 +410,8 @@ class _PersonalPlanningPageState extends State<PersonalPlanningPage> {
                 style:const TextStyle(fontWeight:FontWeight.w800)),
             )),
             const SizedBox(height:5),
-            const Text('Rappels des gardes : veille à 18 h et jour J à 7 h '
-              '(application Android uniquement).',
+            const Text('Alarmes personnalisables depuis le menu notifications '
+              '(Android, après validation du planning).',
               textAlign:TextAlign.center,
               style:TextStyle(color:muted,fontSize:10,height:1.4)),
           ]),
