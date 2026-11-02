@@ -23,9 +23,48 @@
   var config = {canvasKitBaseUrl: 'canvaskit/'};
   if (lowGraphics) config.canvasKitForceCpuOnly = true;
 
-  status('Chargement du moteur graphique VISCERA…');
+  async function clearOldFlutterServiceWorker() {
+    if (!('serviceWorker' in navigator)) return false;
+    // Les anciennes versions Flutter enregistrent un service worker qui peut
+    // servir des fichiers JS périmés après la mise à jour GitHub Pages.
+    var registrations;
+    try {
+      registrations = await Promise.race([
+        navigator.serviceWorker.getRegistrations(),
+        new Promise(function (resolve) { setTimeout(function () { resolve([]); }, 1800); })
+      ]);
+    } catch (_) {
+      return false;
+    }
+    var oldWorkerUrl = new URL('flutter_service_worker.js', document.baseURI).href;
+    var removed = false;
+    for (var registration of registrations) {
+      var workers = [registration.active, registration.waiting, registration.installing];
+      if (workers.some(function (worker) {
+        return worker && worker.scriptURL === oldWorkerUrl;
+      })) {
+        try {
+          if (await registration.unregister()) removed = true;
+        } catch (_) { /* Pas bloquant */ }
+      }
+    }
+    if (removed && navigator.serviceWorker.controller) {
+      try {
+        var marker = 'viscera_legacy_worker_reloaded_v1';
+        if (!sessionStorage.getItem(marker)) {
+          sessionStorage.setItem(marker, '1');
+          location.reload();
+          return true;
+        }
+      } catch (_) { /* Navigation privée : continuer sans cache persistant */ }
+    }
+    return false;
+  }
 
-  _flutter.loader.load({
+  async function start() {
+    if (await clearOldFlutterServiceWorker()) return;
+    status('Chargement du moteur graphique VISCERA…');
+    await _flutter.loader.load({
     config: config,
     onEntrypointLoaded: async function (engineInitializer) {
       try {
@@ -48,7 +87,10 @@
         fail('initialisation');
       }
     }
-  }).catch(function (error) {
+    });
+  }
+
+  start().catch(function (error) {
     console.error('VISCERA: échec du chargement du code Flutter', error);
     fail('chargement');
   });
