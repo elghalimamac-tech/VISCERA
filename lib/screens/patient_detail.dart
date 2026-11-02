@@ -275,15 +275,23 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
             ],
             const Divider(height:22),
-            _line(Icons.medical_services_outlined,'Médecin responsable',
-              appStore.responsibleById(p.professorId)?.name??(p.programSurgeon.isNotEmpty ? p.programSurgeon : 'À attribuer')),
+            _line(Icons.medical_services_outlined,'Responsable admission',
+              appStore.responsibleById(p.professorId)?.name??'À attribuer'),
             const SizedBox(height:5),
             Text('${p.assignmentMode} · ${p.assignmentExplanation}',
               style:const TextStyle(fontSize:11,color:VColors.muted)),
             const SizedBox(height:8),
             OutlinedButton.icon(onPressed:_changeProfessor,
               icon:const Icon(Icons.manage_accounts_outlined,size:17),
-              label:const Text('Modifier le responsable')),
+              label:const Text('Modifier responsable admission')),
+            const Divider(height:22),
+            _line(Icons.medical_services_outlined,'Responsable bloc',
+              appStore.responsibleById(p.blockResponsibleId)?.name??
+                (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')),
+            const SizedBox(height:8),
+            OutlinedButton.icon(onPressed:_changeBlockDoctor,
+              icon:const Icon(Icons.manage_accounts_outlined,size:17),
+              label:const Text('Modifier responsable du bloc')),
             const Divider(height:22),
             _line(Icons.category_outlined,'Type de chirurgie',
               p.standardizedSurgeryType),
@@ -355,14 +363,59 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     if(p.stage==CaseStage.dischargeReady)ElevatedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p))),icon:const Icon(Icons.description_outlined),label:const Text('Documents et validation de sortie')),
     if(p.stage==CaseStage.discharged)OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p,readOnly:true))),icon:const Icon(Icons.file_open_outlined),label:const Text('Consulter les documents de sortie')),
   ]);
+  Future<void> _changeBlockDoctor() async {
+    final doctors=appStore.responsibleOptions(forEmergencies:false);
+    if(doctors.isEmpty){_notice('Aucun médecin du service disponible.');return;}
+    String? selected=appStore.responsibleById(p.blockResponsibleId)!=null
+      ? p.blockResponsibleId : null;
+    final reason=TextEditingController();
+    await showModalBottomSheet<void>(
+      context:context,isScrollControlled:true,showDragHandle:true,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,update)=>Padding(
+        padding:EdgeInsets.fromLTRB(20,10,20,
+          MediaQuery.of(ctx).viewInsets.bottom+22),
+        child:Column(mainAxisSize:MainAxisSize.min,
+          crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('Responsable du bloc',
+              style:Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height:14),
+            DropdownButtonFormField<String>(
+              value:selected,
+              isExpanded:true,
+              decoration:const InputDecoration(
+                labelText:'Médecin opérateur responsable'),
+              items:doctors.map((doc)=>DropdownMenuItem(
+                value:doc.id,
+                child:Text(doc.name,overflow:TextOverflow.ellipsis))).toList(),
+              onChanged:(value)=>update(()=>selected=value)),
+            const SizedBox(height:12),
+            TextField(controller:reason,maxLines:2,
+              decoration:const InputDecoration(
+                labelText:'Motif du changement (obligatoire)')),
+            const SizedBox(height:14),
+            SizedBox(width:double.infinity,
+              child:FilledButton(
+                onPressed:(){
+                  if(selected==null || reason.text.trim().isEmpty){
+                    _notice('Choisissez un médecin et précisez le motif.');
+                    return;
+                  }
+                  appStore.changeBlockResponsible(p,selected!,reason.text);
+                  Navigator.pop(ctx);
+                },
+                child:const Text('Enregistrer le responsable du bloc'))),
+          ]))));
+    reason.dispose();
+  }
+
   Future<void> _changeProfessor() async {
     if(appStore.responsibleOptions(forEmergencies:p.origin=='Urgences').isEmpty){_notice('Ajoutez d’abord les médecins au planning.');return;}
     String? selected=p.professorId;
     final reason=TextEditingController();
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,update)=>Padding(
       padding:EdgeInsets.fromLTRB(20,8,20,MediaQuery.of(ctx).viewInsets.bottom+22),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Médecin responsable',style:Theme.of(ctx).textTheme.titleLarge),const SizedBox(height:16),
-        DropdownButtonFormField<String>(value:appStore.responsibleById(selected)!=null?selected:null,isExpanded:true,decoration:const InputDecoration(labelText:'Médecin responsable'),items:appStore.responsibleOptions(forEmergencies:p.origin=='Urgences').map((x)=>DropdownMenuItem(value:x.id,child:Text(x.name,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v)=>update(()=>selected=v)),const SizedBox(height:12),
+        Text('Responsable de l’admission',style:Theme.of(ctx).textTheme.titleLarge),const SizedBox(height:16),
+        DropdownButtonFormField<String>(value:appStore.responsibleById(selected)!=null?selected:null,isExpanded:true,decoration:const InputDecoration(labelText:'Responsable de l’admission'),items:appStore.responsibleOptions(forEmergencies:p.origin=='Urgences').map((x)=>DropdownMenuItem(value:x.id,child:Text(x.name,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v)=>update(()=>selected=v)),const SizedBox(height:12),
         TextField(controller:reason,maxLines:2,decoration:const InputDecoration(labelText:'Motif du changement (obligatoire)')),
         const SizedBox(height:14),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(selected==null||reason.text.trim().isEmpty){_notice('Sélectionnez un médecin et renseignez le motif.');return;}appStore.changeProfessor(p,selected!,reason.text);Navigator.pop(ctx);},child:const Text('Enregistrer la modification'))),
       ]))));
