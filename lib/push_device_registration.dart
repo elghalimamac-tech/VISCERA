@@ -62,7 +62,7 @@ class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
       if (token != null) await _saveToken(token);
       _refresh = fm.onTokenRefresh.listen((token) => unawaited(_saveToken(token)));
       await _local.initialize(const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher')));
+        android: AndroidInitializationSettings('@drawable/viscera_notification')));
       _foreground = FirebaseMessaging.onMessage.listen((message) async {
         // Le texte est choisi localement, jamais le payload du serveur (pas de PHI).
         final kind = message.data['kind'];
