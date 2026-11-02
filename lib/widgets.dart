@@ -1,3 +1,4 @@
+import 'branding.dart';
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'theme.dart';
@@ -44,7 +45,7 @@ class PatientTile extends StatelessWidget {
 
 class VScaffoldPage extends StatelessWidget {
   const VScaffoldPage({super.key,required this.title,required this.child,this.subtitle});final String title;final Widget child;final String? subtitle;
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,title:Text(title,style:const TextStyle(fontWeight:FontWeight.w800,letterSpacing:-0.7)),centerTitle:false),body:child);
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(backgroundColor:VColors.background,surfaceTintColor:Colors.transparent,title:VisceraPageTitle(title),centerTitle:false),body:child);
 }
 
 Future<bool> showConfirmation(BuildContext context,{required String title,required String message,required String action}) async {
