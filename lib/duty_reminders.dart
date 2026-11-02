@@ -1,85 +1,144 @@
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as timezone_data;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Alarmes locales des gardes de SERVICE 24H validées.
-/// Programmées sur le téléphone Android (heure locale du service à Casablanca).
-/// Ni patient, ni dossier clinique, ni adresse e-mail dans les notifications.
-Future<String> scheduleDutyReminders(DateTime month, List<DateTime> dates) async {
-  if(kIsWeb) {
-    return 'Installez VISCERA sur Android pour recevoir les rappels hors du navigateur.';
-  }
-  if(!Platform.isAndroid) {
-    return 'Les rappels automatiques sont disponibles sur Android.';
-  }
+/// Alarmes de gardes personnelles : sans identifiant ni dossier patient.
+class DutyAlarmPreferences {
+  const DutyAlarmPreferences({
+    this.enabled = true, this.previousDay = true, this.sameDay = true,
+    this.previousHour = 18, this.sameDayHour = 7,
+  });
+  final bool enabled, previousDay, sameDay;
+  final int previousHour, sameDayHour;
 
-  final notifications=FlutterLocalNotificationsPlugin();
-  await notifications.initialize(
-    const InitializationSettings(
-      android:AndroidInitializationSettings('@mipmap/ic_launcher'),
-    ),
+  DutyAlarmPreferences copyWith({
+    bool? enabled, bool? previousDay, bool? sameDay,
+    int? previousHour, int? sameDayHour,
+  }) => DutyAlarmPreferences(
+    enabled: enabled ?? this.enabled, previousDay: previousDay ?? this.previousDay,
+    sameDay: sameDay ?? this.sameDay,
+    previousHour: previousHour ?? this.previousHour,
+    sameDayHour: sameDayHour ?? this.sameDayHour,
   );
-  final android=notifications.resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>();
-  final allowed=await android?.requestNotificationsPermission()??false;
-  if(!allowed)return 'Autorisez les notifications de VISCERA dans les paramètres Android.';
+}
 
-  bool exact=false;
-  try {
-    exact=await android?.requestExactAlarmsPermission()??false;
-  } catch (_) {
-    exact=false;
-  }
+String _alarmKey(String userId) => 'viscera_duty_alarms_v2_$userId';
+bool get dutyAlarmSupported => !kIsWeb && Platform.isAndroid;
+
+Future<DutyAlarmPreferences> loadDutyAlarmPreferences(String userId) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = _alarmKey(userId);
+  return DutyAlarmPreferences(
+    enabled: prefs.getBool('${key}_enabled') ?? true,
+    previousDay: prefs.getBool('${key}_previous') ?? true,
+    sameDay: prefs.getBool('${key}_today') ?? true,
+    previousHour: prefs.getInt('${key}_previousHour') ?? 18,
+    sameDayHour: prefs.getInt('${key}_sameDayHour') ?? 7,
+  );
+}
+
+Future<void> saveDutyAlarmPreferences(String userId, DutyAlarmPreferences settings) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = _alarmKey(userId);
+  await prefs.setBool('${key}_enabled', settings.enabled);
+  await prefs.setBool('${key}_previous', settings.previousDay);
+  await prefs.setBool('${key}_today', settings.sameDay);
+  await prefs.setInt('${key}_previousHour', settings.previousHour);
+  await prefs.setInt('${key}_sameDayHour', settings.sameDayHour);
+}
+
+int dutyAlarmId(DateTime day, int slot) =>
+    (day.year * 10000 + day.month * 100 + day.day) * 4 + slot;
+
+List<DateTime> plannedDutyDays(DateTime month, bool Function(DateTime) isMyDuty) =>
+    List<DateTime>.generate(DateTime(month.year, month.month + 1, 0).day,
+      (index) => DateTime(month.year, month.month, index + 1))
+        .where(isMyDuty).toList();
+
+Future<FlutterLocalNotificationsPlugin> _notifications() async {
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(const InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+  ));
   timezone_data.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Africa/Casablanca'));
+  return plugin;
+}
 
-  const settings=NotificationDetails(
-    android:AndroidNotificationDetails(
-      'viscera_gardes_24h_v1',
-      'Rappels des gardes VISCERA',
-      channelDescription:'Rappels avant les gardes de service de 24 heures',
-      importance:Importance.high,
-      priority:Priority.high,
-    ),
-  );
-
-  // Une paire de notifications est attachée à chaque date du mois.
-  // Seuls les rappels de CE mois sont remplacés à la validation.
-  final end=DateTime(month.year,month.month+1,0).day;
-  final scheduled=dates.map((x)=>x.day).toSet();
-  var count=0;
-  final mode=exact ? AndroidScheduleMode.exactAllowWhileIdle
+Future<String> scheduleDutyReminders(DateTime month, List<DateTime> dates, {
+  DutyAlarmPreferences settings = const DutyAlarmPreferences(),
+}) async {
+  if (!dutyAlarmSupported) {
+    return 'Alarmes locales Android uniquement. Les réglages restent disponibles.';
+  }
+  final plugin = await _notifications();
+  final totalDays = DateTime(month.year, month.month + 1, 0).day;
+  for (var day = 1; day <= totalDays; day++) {
+    final date = DateTime(month.year, month.month, day);
+    await plugin.cancel(dutyAlarmId(date, 0));
+    await plugin.cancel(dutyAlarmId(date, 1));
+    // Nettoyage des anciens IDs de rappel.
+    await plugin.cancel((date.year * 10000 + date.month * 100 + date.day) * 2);
+    await plugin.cancel((date.year * 10000 + date.month * 100 + date.day) * 2 + 1);
+  }
+  if (!settings.enabled || (!settings.previousDay && !settings.sameDay)) {
+    return 'Alarmes de garde désactivées pour ce mois.';
+  }
+  final android = plugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  if (await android?.requestNotificationsPermission() != true) {
+    return 'Autorisez les notifications de VISCERA dans les paramètres Android.';
+  }
+  bool exact = false;
+  try {
+    exact = await android?.requestExactAlarmsPermission() == true;
+  } catch (_) {
+    exact = false;
+  }
+  final mode = exact ? AndroidScheduleMode.exactAllowWhileIdle
       : AndroidScheduleMode.inexactAllowWhileIdle;
-  final now=tz.TZDateTime.now(tz.local);
-  for(var day=1;day<=end;day++){
-    final identifier=(month.year*10000+month.month*100+day)*2;
-    await notifications.cancel(identifier);
-    await notifications.cancel(identifier+1);
-    if(!scheduled.contains(day))continue;
-    final duty=tz.TZDateTime(tz.local,month.year,month.month,day,7);
-    final before=tz.TZDateTime(tz.local,month.year,month.month,day-1,18);
-    if(before.isAfter(now)){
-      await notifications.zonedSchedule(
-        identifier,'VISCERA · Garde demain',
-        'Vous avez une garde de service de 24 h demain.',
-        before,settings,androidScheduleMode:mode,
-      );
+  const details = NotificationDetails(android: AndroidNotificationDetails(
+    'viscera_service_duty_v2', 'Alarmes de garde',
+    channelDescription: 'Gardes de service personnelles, sans données patient',
+    importance: Importance.high, priority: Priority.high,
+  ));
+  final now = tz.TZDateTime.now(tz.local);
+  var count = 0;
+  for (final date in dates.toSet()) {
+    if (date.year != month.year || date.month != month.month) continue;
+    final previous = DateTime(date.year, date.month, date.day - 1);
+    final before = tz.TZDateTime(tz.local, previous.year, previous.month,
+        previous.day, settings.previousHour);
+    final sameDay = tz.TZDateTime(tz.local, date.year, date.month,
+        date.day, settings.sameDayHour);
+    if (settings.previousDay && before.isAfter(now)) {
+      await plugin.zonedSchedule(dutyAlarmId(date, 0), 'VISCERA · Garde demain',
+          'Garde de service de 24 h prévue demain.', before, details,
+          androidScheduleMode: mode);
       count++;
     }
-    if(duty.isAfter(now)){
-      await notifications.zonedSchedule(
-        identifier+1,'VISCERA · Garde aujourd’hui',
-        'Rappel : garde de service de 24 h aujourd’hui.',
-        duty,settings,androidScheduleMode:mode,
-      );
+    if (settings.sameDay && sameDay.isAfter(now)) {
+      await plugin.zonedSchedule(dutyAlarmId(date, 1), 'VISCERA · Garde aujourd’hui',
+          'Garde de service de 24 h prévue aujourd’hui.', sameDay, details,
+          androidScheduleMode: mode);
       count++;
     }
   }
-  if(count==0)return 'Aucune alarme future à programmer ce mois.';
-  return exact
-      ? '$count rappels programmés sur Android.'
-      : '$count rappels programmés (heure approximative : autorisation des alarmes exactes non accordée).';
+  if (count == 0) return 'Aucune garde future à rappeler ce mois.';
+  return '$count rappels programmés${exact ? '' : ' (heures approximatives selon Android)'}.';
+}
+
+/// Nettoie les rappels de gardes VISCERA au changement de compte.
+Future<void> cancelAllDutyReminders() async {
+  if (!dutyAlarmSupported) return;
+  final plugin = await _notifications();
+  final requests = await plugin.pendingNotificationRequests();
+  for (final request in requests) {
+    if (request.id >= 40000000 && request.id < 99999999) {
+      await plugin.cancel(request.id);
+    }
+  }
 }
