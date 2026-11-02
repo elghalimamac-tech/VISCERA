@@ -335,6 +335,30 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             VCard(color:VColors.softMint,child:Text(
               'Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.')),
           ],
+          if(p.fromBlocProgram && p.stage!=CaseStage.discharged)...[
+            const SizedBox(height:20),
+            const Divider(),
+            if(!p.isOmitted)
+              OutlinedButton.icon(
+                key:const Key('omit-program-admission'),
+                onPressed:_omitProgramAdmission,
+                icon:const Icon(Icons.person_off_outlined),
+                label:const Text('Le patient n’a pas été réellement admis'),
+                style:OutlinedButton.styleFrom(
+                  foregroundColor:const Color(0xFFB4232F),
+                  minimumSize:const Size(double.infinity,48)),
+              )
+            else
+              OutlinedButton.icon(
+                key:const Key('restore-program-admission'),
+                onPressed:_restoreProgramAdmission,
+                icon:const Icon(Icons.undo_rounded),
+                label:const Text('Rétablir l’admission automatique'),
+                style:OutlinedButton.styleFrom(
+                  minimumSize:const Size(double.infinity,48)),
+              ),
+            const SizedBox(height:14),
+          ],
         ],
       ),
     ),
