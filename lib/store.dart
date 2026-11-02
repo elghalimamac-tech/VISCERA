@@ -609,6 +609,41 @@ class AppStore extends ChangeNotifier {
     _saveIfImported(p);
   }
 
+  /// Attestation groupée après contrôle physique de toutes les pièces de sortie.
+  /// Les documents facultatifs explicitement « Non applicable » restent exclus.
+  /// Une seule écriture est envoyée pour la checklist entière, avec restauration
+  /// de l'état initial si la sauvegarde partagée échoue.
+  Future<bool> verifyAndStampAllDischargeDocuments(PatientCase p) async {
+    if (!p.isPostOp || !p.physicallyAdmitted) return false;
+    final before = <String, DocumentCheck>{};
+    final now = DateTime.now();
+    for (final requirement in ClinicalDocuments.discharge) {
+      final check = p.check(requirement.key);
+      if (check.complete(requirement)) continue;
+      before[requirement.key] = DocumentCheck()
+        ..verified = check.verified
+        ..stamped = check.stamped
+        ..notApplicable = check.notApplicable
+        ..checkedAt = check.checkedAt;
+      check.verified = true;
+      check.notApplicable = false;
+      check.stamped = requirement.needsStamp ? true : null;
+      check.checkedAt = now;
+    }
+    if (before.isEmpty) return true;
+    notifyListeners();
+    try {
+      await saveClinical(p);
+      return true;
+    } catch (_) {
+      for (final previous in before.entries) {
+        p.documents[previous.key] = previous.value;
+      }
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Les observations des patients issus du bloc sont enregistrées dans Supabase.
   /// Une modification nécessite à nouveau le report manuel dans Magica/Sillage.
   void saveDailyObservation(PatientCase p, DailyObservation note) {

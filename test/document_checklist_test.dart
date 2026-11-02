@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:viscera/document_checklist.dart';
 import 'package:viscera/models.dart';
 import 'package:viscera/store.dart';
 
@@ -32,6 +34,66 @@ void main() {
     expect(patient.check('anapath').complete(anapath),isTrue);
     store.updateDocument(patient,ClinicalDocuments.postBlock.first,notApplicable:true);
     expect(patient.check('cro').notApplicable,isFalse);
+  });
+
+  test('Validation groupée : pièces applicables cachetées en un enregistrement', () async {
+    final patient=example(),store=AppStore();
+    patient.check('anapath').notApplicable=true;
+    final previousAt=DateTime(2026,10,20);
+    patient.check('cro')
+      ..verified=true
+      ..stamped=true
+      ..checkedAt=previousAt;
+
+    expect(await store.verifyAndStampAllDischargeDocuments(patient),isTrue);
+    expect(patient.allChecked(ClinicalDocuments.discharge),isTrue);
+    expect(patient.check('anapath').notApplicable,isTrue);
+    expect(patient.check('anapath').verified,isFalse);
+    expect(patient.check('cro').checkedAt,previousAt);
+    expect(patient.check('rdv').verified,isTrue);
+    expect(patient.check('rdv').stamped,isNull);
+    expect(patient.check('ordonnance_sortie').stamped,isTrue);
+    expect(patient.stage,CaseStage.postoperative);
+    expect(patient.dischargeAt,isNull);
+  });
+
+  test('Action groupée interdite hors postopératoire ou sans admission', () async {
+    final patient=example(),store=AppStore();
+    patient.stage=CaseStage.preoperative;
+    expect(await store.verifyAndStampAllDischargeDocuments(patient),isFalse);
+    patient.stage=CaseStage.postoperative;
+    patient.admittedAt=null;
+    expect(await store.verifyAndStampAllDischargeDocuments(patient),isFalse);
+    expect(patient.completedCount(ClinicalDocuments.discharge),0);
+  });
+
+  testWidgets('Le raccourci attend une attestation explicite', (tester) async {
+    final patient=example();
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:DocumentChecklist(
+        patient:patient,
+        title:'Documents de sortie',
+        requirements:ClinicalDocuments.discharge,
+      )),
+    )));
+    final bulk=find.byKey(const Key('bulk-verify-discharge-documents'));
+    expect(bulk,findsOneWidget);
+    await tester.tap(bulk);
+    await tester.pumpAndSettle();
+    expect(find.text('Valider les documents'),findsOneWidget);
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(patient.allChecked(ClinicalDocuments.discharge),isFalse);
+
+    await tester.tap(bulk);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Valider les documents'));
+    await tester.pumpAndSettle();
+    expect(patient.allChecked(ClinicalDocuments.discharge),isTrue);
+    expect(patient.stage,CaseStage.postoperative);
+    expect(patient.dischargeAt,isNull);
+    final button=tester.widget<FilledButton>(bulk);
+    expect(button.onPressed,isNull);
   });
 
   test('Une sortie ne se confirme pas avant vérification documentaire', () {
