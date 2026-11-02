@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/auth_gate.dart';
 import 'theme.dart';
+import 'branding.dart';
 import 'store.dart';
 
 /// Sur Web, les push nécessitent une configuration FCM Web séparée.
@@ -135,12 +136,7 @@ class _StartupMessage extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.local_hospital_outlined,
-                    size: 52, color: Color(0xFF083B46)),
-                const SizedBox(height: 16),
-                const Text('VISCERA',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900,
-                        color: Color(0xFF083B46))),
+                const VisceraBrandLockup(markSize: 55,subtitle:null),
                 const SizedBox(height: 16),
                 Text(message, textAlign: TextAlign.center),
                 if (isError) ...[
