@@ -77,6 +77,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     setState(() { busy = true; status = null; });
     try {
       await saveDutyAlarmPreferences(id, preferences);
+      // Supprimer les anciens déclenchements avant de reconstruire les rappels.
+      await cancelAllDutyReminders();
       // Le planning est propre à l'utilisateur connecté.
       // On recalcule ce mois et les deux prochains pour les gardes déjà enregistrées.
       final now = DateTime.now();
