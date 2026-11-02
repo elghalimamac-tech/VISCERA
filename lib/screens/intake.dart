@@ -5,6 +5,7 @@ import 'package:postgrest/postgrest.dart';
 import '../models.dart';
 import '../surgery_classification.dart';
 import '../document_checklist.dart';
+import '../preoperative_readiness.dart';
 import '../planning_models.dart';
 import 'planning.dart';
 import 'patient_detail.dart';
@@ -117,6 +118,10 @@ class _IntakePageState extends State<IntakePage> {
       target.checkedAt=source.checkedAt;
     }
     p.confidentialEnvelopeDone = p.check('pli').verified;
+    p.cpaStatus = _intakeDocs.cpaStatus;
+    p.preopLabStatus = _intakeDocs.preopLabStatus;
+    p.admissionPrescriptionStatus = _intakeDocs.admissionPrescriptionStatus;
+    p.admissionPrescriptionDetails = _intakeDocs.admissionPrescriptionDetails;
     if(!mounted)return;
     setState(()=>saving=true);
     try{
@@ -236,6 +241,8 @@ class _IntakePageState extends State<IntakePage> {
     const SizedBox(height:13),_reviewBlock('CLINIQUE',[motive.text,'Histoire : ${history.text.isEmpty?'À compléter':history.text}','CAT : ${plan.text.isEmpty?'À compléter':plan.text}']),
     const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
     const SizedBox(height:15),DocumentChecklist(patient:_intakeDocs,title:'Documents à l’admission',requirements:ClinicalDocuments.admission),
+    const SizedBox(height:12),PreoperativeReadinessCard(patient:_intakeDocs,
+      onChanged:()=>setState((){})),
     const SizedBox(height:15),VCard(color:VColors.orangeSoft,child:const Text('Les affectations de box sont prévisionnelles tant que le patient n’y est pas transféré. Toute sortie et toute prescription nécessitent une validation médicale.',style:TextStyle(fontSize:12))),
   ];
   Widget _reviewBlock(String title,List<String> lines)=>VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(title),const SizedBox(height:12),...lines.map((s)=>Padding(padding:const EdgeInsets.only(bottom:7),child:Text(s,style:const TextStyle(fontSize:13))))]));
