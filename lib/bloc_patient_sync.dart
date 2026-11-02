@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'surgery_classification.dart';
 import 'bloc_clinical_record.dart';
+import 'program_admission.dart';
 import 'store.dart';
 
 /// Projections des patients issus des programmes officiels du bloc.
@@ -87,7 +88,7 @@ class BlocPatientSync {
           procedure: procedure,
           surgeryType: classifySurgery(procedure).label,
           blockTiming: 'Différé',
-          admissionTiming: 'À confirmer',
+          admissionTiming: ProgramAdmission.source,
           beforeUnit: '',
           beforeBox: '',
           afterUnit: '',
@@ -106,6 +107,7 @@ class BlocPatientSync {
           programSourceService: _str(row['source_service']),
           programScheduledTime: _str(row['scheduled_time']),
         );
+        ProgramAdmission.apply(patient, DateTime.now());
         final saved = clinical[rowId];
         if (saved != null && saved['clinical_data'] is Map) {
           BlocClinicalRecordService.apply(
