@@ -61,7 +61,7 @@ List<DateTime> plannedDutyDays(DateTime month, bool Function(DateTime) isMyDuty)
 Future<FlutterLocalNotificationsPlugin> _notifications() async {
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(const InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    android: AndroidInitializationSettings('@drawable/viscera_notification'),
   ));
   timezone_data.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Africa/Casablanca'));
