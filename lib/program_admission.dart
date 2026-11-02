@@ -32,6 +32,7 @@ class ProgramAdmission {
     if (!patient.fromBlocProgram || patient.stage != CaseStage.notAdmitted) {
       throw StateError('Le patient ne possède pas une exclusion à rétablir.');
     }
+    patient.stage = CaseStage.scheduled;
     apply(patient, today);
   }
 }
