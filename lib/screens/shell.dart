@@ -24,6 +24,7 @@ class _MainShellState extends State<MainShell> {
   int selected=0;String query='';String filter='Tous';String unit='Tous';
   Timer? _programTimer;
   bool _syncInProgress = false;
+  bool _dischargeDigestShown = false;
   String? _syncProblem;
 
   @override void initState() {
@@ -50,6 +51,7 @@ class _MainShellState extends State<MainShell> {
       appStore.replaceManualPatients(records[0]);
       appStore.replaceBlocProgramPatients(records[1]);
       setState(() => _syncProblem = null);
+      _maybeOpenDischargeDigest();
     } catch (_) {
       if (mounted) setState(() =>
         _syncProblem = 'Impossible de charger les dossiers partagés. Réessayez.');
@@ -57,6 +59,61 @@ class _MainShellState extends State<MainShell> {
       _syncInProgress = false;
     }
   }
+  // Notification IN-APP au lancement. Seulement les patients réellement
+  // admis et opérés, pas les lignes programmées seules.
+  void _maybeOpenDischargeDigest() {
+    if (_dischargeDigestShown || !mounted) return;
+    final due = appStore.patients
+        .where((p)=>p.dischargeReviewDueOn(DateTime.now())).toList();
+    if (due.isEmpty) return;
+    _dischargeDigestShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Row(children:[
+          Icon(Icons.notifications_active_outlined,color:Color(0xFFA45633)),
+          SizedBox(width:10),
+          Expanded(child:Text('Sorties à réévaluer aujourd’hui')),
+        ]),
+        content:ConstrainedBox(
+          constraints:const BoxConstraints(maxHeight:360,maxWidth:460),
+          child:SingleChildScrollView(child:Column(
+            mainAxisSize:MainAxisSize.min,
+            crossAxisAlignment:CrossAxisAlignment.start,
+            children:[
+              Text('${due.length} dossier(s) hospitalisé(s) ont atteint leur date '
+                  'indicative de révision de sortie.'),
+              const SizedBox(height:8),
+              const Text('Aucune sortie n’est automatique. Vérifier chaque dossier '
+                  'et la situation clinique avant toute décision.'),
+              const SizedBox(height:12),
+              ...due.take(8).map((patient)=>ListTile(
+                dense:true,
+                leading:const Icon(Icons.folder_open_outlined),
+                title:Text(patient.name,maxLines:1,overflow:TextOverflow.ellipsis),
+                subtitle:Text(patient.standardizedSurgeryType,
+                  maxLines:1,overflow:TextOverflow.ellipsis),
+                onTap:(){
+                  Navigator.pop(ctx);
+                  openCase(patient);
+                },
+              )),
+              if(due.length>8)Text('Et ${due.length-8} autre(s) dossier(s).'),
+            ],
+          )),
+        ),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),
+            child:const Text('Fermer')),
+          FilledButton(onPressed:(){
+            Navigator.pop(ctx);
+            setState(()=>selected=1);
+          },child:const Text('Voir les patients')),
+        ],
+      ));
+    });
+  }
+
   final GlobalKey<ScaffoldState> shellKey=GlobalKey<ScaffoldState>();
   void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:p)));
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
@@ -172,7 +229,7 @@ class _MainShellState extends State<MainShell> {
         Expanded(child:_quick(Icons.assignment_turned_in_outlined,'Sorties',()=>setState(()=>selected=1))),
       ]),
       if(urgent>0)...[SectionHeading('À prioriser'),VCard(color:VColors.orangeSoft,onTap:()=>setState(()=>selected=2),child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),Expanded(child:Text('$urgent patient(s) avec bloc immédiat à organiser',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.chevron_right_rounded)]))],
-      if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties potentielles'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
+      if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties à réévaluer'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
       SectionHeading('Patients programmés',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Programmés';}),child:const Text('Tout voir'))),
       ...appStore.programmed.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(appStore.programmed.isEmpty)const VCard(child:Text('Aucun patient programmé chargé.')),
