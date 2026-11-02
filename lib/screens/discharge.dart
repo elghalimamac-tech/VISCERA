@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models.dart';
@@ -24,7 +25,7 @@ class _DischargePageState extends State<DischargePage> {
   @override void dispose(){for(final c in [prescription,stayReport,operationReport]){c.dispose();}super.dispose();}
 
   @override Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:Text(widget.readOnly?'Documents de sortie':'Préparer la sortie',style:const TextStyle(fontWeight:FontWeight.w800)),backgroundColor:VColors.background),
+    appBar:AppBar(title:VisceraPageTitle(widget.readOnly?'Documents de sortie':'Préparer la sortie'),backgroundColor:VColors.background),
     body:AnimatedBuilder(animation:appStore,builder:(context,_)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(20,14,20,35),children:[
       VCard(color:VColors.ink,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('DOSSIER DE SORTIE',style:TextStyle(color:VColors.mint,fontSize:11,letterSpacing:1.6,fontWeight:FontWeight.w800)),const SizedBox(height:8),Text(p.name,style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w800)),const SizedBox(height:6),Text(p.procedure,style:const TextStyle(color:Colors.white70,fontSize:12))])),
       if(p.isFar)...[const SizedBox(height:13),VCard(color:VColors.orangeSoft,child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),const Expanded(child:Text('Mutuelle FAR : préparer l’ordonnance sur le support FAR.',style:TextStyle(fontWeight:FontWeight.w700,fontSize:13)))]))],
