@@ -5,7 +5,17 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'web/**'
+      - 'tool/check_web_build.py'
       - 'pubspec.yaml'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'tool/check_web_build.py'
       - '.github/workflows/pages.yml'
 permissions:
   contents: read
@@ -22,12 +32,15 @@ jobs:
       - run: flutter create --platforms=web --project-name viscera --org com.viscera .
       - run: flutter pub get
       - run: flutter build web --release --base-href /VISCERA/ --dart-define=SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
+      - name: Contrôler les scripts et le chemin du site
+        run: python3 tool/check_web_build.py
       - run: touch build/web/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
   deploy:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: build
     environment: github-pages
