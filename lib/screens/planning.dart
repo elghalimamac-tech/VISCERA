@@ -1,3 +1,4 @@
+import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../planning_models.dart';
 import '../store.dart';
@@ -27,7 +28,7 @@ class _PlanningPageState extends State<PlanningPage> {
   }
 
   @override Widget build(BuildContext context)=>DefaultTabController(length:2,child:Scaffold(
-    appBar:AppBar(title:const Text('Consultations & équipe',style:TextStyle(fontWeight:FontWeight.w800)),backgroundColor:VColors.background,
+    appBar:AppBar(title:const VisceraPageTitle('Consultations & équipe'),backgroundColor:VColors.background,
       bottom:const TabBar(tabs:[Tab(text:'Consultations'),Tab(text:'Équipe')],labelColor:VColors.ink,indicatorColor:VColors.ink)),
     body:AnimatedBuilder(animation:appStore,builder:(context,_)=>TabBarView(children:[_vacations(),_team()])),
   ));
