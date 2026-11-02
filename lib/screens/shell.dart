@@ -18,23 +18,64 @@ import 'admin_page.dart';
 import 'notification_settings.dart';
 import 'notification_inbox.dart';
 import '../duty_reminders.dart';
+import '../notification_center_service.dart';
+import '../notification_bell.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int selected=0;String query='';String filter='Tous';String unit='Tous';
   Timer? _programTimer;
+  Timer? _notificationTimer;
+  int _unreadCount = 0;
+  String? _lastNotificationUser;
+  final NotificationCenterService _notificationCenter = NotificationCenterService();
   bool _syncInProgress = false;
   bool _dischargeDigestShown = false;
   String? _syncProblem;
 
   @override void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refreshUnreadCount());
+    _notificationTimer = Timer.periodic(const Duration(seconds: 40),
+      (_) => unawaited(_refreshUnreadCount()));
     unawaited(_refreshProgrammedPatients());
     _programTimer = Timer.periodic(const Duration(minutes: 15),
       (_) => unawaited(_refreshProgrammedPatients()));
   }
 
+  Future<void> _refreshUnreadCount() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      if (mounted && _unreadCount != 0) setState(() => _unreadCount = 0);
+      return;
+    }
+    try {
+      final count = await _notificationCenter.unreadCount();
+      if (!mounted || Supabase.instance.client.auth.currentUser?.id != userId) {
+        return;
+      }
+      if (_unreadCount != count || _lastNotificationUser != userId) {
+        setState(() {
+          _lastNotificationUser = userId;
+          _unreadCount = count;
+        });
+      }
+    } catch (_) {
+      // Un défaut réseau n'empêche jamais le travail sur les dossiers.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshUnreadCount());
+    }
+  }
+
   @override void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _notificationTimer?.cancel();
     _programTimer?.cancel();
     super.dispose();
   }
@@ -119,7 +160,10 @@ class _MainShellState extends State<MainShell> {
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
-  void openInbox()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationInboxPage()));
+  void openInbox() {
+    Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>const NotificationInboxPage()))
+      .then((_) { if(mounted) unawaited(_refreshUnreadCount()); });
+  }
   void openNotificationSettings()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationSettingsPage()));
   void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
@@ -203,7 +247,7 @@ class _MainShellState extends State<MainShell> {
   Widget _dashboard(){
     final active=appStore.active;final urgent=appStore.theatre.where((p)=>p.blockTiming=='Immédiat').length;
     return _scroll([
-      _top('Votre service, en un regard.','Vue d’ensemble',action:Row(children:[IconButton(tooltip:'Équipe et planning',onPressed:openPlanning,icon:const Icon(Icons.calendar_month_outlined,color:VColors.ink)),CircleAvatar(backgroundColor:VColors.softMint,child:IconButton(tooltip:'À propos',onPressed:()=>_about(),icon:const Icon(Icons.shield_outlined,color:VColors.ink)))])),
+      _top('Votre service, en un regard.','Vue d’ensemble',action:Row(children:[VisceraNotificationBell(unreadCount:_unreadCount,onPressed:openInbox),IconButton(tooltip:'Équipe et planning',onPressed:openPlanning,icon:const Icon(Icons.calendar_month_outlined,color:VColors.ink)),CircleAvatar(backgroundColor:VColors.softMint,child:IconButton(tooltip:'À propos',onPressed:()=>_about(),icon:const Icon(Icons.shield_outlined,color:VColors.ink)))])),
       const SizedBox(height:12),
       Row(children:[
         Expanded(flex:3,child:_homeShortcut(
