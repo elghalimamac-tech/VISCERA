@@ -79,6 +79,11 @@
       setTimeout(failed, 18000);
     }());
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Only browser-safe Firebase client config is embedded here; never admin keys. -->
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-messaging-compat.js" defer></script>
+  <script src="viscera_firebase_config.js" defer></script>
+  <script src="viscera_push_web.js" defer></script>
+  <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
