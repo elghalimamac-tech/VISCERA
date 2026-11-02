@@ -408,10 +408,9 @@ class AppStore extends ChangeNotifier {
     // Seule la relation vérifiée manual_bloc_links supprime le doublon apparent.
     for (final official in officialCases) {
       final local = existing[official.id];
-      // Préserve la fiche actuellement ouverte ou en cours d'enregistrement.
-      if (local != null &&
-          (_clinicalWrites.containsKey(local.id) ||
-           local.clinicalVersion >= official.clinicalVersion)) {
+      // En dehors d'une écriture active, le serveur est la source de vérité,
+      // notamment après un retour arrière demandé sur une admission.
+      if (local != null && _clinicalWrites.containsKey(local.id)) {
         patients.add(local);
       } else {
         patients.add(official);
