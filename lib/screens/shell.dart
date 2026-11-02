@@ -352,8 +352,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Widget _beds(){
-    final patients=appStore.active.where((p)=>p.physicallyAdmitted && p.stage!=CaseStage.inTheatre && (unit=='Tous'||p.currentUnit==unit)).toList();
-    final occupied=appStore.active.where((p)=>p.physicallyAdmitted && p.stage!=CaseStage.inTheatre).toList();
+    final patients=appStore.active.where((p)=>p.physicallyAdmitted && p.currentUnit.trim().isNotEmpty &&
+      p.currentBox.trim().isNotEmpty && p.stage!=CaseStage.inTheatre && (unit=='Tous'||p.currentUnit==unit)).toList();
+    final occupied=appStore.active.where((p)=>p.physicallyAdmitted && p.currentUnit.trim().isNotEmpty &&
+      p.currentBox.trim().isNotEmpty && p.stage!=CaseStage.inTheatre).toList();
     return _scroll([_top('Localisation pré- et postopératoire.','Gestion des lits'),const SizedBox(height:22),
       VCard(color:VColors.softMint,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[const Icon(Icons.bed_outlined),const SizedBox(width:9),Text('${occupied.length} box attribué(s)',style:const TextStyle(fontWeight:FontWeight.w800))]),const SizedBox(height:8),const Text('Les capacités et boxes disponibles seront configurés par le service. Aucun taux d’occupation fictif.',style:TextStyle(fontSize:12,color:VColors.muted))])),
       const SizedBox(height:13),SizedBox(height:44,child:ListView(scrollDirection:Axis.horizontal,children:['Tous',...hospitalUnits.map((e)=>e.code)].map((v)=>Padding(padding:const EdgeInsets.only(right:7),child:ChoiceChip(label:Text(v),selected:unit==v,onSelected:(_)=>setState(()=>unit=v),selectedColor:VColors.softMint,showCheckmark:false))).toList())),
