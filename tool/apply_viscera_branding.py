@@ -17,22 +17,39 @@ ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / "assets" / "branding"
 DARK = "#083B46"
 TURQUOISE = "#13B8B0"
-SYMBOL = (BRAND / "viscera-symbol-light.svg").read_text(encoding="utf-8")
-INNER = SYMBOL.split(">", 1)[1].rsplit("</svg>", 1)[0]
+# Une source SVG haute fidélité, issue des nouvelles illustrations VISCERA.
+# La même source est utilisée par Flutter Web, Android et iOS.
+SOURCE_SYMBOL = (BRAND / "viscera-symbol.svg").read_text(encoding="utf-8")
+SOURCE_LIGHT = (BRAND / "viscera-symbol-light.svg").read_text(encoding="utf-8")
+SOURCE_ICON = (BRAND / "viscera-app-icon.svg").read_text(encoding="utf-8")
+SYMBOL_VIEWBOX = "220 287 810 677"
 
 
-def svg_scene(background: bool = True, maskable: bool = False, monochrome: bool = False):
-    # Coordonnées des quatre tracés du logo maître (viewBox 855 x 710).
-    scale = 0.75 if maskable else 1.0
-    x = 512 - (427 * scale)
-    y = 512 - (353.5 * scale)
-    paths = INNER.replace(TURQUOISE, "#FFFFFF") if monochrome else INNER
-    backdrop = '<rect width="1024" height="1024" fill="' + DARK + '"/>' if background else ""
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">'
-        + backdrop + '<g transform="translate(' + str(x) + ' ' + str(y) +
-        ') scale(' + str(scale) + ')">' + paths + '</g></svg>'
-    )
+def nested_symbol(source, x, y, width, height, monochrome=False):
+    inner = source.split(">", 1)[1].rsplit("</svg>", 1)[0]
+    if monochrome:
+        # Icônes monochromes Android : uniquement des silhouettes blanches.
+        inner = re.sub(r'fill="url\([^)]+\)"', 'fill="#FFFFFF"', inner)
+    return ('<svg x="' + str(x) + '" y="' + str(y) + '" width="' +
+            str(width) + '" height="' + str(height) +
+            '" viewBox="' + SYMBOL_VIEWBOX + '">' + inner + '</svg>')
+
+
+def svg_scene(background=True, maskable=False, monochrome=False):
+    if background:
+        if not maskable:
+            return SOURCE_ICON
+        # Les icônes PWA maskable conservent le motif dans la zone sûre.
+        return SOURCE_ICON.replace(
+            'x="185" y="205" width="654" height="585"',
+            'x="249" y="240" width="526" height="492"',
+        )
+    # Android adaptive foreground 432x432 : symbole dans la safe zone
+    # centrée (~60 %), distincte du fond. Les autres scènes sont libres.
+    x, y, w, h = (90, 111, 252, 210) if maskable else (53, 75, 326, 282)
+    source = SOURCE_LIGHT if monochrome else SOURCE_SYMBOL
+    mark = nested_symbol(source, x, y, w, h, monochrome=monochrome)
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">' + mark + '</svg>'
 
 
 def png(target: Path, size: int, *, background: bool = True,
@@ -41,6 +58,17 @@ def png(target: Path, size: int, *, background: bool = True,
     cairosvg.svg2png(
         bytestring=svg_scene(background, maskable, monochrome).encode("utf-8"),
         write_to=str(target), output_width=size, output_height=size
+    )
+
+
+def adaptive_background_svg():
+    # Même icône à vagues, mais sans le monogramme, pour la couche Android.
+    return re.sub(
+        r'<svg x="185" y="205" width="654" height="585".*?</svg>',
+        '',
+        SOURCE_ICON,
+        count=1,
+        flags=re.S,
     )
 
 
@@ -56,6 +84,10 @@ def android():
     # Le premier plan est transparent; Android applique son propre masque.
     png(res / "drawable-nodpi" / "viscera_foreground.png", 432,
         background=False, maskable=True)
+    background_png = res / "drawable-nodpi" / "viscera_adaptive_background.png"
+    background_png.parent.mkdir(parents=True, exist_ok=True)
+    cairosvg.svg2png(bytestring=adaptive_background_svg().encode("utf-8"),
+                     write_to=str(background_png), output_width=432, output_height=432)
     png(res / "drawable-nodpi" / "viscera_monochrome.png", 432,
         background=False, maskable=True, monochrome=True)
     png(res / "drawable-nodpi" / "viscera_notification.png", 96,
@@ -71,7 +103,7 @@ def android():
     adaptive = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">'
-        '<background android:drawable="@color/viscera_primary"/>'
+        '<background android:drawable="@drawable/viscera_adaptive_background"/>'
         '<foreground android:drawable="@drawable/viscera_foreground"/>'
         '<monochrome android:drawable="@drawable/viscera_monochrome"/>'
         '</adaptive-icon>\n'
@@ -139,10 +171,11 @@ def web():
     site = ROOT / "web"
     if not site.exists():
         return
-    png(site / "favicon.png", 64)
+    png(site / "favicon.png", 128)
     png(site / "apple-touch-icon.png", 180)
     png(site / "icons" / "Icon-192.png", 192)
     png(site / "icons" / "Icon-512.png", 512)
+    png(site / "icons" / "Icon-1024.png", 1024)
     png(site / "icons" / "Icon-maskable-192.png", 192, maskable=True)
     png(site / "icons" / "Icon-maskable-512.png", 512, maskable=True)
     manifest = site / "manifest.json"
