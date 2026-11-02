@@ -22,6 +22,10 @@ class BlocClinicalRecordService {
     'investigations': patient.investigations,
     'labs': patient.labs,
     'immediatePlan': patient.immediatePlan,
+    'cpaStatus': patient.cpaStatus,
+    'preopLabStatus': patient.preopLabStatus,
+    'admissionPrescriptionStatus': patient.admissionPrescriptionStatus,
+    'admissionPrescriptionDetails': patient.admissionPrescriptionDetails,
     'stage': patient.stage.name,
     'admissionTiming': patient.admissionTiming,
     'admittedAt': patient.admittedAt?.toIso8601String(),
@@ -75,6 +79,10 @@ class BlocClinicalRecordService {
     patient.investigations = _text(data['investigations']);
     patient.labs = _text(data['labs']);
     patient.immediatePlan = _text(data['immediatePlan']);
+    patient.cpaStatus = _text(data['cpaStatus']).isEmpty ? 'a_verifier' : _text(data['cpaStatus']);
+    patient.preopLabStatus = _text(data['preopLabStatus']).isEmpty ? 'a_verifier' : _text(data['preopLabStatus']);
+    patient.admissionPrescriptionStatus = _text(data['admissionPrescriptionStatus']).isEmpty ? 'a_verifier' : _text(data['admissionPrescriptionStatus']);
+    patient.admissionPrescriptionDetails = _text(data['admissionPrescriptionDetails']);
     final admitted = _date(data['admittedAt']);
     patient.admittedAt = admitted;
     patient.consultationAt = _date(data['consultationAt']);
