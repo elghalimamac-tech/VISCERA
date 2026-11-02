@@ -107,6 +107,7 @@ for receiver in [
                        "android.intent.action.QUICKBOOT_POWERON"]:
             ET.SubElement(intent, "action", {ns + "name": action})
 
+component("receiver", ".DutyAlarmActionReceiver", exported="false")
 native = component("receiver", ".DutyAlarmReceiver", exported="false")
 if not native.findall("intent-filter"):
     filter_tag = ET.SubElement(native, "intent-filter")
