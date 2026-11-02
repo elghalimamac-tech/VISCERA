@@ -7,6 +7,7 @@ import '../bloc_patient_sync.dart';
 import '../manual_admission_service.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../build_info.dart';
 import '../branding.dart';
 import '../widgets.dart';
 import 'intake.dart';
@@ -245,7 +246,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _startTheatre(PatientCase p) async { if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ? La localisation sera actualisée.',action:'Confirmer'))appStore.startTheatre(p); }
   Future<void> _finishTheatre(PatientCase p) async { final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);if(conflict!=null){_error('Le box ${p.afterBox} de ${p.afterUnit} est déjà attribué à ${conflict.name}.');return;}if(await showConfirmation(context,title:'Fin d’intervention',message:'Transférer ${p.name} vers ${p.afterUnit}, box ${p.afterBox} ?',action:'Valider'))appStore.finishTheatre(p);}
   void _error(String s)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));
-  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14',applicationIcon:const VisceraMark(size:50),children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
+  void _about()=>showAboutDialog(context:context,applicationName:'VISCERA',applicationVersion:'0.14 · $visceraBuildShort',applicationIcon:const VisceraMark(size:50),children:[const Text('Accès réservé au staff médical approuvé. Programmes opératoires et admissions manuelles synchronisés dans Supabase.')]);
 }
 
 String _formatDate(DateTime date)=>'${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}  •  ${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
