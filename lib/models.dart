@@ -197,7 +197,6 @@ class PatientCase {
   bool get isProgrammed => stage == CaseStage.scheduled;
   /// Projection de travail sur la journée du bloc (n'atteste pas la réalisation).
   bool isPostopReviewDay(DateTime now) => isProgrammed &&
-      !blockAt.isAfter(now) &&
       blockAt.year == now.year && blockAt.month == now.month &&
       blockAt.day == now.day && dischargeAt == null;
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
