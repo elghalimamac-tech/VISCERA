@@ -56,3 +56,22 @@ Les tests unitaires Dart contrôlent la nomenclature réelle du programme, les
 seuils J1/J4, les combinaisons de gestes, l'admission réelle et l'arrêt des
 rappels après sortie. Vérifier les builds GitHub Actions Android et Web
 avant toute diffusion aux équipes.
+
+## Raccourci « Tous les documents vérifiés et cachetés »
+
+La checklist des documents de sortie possède un bouton de validation groupée,
+visible dans la fenêtre ouverte par le bouton rouge « Déclarer la sortie » et
+sur l'écran de préparation des documents. Cette action exige une attestation
+explicite du médecin après contrôle **réel** des documents et des cachets.
+
+- Valide d'un seul coup les documents obligatoires et les pièces facultatives
+  présentes, avec `checkedAt` ; les pièces facultatives déjà marquées
+  « Non applicable » restent dans cet état.
+- Les documents déjà complets gardent leur horodatage.
+- Une seule sauvegarde partagée est effectuée, et l'état antérieur est
+  restauré si l'enregistrement échoue.
+- Le bouton ne crée, ne signe et ne cachette aucun document ; il atteste
+  exclusivement un contrôle humain.
+- Il ne déclenche **jamais** la sortie : la validation clinique,
+  la confirmation FAR si applicable et la confirmation finale restent requises.
+- Il n'est pas accessible avant le postopératoire avec admission réelle.
