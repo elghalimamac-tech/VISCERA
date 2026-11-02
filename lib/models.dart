@@ -127,6 +127,7 @@ class PatientCase {
     this.admittedAt,
     this.consultationAt,
     this.professorId,
+    this.blockResponsibleId,
     this.fromBlocProgram = false,
     this.fromManualAdmission = false,
     this.birthDate,
@@ -173,6 +174,8 @@ class PatientCase {
   String programRoom, programSurgeon, programSourceService, programScheduledTime;
   /// ID interne du médecin responsable (professeur ou senior d’astreinte).
   String? professorId;
+  /// Distinct du responsable de l'admission. Identifiant médecin (Dr, Pr, interne, résident).
+  String? blockResponsibleId;
   String assignmentMode, assignmentExplanation;
   CaseStage stage;
   bool confidentialEnvelopeDone;

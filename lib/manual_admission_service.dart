@@ -81,6 +81,7 @@ class ManualAdmissionService {
       expectedDays: draft.expectedDays, blockAt: draft.blockAt,
       admittedAt: draft.admittedAt, consultationAt: draft.consultationAt,
       professorId: draft.professorId,
+      blockResponsibleId: draft.blockResponsibleId,
       fromManualAdmission: true,
       birthDate:draft.birthDate, surgeryType:draft.surgeryType,
       assignmentMode: draft.assignmentMode,

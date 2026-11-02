@@ -15,9 +15,9 @@ void main() {
     expect(store.professorById(morning.professorId)?.name,'Pr GHADDOU');
     expect(morning.requiresSelection,false);
     final afternoon=store.resolveProfessor('Consultation',DateTime(2026,5,6,15));
-    expect(afternoon.professorId,isNull);
+    expect(store.responsibleById(afternoon.professorId)?.name,'Dr BENGHAIT');
     expect(afternoon.explanation,contains('Dr BENGHAIT'));
-    expect(afternoon.requiresSelection,true);
+    expect(afternoon.requiresSelection,false);
   });
 
   test('Vacations hebdomadaires automatiques toute l’année et sur plusieurs années', () {

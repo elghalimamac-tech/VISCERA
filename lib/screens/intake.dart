@@ -31,6 +31,8 @@ class _IntakePageState extends State<IntakePage> {
   final length=TextEditingController(text:'1');
   final assignmentReason=TextEditingController();
   String? professorOverrideId;
+  String? blockResponsibleOverrideId;
+  String? get selectedBlockDoctorId => blockResponsibleOverrideId ?? selectedProfessorId;
   DateTime consultationAt=DateTime.now();
   DateTime arrivalAt=DateTime.now();
   ProfessorMatch get match => appStore.resolveProfessor(origin, origin=='Urgences'?arrivalAt:consultationAt);
@@ -58,7 +60,7 @@ class _IntakePageState extends State<IntakePage> {
     if(step==0&&selectedBirthDate==null){alert('Renseignez la date de naissance pour distinguer les homonymes.');return;}
     if(step==0&&appStore.responsibleOptions(forEmergencies:origin=='Urgences').isEmpty){alert('Ajoutez les médecins dans Équipe & planning avant cette admission.');return;}
     if(step==0&&appStore.responsibleById(selectedProfessorId)==null){alert('Veuillez attribuer un médecin responsable.');return;}
-    if(step==0&&manualOverride&&assignmentReason.text.trim().isEmpty){alert('Précisez la raison du changement de professeur.');return;}
+    if(step==0&&manualOverride&&assignmentReason.text.trim().isEmpty){alert('Précisez la raison du changement de médecin.');return;}
 
     if(step==1&&motive.text.trim().isEmpty){alert('Renseignez le motif de consultation.');return;}
     if(step==2&&surgeryType.text.trim().isEmpty){alert('Renseignez le type de chirurgie.');return;}
@@ -106,6 +108,7 @@ class _IntakePageState extends State<IntakePage> {
       stage:admissionTiming=='Immédiate'?CaseStage.preoperative:CaseStage.scheduled,
       consultationAt:origin=='Consultation'?consultationAt:null,
       professorId:physician,
+      blockResponsibleId:selectedBlockDoctorId,
       assignmentMode:manuallyChosen?'Attribution manuelle':assignment.mode,
       assignmentExplanation:manuallyChosen?(manualOverride?'Dérogation : ${assignmentReason.text.trim()}':assignment.explanation):assignment.explanation,
 
@@ -215,6 +218,15 @@ class _IntakePageState extends State<IntakePage> {
     _field('Type de chirurgie harmonisé *',surgeryType,hint:'Déduit automatiquement ou à préciser'),
     const SizedBox(height:14),
     _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;_applyRecommendedType(v);})),const SizedBox(height:16),
+    DropdownButtonFormField<String>(
+      value:appStore.responsibleById(selectedBlockDoctorId)!=null?selectedBlockDoctorId:null,
+      isExpanded:true,
+      decoration:const InputDecoration(labelText:'Médecin responsable du bloc'),
+      items:appStore.responsibleOptions(forEmergencies:false).map((doctor)=>
+        DropdownMenuItem(value:doctor.id,
+          child:Text(doctor.name,overflow:TextOverflow.ellipsis))).toList(),
+      onChanged:(id)=>setState(()=>blockResponsibleOverrideId=id),
+    ),const SizedBox(height:16),
     const Overline('BLOC OPÉRATOIRE'),const SizedBox(height:9),_chips(['Immédiat','Différé'],blockTiming,(v)=>setState(()=>blockTiming=v)),
     if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date prévue du bloc : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
     const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),
@@ -237,9 +249,9 @@ class _IntakePageState extends State<IntakePage> {
   ];
   List<Widget> _review()=>[
     _reviewBlock('PATIENT',['${name.text}  •  ${age.text.isEmpty?'Âge non renseigné':'${age.text} ans'}',
-      'Date de naissance : ${selectedBirthDate==null?'À renseigner':_formatDate(selectedBirthDate!)}',origin,'Mutuelle : $insurance','Médecin responsable : ${appStore.responsibleById(selectedProfessorId)?.name??'À attribuer'}','Attribution : ${professorOverrideId!=null?'Manuelle':match.mode}',if(origin=='Consultation')'Consultation le ${_format(consultationAt)}']),
+      'Date de naissance : ${selectedBirthDate==null?'À renseigner':_formatDate(selectedBirthDate!)}',origin,'Mutuelle : $insurance','Médecin responsable de l’admission : ${appStore.responsibleById(selectedProfessorId)?.name??'À attribuer'}','Attribution : ${professorOverrideId!=null?'Manuelle':match.mode}',if(origin=='Consultation')'Consultation le ${_format(consultationAt)}']),
     const SizedBox(height:13),_reviewBlock('CLINIQUE',[motive.text,'Histoire : ${history.text.isEmpty?'À compléter':history.text}','CAT : ${plan.text.isEmpty?'À compléter':plan.text}']),
-    const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
+    const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Médecin responsable du bloc : ${appStore.responsibleById(selectedBlockDoctorId)?.name??'À attribuer'}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
     const SizedBox(height:15),DocumentChecklist(patient:_intakeDocs,title:'Documents à l’admission',requirements:ClinicalDocuments.admission),
     const SizedBox(height:12),PreoperativeReadinessCard(patient:_intakeDocs,
       onChanged:()=>setState((){})),

@@ -31,6 +31,7 @@ class BlocClinicalRecordService {
     'admittedAt': patient.admittedAt?.toIso8601String(),
     'consultationAt': patient.consultationAt?.toIso8601String(),
     'professorId': patient.professorId,
+    'blockResponsibleId': patient.blockResponsibleId,
     'assignmentMode': patient.assignmentMode,
     'assignmentExplanation': patient.assignmentExplanation,
     'beforeUnit': patient.beforeUnit,
@@ -96,6 +97,8 @@ class BlocClinicalRecordService {
       ? 'À confirmer' : _text(data['admissionTiming']);
     patient.professorId = data['professorId'] is String
       ? data['professorId'] as String : patient.professorId;
+    patient.blockResponsibleId = data['blockResponsibleId'] is String
+      ? data['blockResponsibleId'] as String : patient.blockResponsibleId;
     patient.assignmentMode = _text(data['assignmentMode']);
     patient.assignmentExplanation = _text(data['assignmentExplanation']);
     patient.beforeUnit = _text(data['beforeUnit']);

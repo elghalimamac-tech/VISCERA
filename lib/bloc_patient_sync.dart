@@ -69,13 +69,9 @@ class BlocPatientSync {
         if (name.isEmpty || procedure.isEmpty || surgeon.isEmpty || rowId == null || linkedIds.contains(rowId)) continue;
         final scheduledAt = _scheduledAt(date, _str(row['scheduled_time']));
         if (scheduledAt == null) continue;
-        String? professorId;
-        for (final clinician in appStore.professors) {
-          if (_surgeonKey(clinician.name) == _surgeonKey(surgeon)) {
-            professorId = clinician.id;
-            break;
-          }
-        }
+        // Le chirurgien du programme est proposé pour le bloc, même s'il
+        // n'est pas professeur. Il ne détermine PAS le responsable admission.
+        final blockResponsibleId = appStore.responsibleIdForName(surgeon);
         final patient = PatientCase(
           id: 'BLOC-$rowId',
           name: name,
@@ -99,9 +95,10 @@ class BlocPatientSync {
           expectedDays: 0,
           blockAt: scheduledAt,
           admittedAt: null,
-          professorId: professorId,
+          professorId: null,
+          blockResponsibleId: blockResponsibleId,
           assignmentMode: 'Programme officiel du bloc',
-          assignmentExplanation: 'Provenance Consultation. Date de consultation inconnue.',
+          assignmentExplanation: 'Provenance Consultation. Responsable admission à attribuer selon la vacation réelle.',
           stage: CaseStage.scheduled,
           fromBlocProgram: true,
           programRoom: _str(row['room']),
