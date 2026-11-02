@@ -206,7 +206,8 @@ class PatientCase {
       dischargeReviewAt ?? DateTime(blockAt.year,blockAt.month,blockAt.day + expectedDays);
   bool dischargeReviewDueOn(DateTime now) {
     final review = dischargeReviewAt;
-    if (!isPostOp || !physicallyAdmitted || dischargeAt != null || review == null) {
+    if (!isPostOp || !physicallyAdmitted || dischargeAt != null || review == null ||
+        currentUnit.trim().toUpperCase().startsWith('REA')) {
       return false;
     }
     final dueDate = DateTime(review.year,review.month,review.day);
