@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'bloc_clinical_record.dart';
 import 'models.dart';
+import 'surgery_classification.dart';
 
 /// Séjours créés manuellement par les médecins approuvés.
 /// Le serveur est la source de vérité. Aucune identité patient n'est mise en cache.
@@ -31,7 +32,9 @@ class ManualAdmissionService {
       admittedAt: null,
       fromManualAdmission: true,
       birthDate:DateTime.tryParse(_str(row['birth_date'])),
-      surgeryType:_str(row['surgery_type']),
+      surgeryType:classifySurgery(_str(row['procedure_name'])).recognized
+          ? classifySurgery(_str(row['procedure_name'])).label
+          : _str(row['surgery_type']),
       stage: CaseStage.scheduled,
     );
     BlocClinicalRecordService.apply(
