@@ -2,6 +2,7 @@ import '../branding.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../document_checklist.dart';
+import '../preoperative_readiness.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -304,6 +305,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           SectionHeading('Documents et vérifications'),
           DocumentChecklist(patient:p,title:'Documents à l’admission',
             requirements:ClinicalDocuments.admission),
+          const SizedBox(height:12),
+          PreoperativeReadinessCard(patient:p,
+            onChanged:()=>appStore.refresh(changed:p),
+            readOnly:p.stage==CaseStage.discharged),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
             p.stage==CaseStage.discharged)...[
             const SizedBox(height:12),
@@ -339,6 +344,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
   Widget _envelope()=>VCard(color:p.confidentialEnvelopeDone?VColors.softMint:VColors.orangeSoft,child:Row(children:[Icon(p.confidentialEnvelopeDone?Icons.check_circle_outline_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.isFar?'Pli confidentiel — FAR':'Pli confidentiel',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text(p.confidentialEnvelopeDone?'Marqué comme effectué':'À créer / à demander',style:const TextStyle(fontSize:12,color:VColors.muted))])),Switch(value:p.confidentialEnvelopeDone,onChanged:(_)=>appStore.toggleEnvelope(p))]));
   Widget _actions()=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+    if(p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
+      onPressed:_confirmPostopDay,
+      icon:const Icon(Icons.how_to_reg_outlined),
+      label:const Text('Confirmer admission postopératoire réelle')),
     if(p.stage==CaseStage.scheduled)ElevatedButton.icon(onPressed:_confirmAdmission,icon:const Icon(Icons.how_to_reg_outlined),label:const Text('Confirmer l’admission avant le bloc')),
     if(p.stage==CaseStage.preoperative)ElevatedButton.icon(onPressed:_startTheatre,icon:const Icon(Icons.medical_services_outlined),label:const Text('Confirmer l’entrée au bloc')),
     if(p.stage==CaseStage.inTheatre)ElevatedButton.icon(onPressed:_finishTheatre,icon:const Icon(Icons.check_rounded),label:const Text('Fin du bloc → postopératoire')),
@@ -525,6 +534,31 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       _notice('Programme associé. Le dossier original de consultation est conservé.');
     }catch(_){
       if(mounted)_notice('Rapprochement impossible. Vérifiez les données et les observations du programme.');
+    }
+  }
+
+  Future<void> _confirmPostopDay() async {
+    if(!p.isPostopReviewDay(DateTime.now()))return;
+    final confirmed=await showConfirmation(context,
+      title:'Admission en postopératoire',
+      message:'Confirmer que l’intervention de ${p.name} est réellement terminée '
+        'et que la prise en charge postopératoire est effective ? '
+        'La seule présence au programme du bloc ne suffit pas. '
+        'Aucun lit ou box ne sera attribué automatiquement.',
+      action:'Confirmer le postopératoire');
+    if(!confirmed||!mounted)return;
+    final oldStage=p.stage, oldDate=p.admittedAt, oldTiming=p.admissionTiming;
+    p.stage=CaseStage.postoperative;
+    p.admittedAt=DateTime.now();
+    p.admissionTiming='Postopératoire confirmé le jour du bloc';
+    try {
+      await appStore.saveClinical(p);
+      if(mounted)setState((){});
+    }catch(_){
+      p.stage=oldStage;
+      p.admittedAt=oldDate;
+      p.admissionTiming=oldTiming;
+      if(mounted)_notice('Enregistrement du postopératoire impossible. Rien n’a été validé.');
     }
   }
 
