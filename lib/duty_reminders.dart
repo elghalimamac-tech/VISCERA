@@ -137,7 +137,7 @@ Future<void> cancelAllDutyReminders() async {
   final plugin = await _notifications();
   final requests = await plugin.pendingNotificationRequests();
   for (final request in requests) {
-    if (request.id >= 40000000 && request.id < 99999999) {
+    if (request.title?.startsWith('VISCERA · Garde') == true) {
       await plugin.cancel(request.id);
     }
   }
