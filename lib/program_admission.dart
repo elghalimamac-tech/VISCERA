@@ -1,0 +1,48 @@
+import 'models.dart';
+
+/// Admission administrative/de suivi à partir d'une ligne du programme.
+/// N'atteste ni la présence réelle, ni la fin de l'intervention, ni un lit.
+class ProgramAdmission {
+  static const source = 'Admission automatique · programme opératoire';
+  static const omission = 'Non admis · exclusion confirmée';
+
+  static void apply(PatientCase patient, DateTime now) {
+    if(!patient.fromBlocProgram ||
+       patient.stage == CaseStage.notAdmitted ||
+       patient.stage == CaseStage.discharged)return;
+    final surgeryDay=DateTime(patient.blockAt.year,
+      patient.blockAt.month,patient.blockAt.day);
+    final today=DateTime(now.year,now.month,now.day);
+    patient.admittedAt ??= surgeryDay;
+    if(patient.admissionTiming.isEmpty || patient.admissionTiming=='À confirmer'
+        || patient.admissionTiming==source) {
+      patient.admissionTiming=source;
+    }
+    // Ne pas écraser les transitions déjà validées par le service.
+    if(patient.stage==CaseStage.scheduled ||
+       (patient.stage==CaseStage.preoperative &&
+        patient.admissionTiming==source && !today.isBefore(surgeryDay))) {
+      patient.stage=today.isBefore(surgeryDay)
+        ? CaseStage.preoperative : CaseStage.postoperative;
+    }
+  }
+
+  static void omit(PatientCase patient) {
+    if(!patient.fromBlocProgram || patient.stage == CaseStage.discharged) {
+      throw StateError('L’exclusion concerne un dossier importé non sorti.');
+    }
+    patient.stage=CaseStage.notAdmitted;
+    patient.admittedAt=null;
+    patient.admissionTiming=omission;
+  }
+
+  static void restore(PatientCase patient, DateTime now) {
+    if(!patient.fromBlocProgram || patient.stage!=CaseStage.notAdmitted) {
+      throw StateError('Aucune exclusion à annuler.');
+    }
+    patient.stage=CaseStage.scheduled;
+    patient.admittedAt=null;
+    patient.admissionTiming=source;
+    apply(patient,now);
+  }
+}
