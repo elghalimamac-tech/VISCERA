@@ -142,3 +142,22 @@ Future<void> cancelAllDutyReminders() async {
     }
   }
 }
+
+/// Vérifie les permissions et le canal audio/visuel sur un téléphone réel.
+Future<String> testDutyAlarm() async {
+  if (!dutyAlarmSupported) return 'Test local disponible uniquement sur Android.';
+  final plugin = await _notifications();
+  final android = plugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  if (await android?.requestNotificationsPermission() != true) {
+    return 'Autorisez les notifications VISCERA dans les paramètres Android.';
+  }
+  await plugin.show(30112026, 'VISCERA · Test des alarmes',
+    'Vos alarmes de garde sont autorisées sur cet appareil.',
+    const NotificationDetails(android: AndroidNotificationDetails(
+      'viscera_service_duty_v2', 'Alarmes de garde',
+      channelDescription: 'Rappels personnels de garde de service',
+      importance: Importance.high, priority: Priority.high,
+    )));
+  return 'Notification de test envoyée à Android.';
+}
