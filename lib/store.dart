@@ -548,9 +548,11 @@ class AppStore extends ChangeNotifier {
       programmed.id.replaceFirst('BLOC-', ''));
     manual.programRoom = programmed.programRoom;
     manual.programSurgeon = programmed.programSurgeon;
+    manual.blockResponsibleId ??= programmed.blockResponsibleId;
     manual.programScheduledTime = programmed.programScheduledTime;
     patients.removeWhere((p)=>p.id==programmed.id);
     notifyListeners();
+    _saveIfImported(manual);
   }
   int get occupiedBoxes => active.where((p) => p.physicallyAdmitted && p.stage != CaseStage.inTheatre).length;
 
