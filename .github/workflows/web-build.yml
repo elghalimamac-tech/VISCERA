@@ -40,7 +40,7 @@ jobs:
           SUPABASE_URL: https://qkupckqgczdqiwxozxko.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8
         run: |
-          flutter build web --release --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" --dart-define=ENABLE_FIREBASE_PUSH=false
+          flutter build web --release --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" --dart-define=ENABLE_FIREBASE_PUSH=true
           test -s build/web/index.html
           test -s build/web/main.dart.js
       - name: Upload web build
