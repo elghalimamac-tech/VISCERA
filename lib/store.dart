@@ -312,6 +312,18 @@ class AppStore extends ChangeNotifier {
 
   TeamMember? responsibleById(String? id) {
     if(id == null || id.isEmpty) return null;
+    // Compatibilité des anciens dossiers : ne jamais perdre un ID historique
+    // parce que le même médecin apparaît sous un autre rôle du planning.
+    final professor=professorById(id);
+    if(professor != null) return professor;
+    final junior=juniorById(id);
+    if(junior != null) return junior;
+    if(id.startsWith('SENIOR-')) {
+      final senior=id.substring('SENIOR-'.length);
+      if(seniorNames.contains(senior)) {
+        return TeamMember(id:id,name:senior);
+      }
+    }
     for(final person in responsibleOptions(forEmergencies:false)) {
       if(person.id == id) return person;
     }
