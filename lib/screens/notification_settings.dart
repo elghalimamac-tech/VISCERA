@@ -156,6 +156,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           icon: const Icon(Icons.alarm_on_rounded),
           label: const Text('Enregistrer et reprogrammer'),
         ),
+        OutlinedButton.icon(
+          onPressed: busy ? null : () async {
+            try {
+              final result = await testDutyAlarm();
+              if (mounted) setState(() => status = result);
+            } catch (_) {
+              if (mounted) setState(() => status =
+                'Test impossible sur ce téléphone. Vérifiez les autorisations Android.');
+            }
+          },
+          icon: const Icon(Icons.notification_add_outlined),
+          label: const Text('Tester une alarme sur ce téléphone'),
+        ),
         if (status != null) Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Text(status!, style: const TextStyle(fontWeight: FontWeight.w600)),
