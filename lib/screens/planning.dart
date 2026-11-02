@@ -233,7 +233,7 @@ class _PlanningPageState extends State<PlanningPage> {
       const Icon(Icons.event_available_outlined,color:VColors.ink),
       const SizedBox(width:12),
       Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(appStore.professorById(v.professorId)?.name??'Professeur non trouvé',
+        Text(appStore.responsibleById(v.professorId)?.name??'Médecin non trouvé',
           style:const TextStyle(fontWeight:FontWeight.w800)),
         const SizedBox(height:5),
         Text('${when(v.start)} · ${time(v.start)}–${time(v.end)}',
@@ -252,14 +252,14 @@ class _PlanningPageState extends State<PlanningPage> {
   ]);
 
   Future<void> _addVacation() async {
-    if(appStore.professors.isEmpty){notice('Ajoutez d’abord un professeur dans l’onglet Équipe.');return;}
+    if(appStore.responsibleOptions(forEmergencies:false).isEmpty){notice('Ajoutez d’abord un médecin dans l’onglet Équipe.');return;}
     DateTime date=DateTime.now();TimeOfDay start=const TimeOfDay(hour:9,minute:0),end=const TimeOfDay(hour:13,minute:0);
-    String professorId=appStore.professors.first.id;
+    String professorId=appStore.responsibleOptions(forEmergencies:false).first.id;
     await showModalBottomSheet<void>(context:context,showDragHandle:true,isScrollControlled:true,builder:(ctx)=>StatefulBuilder(builder:(ctx,update){
       String display(TimeOfDay t)=>'${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}';
       return Padding(padding:EdgeInsets.fromLTRB(20,6,20,MediaQuery.of(ctx).viewInsets.bottom+24),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('Nouvelle vacation',style:Theme.of(ctx).textTheme.titleLarge),const SizedBox(height:19),
-        DropdownButtonFormField<String>(value:professorId,isExpanded:true,decoration:const InputDecoration(labelText:'Professeur consultant'),items:appStore.professors.map((p)=>DropdownMenuItem(value:p.id,child:Text(p.name,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v)=>update(()=>professorId=v!)),
+        DropdownButtonFormField<String>(value:professorId,isExpanded:true,decoration:const InputDecoration(labelText:'Médecin consultant'),items:appStore.responsibleOptions(forEmergencies:false).map((p)=>DropdownMenuItem(value:p.id,child:Text(p.name,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v)=>update(()=>professorId=v!)),
         const SizedBox(height:12),VCard(onTap:() async {final picked=await showDatePicker(context:ctx,initialDate:date,firstDate:DateTime(2020),lastDate:DateTime(2100));if(picked!=null)update(()=>date=picked);},child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:11),Text('Date : ${when(date)}')])) ,
         Row(children:[Expanded(child:VCard(onTap:() async {final t=await showTimePicker(context:ctx,initialTime:start);if(t!=null)update(()=>start=t);},child:Text('Début : ${display(start)}'))),const SizedBox(width:10),Expanded(child:VCard(onTap:() async {final t=await showTimePicker(context:ctx,initialTime:end);if(t!=null)update(()=>end=t);},child:Text('Fin : ${display(end)}')))]),const SizedBox(height:16),
         SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){final a=DateTime(date.year,date.month,date.day,start.hour,start.minute),b=DateTime(date.year,date.month,date.day,end.hour,end.minute);if(!appStore.addVacation(professorId:professorId,start:a,end:b)){notice('Vérifiez les heures : la fin doit être postérieure au début.');return;}Navigator.pop(ctx);},child:const Text('Enregistrer la vacation'))),
