@@ -209,7 +209,7 @@ class _IntakePageState extends State<IntakePage> {
   List<Widget> _organization()=>[
     _field('Type de chirurgie harmonisé *',surgeryType,hint:'Déduit automatiquement ou à préciser'),
     const SizedBox(height:14),
-    _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;_applyRecommendedType(v);}))),const SizedBox(height:16),
+    _picker('Intervention prévue',procedure,procedures,(v)=>setState((){procedure=v;_applyRecommendedType(v);})),const SizedBox(height:16),
     const Overline('BLOC OPÉRATOIRE'),const SizedBox(height:9),_chips(['Immédiat','Différé'],blockTiming,(v)=>setState(()=>blockTiming=v)),
     if(blockTiming=='Différé')...[const SizedBox(height:10),VCard(onTap:_chooseBlockDate,child:Row(children:[const Icon(Icons.calendar_month_outlined),const SizedBox(width:12),Expanded(child:Text('Date prévue du bloc : ${_format(blockAt)}',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.edit_outlined,size:18)]))],
     const SizedBox(height:20),const Overline('DÉBUT D’HOSPITALISATION'),const SizedBox(height:9),
