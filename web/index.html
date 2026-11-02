@@ -101,6 +101,10 @@
       timeoutId = setTimeout(function () { failed('timeout'); }, 25000);
     }());
   </script>
+  <!-- Le pont push est non bloquant : les bibliothèques Firebase externes
+       ne sont téléchargées que si le médecin active les notifications. -->
+  <script src="viscera_firebase_config.js" defer></script>
+  <script src="viscera_push_web.js" defer></script>
   <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
