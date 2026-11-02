@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#083B46">
+  <meta name="description" content="VISCERA, coordination des soins de chirurgie viscérale.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="VISCERA">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>VISCERA — Chirurgie viscérale</title>
+  <style>
+    html, body { min-height: 100%; margin: 0; background: #F5FAFB; }
+    #viscera-loading {
+      position: fixed; inset: 0; display: flex; align-items: center;
+      justify-content: center; z-index: 100000; background: #F5FAFB;
+      font-family: system-ui, -apple-system, sans-serif; color: #083B46;
+    }
+    #viscera-loading .content { text-align: center; padding: 26px; max-width: 440px; }
+    #viscera-loading .title { font-size: 26px; font-weight: 800; letter-spacing: 0.14em; }
+    #viscera-loading .subtitle { color: #526D73; font-size: 14px; line-height: 1.5; }
+    #viscera-loading .spinner {
+      margin: 20px auto; border: 3px solid #EAF6F7; border-top-color: #13B8B0;
+      border-radius: 50%; height: 28px; width: 28px;
+      animation: spin .85s linear infinite;
+    }
+    #viscera-loading button {
+      margin-top: 12px; padding: 11px 17px; border: 0; background: #083B46;
+      color: white; border-radius: 10px; font-size: 14px; cursor: pointer;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="viscera-loading" role="status" aria-live="polite">
+    <div class="content">
+      <div class="title">VISCERA</div>
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="subtitle" id="viscera-loading-message">Chargement sécurisé de VISCERA…</p>
+      <button id="viscera-retry" type="button" style="display:none" onclick="window.location.reload()">
+        Réessayer
+      </button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var finished = false;
+      function done() {
+        if (finished) return;
+        finished = true;
+        var splash = document.getElementById('viscera-loading');
+        if (splash) splash.remove();
+      }
+      function failed() {
+        if (finished) return;
+        var message = document.getElementById('viscera-loading-message');
+        var retry = document.getElementById('viscera-retry');
+        if (message) message.textContent = 'Le site ne parvient pas à se charger. Vérifiez votre connexion et réessayez.';
+        if (retry) retry.style.display = 'inline-block';
+        var spinner = document.querySelector('#viscera-loading .spinner');
+        if (spinner) spinner.style.display = 'none';
+      }
+      window.addEventListener('flutter-first-frame', done);
+      document.addEventListener('flutter-first-frame', done);
+      window.addEventListener('error', function (event) {
+        if (event.target && event.target.tagName === 'SCRIPT') failed();
+      }, true);
+      window.addEventListener('unhandledrejection', failed);
+      // Fallback pour certaines versions de Flutter qui ne diffusent pas l'événement first-frame.
+      var observer = new MutationObserver(function () {
+        if (document.querySelector('flutter-view, flt-glass-pane')) {
+          observer.disconnect();
+          setTimeout(done, 1200);
+        }
+      });
+      observer.observe(document.documentElement, {childList:true,subtree:true});
+      setTimeout(failed, 18000);
+    }());
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
