@@ -3,6 +3,7 @@ import '../auth_controller.dart';
 import '../doctor_registration_options.dart';
 import '../push_device_registration.dart';
 import '../theme.dart';
+import '../build_info.dart';
 import '../branding.dart';
 import 'shell.dart';
 
@@ -70,7 +71,7 @@ class _AuthGateState extends State<AuthGate> {
                         child: _screen(),
                       ),
                       const SizedBox(height: 21),
-                      const Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.',
+                      Text('VISCERA · HUIM6 Bouskoura · Accès réservé aux professionnels autorisés.\nVersion $visceraBuildShort',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
                     ],
