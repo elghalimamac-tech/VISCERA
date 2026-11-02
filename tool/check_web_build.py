@@ -36,4 +36,23 @@ if 'document.baseURI' not in bridge:
     sys.exit('Le service worker doit etre installe dans /VISCERA/')
 
 
+# Le moteur graphique doit être servi par GitHub Pages, et non par un CDN.
+for asset in ('canvaskit/canvaskit.wasm', 'canvaskit/canvaskit.js'):
+    candidate = base / asset
+    if not candidate.is_file() or candidate.stat().st_size == 0:
+        sys.exit('CanvasKit local manquant : ' + asset)
+
+bootstrap = (base / 'flutter_bootstrap.js').read_text(encoding='utf-8')
+if '{{flutter_js}}' in bootstrap or '{{flutter_build_config}}' in bootstrap:
+    sys.exit('Tokens Flutter non substitués dans le bootstrap')
+if "canvasKitBaseUrl: 'canvaskit/'" not in bootstrap:
+    sys.exit('Flutter doit charger CanvasKit localement')
+if 'clearOldFlutterServiceWorker' not in bootstrap:
+    sys.exit('Ancien service worker Flutter non nettoyé')
+if 'viscera-compatible' not in html or 'visceraStartupFailed' not in html:
+    sys.exit('Boutons de récupération du démarrage manquants')
+if 'firebase-app-compat.js' in html or 'firebase-messaging-compat.js' in html:
+    sys.exit('Le SDK Firebase ne doit pas bloquer le rendu de VISCERA')
+
+
 print('VISCERA Web OK : scripts FCM présents, sous-chemin /VISCERA/, écran de secours présent.')
