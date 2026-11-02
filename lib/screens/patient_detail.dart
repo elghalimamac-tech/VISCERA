@@ -215,6 +215,12 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             ])),
           ],
           const SizedBox(height:11),
+          VCard(
+            color:VColors.softMint,
+            padding:const EdgeInsets.symmetric(horizontal:16,vertical:14),
+            child:HospitalizationDayCounter(
+              patient:p,showStartDate:true)),
+          const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
               p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}')),
