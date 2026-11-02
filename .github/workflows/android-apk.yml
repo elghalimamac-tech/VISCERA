@@ -1,14 +1,24 @@
-name: VISCERA Android APK (debug)
+name: VISCERA Android APK (same UI as Web)
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
+      - "assets/**"
       - "lib/**"
       - "test/**"
       - "pubspec.yaml"
       - "tool/**"
       - ".github/workflows/android-apk.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - 'assets/**'
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'tool/**'
+      - '.github/workflows/android-apk.yml'
 permissions:
   contents: read
 jobs:
@@ -31,6 +41,10 @@ jobs:
           cache: true
       - name: Générer le projet Android
         run: flutter create --platforms=android --project-name viscera --org com.viscera .
+      - name: Générer l’icône APK identique au Web
+        run: |
+          python3 -m pip install --disable-pip-version-check cairosvg
+          python3 tool/apply_viscera_branding.py
       - name: Configurer Firebase Android
         run: python3 tool/configure_firebase_android.py
       - name: Configurer les liens de confirmation
@@ -41,12 +55,14 @@ jobs:
         run: flutter pub get
       - name: Tests
         run: flutter test
-      - name: Construire APK Android debug
-        run: flutter build apk --debug --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8"
+      - name: Construire les APK Android release par architecture
+        run: flutter build apk --release --split-per-abi --tree-shake-icons --dart-define="ENABLE_FIREBASE_PUSH=true" --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8" --dart-define="VISCERA_BUILD_SHA=${{ github.sha }}"
+      - name: Tailles APK
+        run: du -h build/app/outputs/flutter-apk/*-release.apk
       - name: Publier APK
         uses: actions/upload-artifact@v4
         with:
-          name: VISCERA-Android-debug-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: VISCERA-Android-Release-APK
+          path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
           retention-days: 14
