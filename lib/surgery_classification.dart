@@ -11,12 +11,12 @@ class SurgeryClassification {
 
 String normalizeProcedure(String source) {
   var text = source.toLowerCase().trim();
-  const accent = 'àâäáãåçèéêëìíîïñòóôöõùúûüýÿœ';
-  const plain =  'aaaaaaceeeeiiiinooooouuuuyyoe';
+  const accent = 'àâäáãåçèéêëìíîïñòóôöõùúûüýÿ';
+  const plain =  'aaaaaaceeeeiiiinooooouuuuyy';
   // « œ » est composé de deux caractères, traiter séparément.
   text = text.replaceAll('œ', 'oe').replaceAll('æ','ae');
-  for (var i=0;i<accent.length-1;i++) {
-    if (accent[i] != 'œ') text = text.replaceAll(accent[i], plain[i]);
+  for (var i=0;i<accent.length;i++) {
+    text = text.replaceAll(accent[i], plain[i]);
   }
   return text.replaceAll(RegExp(r'[^a-z0-9]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 }
@@ -46,7 +46,8 @@ SurgeryClassification classifySurgery(String intervention) {
   final hernia = _matches(text,
     r'\b(hid|hig|hernie|herniorraphie|hernioplastie|cure herniaire)\b');
   // Plusieurs gestes dans la même ligne : appliquer le parcours conservateur.
-  final combined = text.contains(' + ') || text.contains(' et ');
+  final combined = RegExp(r'\s*[+&]\s*').hasMatch(intervention) ||
+      text.contains(' et ');
   if (appendicectomy) {
     return SurgeryClassification('Appendicectomie', !complex && !combined, true);
   }
