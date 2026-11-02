@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/auth_gate.dart';
 import 'theme.dart';
 import 'branding.dart';
+import 'boot_splash.dart';
 import 'store.dart';
 
 /// Sur Web, les push nécessitent une configuration FCM Web séparée.
@@ -43,13 +44,16 @@ Future<void> main() async {
   runApp(const VisceraApp());
 }
 
-Future<void> _initializeViscera() async {
+Future<void> _initializeViscera(ValueChanged<String> report) async {
+  report('Restauration du planning…');
   await appStore.restorePlanning();
+  report('Connexion sécurisée…');
   await Supabase.initialize(
     url: supabaseUrl,
     publishableKey: supabasePublishableKey,
   );
   if (!kIsWeb && enableFirebasePush) {
+    report('Préparation des notifications…');
     // Les notifications ne doivent jamais empêcher l'accès aux dossiers.
     try {
       await Firebase.initializeApp();
@@ -58,6 +62,7 @@ Future<void> _initializeViscera() async {
       // L'app reste accessible, même si Firebase n'est pas configuré.
     }
   }
+  report('Ouverture de VISCERA…');
 }
 
 class VisceraApp extends StatefulWidget {
@@ -69,13 +74,24 @@ class VisceraApp extends StatefulWidget {
 
 class _VisceraAppState extends State<VisceraApp> {
   late final Future<void> _startup;
+  final ValueNotifier<String> _bootMessage = ValueNotifier<String>(
+    'Initialisation sécurisée…',
+  );
 
   @override
   void initState() {
     super.initState();
     _startup = supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty
-        ? _initializeViscera()
+        ? _initializeViscera((label) {
+            if (mounted) _bootMessage.value = label;
+          })
         : Future<void>.value();
+  }
+
+  @override
+  void dispose() {
+    _bootMessage.dispose();
+    super.dispose();
   }
 
   @override
@@ -101,17 +117,10 @@ class _VisceraAppState extends State<VisceraApp> {
                 );
               }
               if (snapshot.connectionState != ConnectionState.done) {
-                return const Scaffold(
-                  body: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 20),
-                        Text('Chargement sécurisé de VISCERA…'),
-                      ],
-                    ),
-                  ),
+                return ValueListenableBuilder<String>(
+                  valueListenable: _bootMessage,
+                  builder: (context, label, _) =>
+                      VisceraBootSplash(message: label),
                 );
               }
               return const AuthGate();
