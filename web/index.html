@@ -18,28 +18,41 @@
       justify-content: center; z-index: 100000; background: #F5FAFB;
       font-family: system-ui, -apple-system, sans-serif; color: #083B46;
     }
-    #viscera-loading .content { text-align: center; padding: 26px; max-width: 440px; }
-    #viscera-loading .logo { width: 62px; height: 62px; display: block; margin: 0 auto 18px; border-radius: 14px; }
-    #viscera-loading .title { font-size: 26px; font-weight: 800; letter-spacing: 0.14em; }
-    #viscera-loading .subtitle { color: #526D73; font-size: 14px; line-height: 1.5; }
+    #viscera-loading .content { text-align: center; padding: 28px; width: min(390px, 100%); box-sizing: border-box; }
+    #viscera-loading .logo { width: 108px; height: 108px; display: block; margin: 0 auto 18px; object-fit: contain; }
+    #viscera-loading .title { font-size: 30px; font-weight: 900; letter-spacing: 0.13em; line-height: 1.2; }
+    #viscera-loading .category { color: #617A80; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; margin-top: 10px; }
+    #viscera-loading .subtitle { color: #617A80; font-size: 13px; line-height: 1.4; margin-top: 18px; }
     #viscera-loading .spinner {
-      margin: 20px auto; border: 3px solid #EAF6F7; border-top-color: #13B8B0;
-      border-radius: 50%; height: 28px; width: 28px;
-      animation: spin .85s linear infinite;
+      position: relative; overflow: hidden; width: min(254px, 100%);
+      margin: 37px auto 0; height: 7px;
+      border-radius: 99px; background: #DFEFF1;
+    }
+    #viscera-loading .spinner::after {
+      content: ''; display: block; width: 35%; height: 100%;
+      background: #13B8B0; border-radius: inherit;
+      animation: viscera-slide 1.45s ease-in-out infinite;
     }
     #viscera-loading button {
       margin: 8px 4px 0; padding: 11px 17px; border: 0; background: #083B46;
       color: white; border-radius: 10px; font-size: 14px; cursor: pointer;
     }
     #viscera-compatible { background: #EAF6F7 !important; color: #083B46 !important; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes viscera-slide {
+      from { transform: translateX(-110%); }
+      to { transform: translateX(290%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #viscera-loading .spinner::after { animation: none; width: 62%; }
+    }
   </style>
 </head>
 <body>
   <div id="viscera-loading" role="status" aria-live="polite">
     <div class="content">
-      <img class="logo" src="icons/Icon-192.png" alt="Logo VISCERA" width="62" height="62">
+      <img class="logo" src="viscera-splash-logo.svg" alt="Logo VISCERA" width="108" height="108">
       <div class="title">VISCERA</div>
+      <div class="category">CHIRURGIE VISCÉRALE</div>
       <div class="spinner" aria-hidden="true"></div>
       <p class="subtitle" id="viscera-loading-message">Chargement sécurisé de VISCERA…</p>
       <button id="viscera-retry" type="button" style="display:none" onclick="window.location.reload()">
