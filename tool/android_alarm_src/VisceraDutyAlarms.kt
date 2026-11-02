@@ -137,6 +137,22 @@ class DutyAlarmReceiver:BroadcastReceiver() {
   }
 }
 
+/** Actions sans relancement de service foreground : pas de crash après expiration. */
+class DutyAlarmActionReceiver:BroadcastReceiver() {
+  override fun onReceive(c:Context,intent:Intent) {
+    val id=intent.getIntExtra("id",-1)
+    val title=intent.getStringExtra("title") ?: "VISCERA · Garde"
+    if(intent.action==DutyAlarmNative.SNOOZE && id>0 &&
+       !title.contains("Essai alarme")) {
+      DutyAlarmNative.snooze(c,id,title)
+    }
+    c.stopService(Intent(c,DutyAlarmService::class.java))
+    val nm=c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    nm.cancel(DutyAlarmNative.NOTIFICATION)
+    if(id>0)nm.cancel(id)
+  }
+}
+
 /** La sonnerie tourne sur le volume ALARME Android, maximum 3 minutes.
     Le service fonctionne même lorsque l'écran Flutter n'est pas ouvert. */
 class DutyAlarmService:Service() {
@@ -191,11 +207,10 @@ class DutyAlarmService:Service() {
         .putExtra("id",id).putExtra("title",title),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     private fun action(c:Context,id:Int,title:String,which:String,offset:Int):PendingIntent {
-      val intent=Intent(c,DutyAlarmService::class.java).setAction(which)
+      val intent=Intent(c,DutyAlarmActionReceiver::class.java).setAction(which)
         .putExtra("id",id).putExtra("title",title)
       val flags=PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-      return if(Build.VERSION.SDK_INT>=26)PendingIntent.getForegroundService(c,id+offset,intent,flags)
-        else PendingIntent.getService(c,id+offset,intent,flags)
+      return PendingIntent.getBroadcast(c,id+offset,intent,flags)
     }
     private fun createChannel(c:Context) {
       val nm=c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -266,7 +281,7 @@ class DutyAlarmActivity:Activity() {
     val stop=Button(this).apply {
       text="ARRÊTER L’ALARME"
       setOnClickListener {
-        startService(Intent(this@DutyAlarmActivity,DutyAlarmService::class.java)
+        sendBroadcast(Intent(this@DutyAlarmActivity,DutyAlarmActionReceiver::class.java)
           .setAction(DutyAlarmNative.STOP).putExtra("id",id))
         finish()
       }
@@ -274,7 +289,7 @@ class DutyAlarmActivity:Activity() {
     val snooze=Button(this).apply {
       text="REPORTER DE 10 MIN"
       setOnClickListener {
-        startService(Intent(this@DutyAlarmActivity,DutyAlarmService::class.java)
+        sendBroadcast(Intent(this@DutyAlarmActivity,DutyAlarmActionReceiver::class.java)
           .setAction(DutyAlarmNative.SNOOZE).putExtra("id",id)
           .putExtra("title",title))
         finish()
