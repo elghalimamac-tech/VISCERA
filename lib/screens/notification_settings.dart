@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../duty_reminders.dart';
 import '../store.dart';
 import '../branding.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'notification_inbox.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -13,11 +15,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   DutyAlarmPreferences preferences = const DutyAlarmPreferences();
   bool busy = true;
   String? status;
+  Map<String,bool> pushTypes = {'program_updates':true,'urgent_admissions':true,'access_updates':true};
+  bool pushBusy = false;
   String? get userId => appStore.activeLocalProfile?.id;
 
   @override void initState() {
     super.initState();
     _load();
+    _loadPush();
   }
 
   Future<void> _load() async {
@@ -25,6 +30,45 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     if (id == null) return;
     final value = await loadDutyAlarmPreferences(id);
     if (mounted) setState(() { preferences = value; busy = false; });
+  }
+
+
+  Future<void> _loadPush() async {
+    final id = Supabase.instance.client.auth.currentUser?.id;
+    if (id == null) return;
+    try {
+      final data = await Supabase.instance.client
+        .from('viscera_notification_preferences')
+        .select('program_updates,urgent_admissions,access_updates')
+        .eq('user_id',id).maybeSingle();
+      if (data != null && mounted) setState(() {
+        for (final kind in pushTypes.keys) {
+          pushTypes[kind] = data[kind] == true;
+        }
+      });
+    } catch (_) {
+      // Indisponibilité réseau : garder les réglages par défaut.
+    }
+  }
+
+  Future<void> _setPushType(String kind,bool value) async {
+    final id = Supabase.instance.client.auth.currentUser?.id;
+    if (id == null || pushBusy) return;
+    final before = pushTypes[kind] ?? true;
+    setState(() { pushTypes[kind] = value; pushBusy = true; });
+    try {
+      await Supabase.instance.client
+        .from('viscera_notification_preferences')
+        .upsert({'user_id':id, ...pushTypes},onConflict:'user_id');
+    } catch (_) {
+      if (mounted) {
+        setState(() => pushTypes[kind] = before);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enregistrement des préférences push impossible.')));
+      }
+    } finally {
+      if (mounted) setState(() => pushBusy = false);
+    }
   }
 
   Future<void> _save() async {
@@ -118,20 +162,32 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         const Text('NOTIFICATIONS IMPORTANTES',
           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
-        const ListTile(
-          leading: Icon(Icons.event_note_outlined),
-          title: Text('Programme opératoire'),
-          subtitle: Text('Nouvelle programmation ou changement de programme'),
+        SwitchListTile(
+          secondary: const Icon(Icons.event_note_outlined),
+          title: const Text('Programme opératoire'),
+          subtitle: const Text('Nouveau programme ou mise à jour publiée'),
+          value: pushTypes['program_updates'] ?? true,
+          onChanged: pushBusy ? null : (v) => _setPushType('program_updates',v),
         ),
-        const ListTile(
-          leading: Icon(Icons.emergency_outlined),
-          title: Text('Urgences opératoires'),
-          subtitle: Text('Notification générique réservée aux seniors autorisés'),
+        SwitchListTile(
+          secondary: const Icon(Icons.emergency_outlined),
+          title: const Text('Admissions urgentes'),
+          subtitle: const Text('Réservées aux médecins seniors approuvés'),
+          value: pushTypes['urgent_admissions'] ?? true,
+          onChanged: pushBusy ? null : (v) => _setPushType('urgent_admissions',v),
         ),
-        const ListTile(
-          leading: Icon(Icons.verified_user_outlined),
-          title: Text('Accès au service'),
-          subtitle: Text('Demandes d’accès administrateur, validation ou refus'),
+        SwitchListTile(
+          secondary: const Icon(Icons.verified_user_outlined),
+          title: const Text('Accès et validation'),
+          subtitle: const Text('Validation de compte et demandes administrateur'),
+          value: pushTypes['access_updates'] ?? true,
+          onChanged: pushBusy ? null : (v) => _setPushType('access_updates',v),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.push(context,MaterialPageRoute(
+            builder: (_) => const NotificationInboxPage())),
+          icon: const Icon(Icons.inbox_outlined),
+          label: const Text('Ouvrir le centre de notifications'),
         ),
         const Text('Les alertes push nécessitent Firebase, une connexion réseau '
           'et l’autorisation des notifications. Aucun nom ni information clinique '
