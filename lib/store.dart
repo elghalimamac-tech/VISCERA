@@ -277,7 +277,12 @@ class AppStore extends ChangeNotifier {
       final key = _normalizeClinician(member.name);
       if (key.isEmpty || key == 'MEDECIN DE GARDE') return;
       final existing = byName[key];
-      if (existing == null || member.id.startsWith('PROF-')) {
+      final prefersProfessor = member.id.startsWith('PROF-') &&
+          (existing == null || !existing.id.startsWith('PROF-'));
+      final prefersDoctorTitle = member.name.trim().startsWith('Dr ') &&
+          existing != null && !existing.id.startsWith('PROF-') &&
+          !existing.name.trim().startsWith('Dr ');
+      if (existing == null || prefersProfessor || prefersDoctorTitle) {
         byName[key] = member;
       }
     }
