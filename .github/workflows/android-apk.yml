@@ -1,4 +1,4 @@
-name: VISCERA Android APK (debug)
+name: VISCERA Android léger + Web
 on:
   workflow_dispatch:
   push:
@@ -11,7 +11,7 @@ on:
       - "tool/**"
       - ".github/workflows/android-apk.yml"
   pull_request:
-    branches: [main]
+    branches: [main, feature/viscera-branding-app-web-20261101]
     paths:
       - "assets/**"
       - "lib/**"
@@ -55,13 +55,15 @@ jobs:
         run: flutter pub get
       - name: Tests
         run: flutter test
-      - name: Construire APK Android debug
-        run: flutter build apk --debug --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8"
+      - name: Construire APK Android release par architecture
+        run: flutter build apk --release --split-per-abi --tree-shake-icons --dart-define="ENABLE_FIREBASE_PUSH=true" --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8"
+      - name: Afficher les tailles des APK
+        run: du -h build/app/outputs/flutter-apk/*-release.apk
       - name: Publier APK
         uses: actions/upload-artifact@v4
         with:
-          name: VISCERA-Android-debug-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: VISCERA-Android-Release-Split-APK
+          path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
           retention-days: 14
       - name: Construire le site Flutter Web

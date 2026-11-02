@@ -1,0 +1,26 @@
+name: VISCERA Dispatch notifications push
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+permissions:
+  contents: read
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Envoyer les notifications en attente
+        env:
+          VISCERA_DISPATCH_TOKEN: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$VISCERA_DISPATCH_TOKEN" ]; then
+            echo "::warning::Configurer VISCERA_SUPABASE_SERVICE_ROLE_KEY dans les secrets GitHub Actions."
+            exit 0
+          fi
+          curl --silent --show-error --fail-with-body --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $VISCERA_DISPATCH_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data '{}' \
+            https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-push-dispatch
