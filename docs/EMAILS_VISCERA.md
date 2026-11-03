@@ -26,6 +26,11 @@ l'expéditeur actifs dans Supabase Auth. Les étapes suivantes sont obligatoires
    - Retirer tout ancien `localhost` utilisé comme Site URL de production.
    - Conserver éventuellement `viscera://auth-callback/**` pour compatibilité
      avec d'anciens liens, sans l'utiliser pour les nouveaux e-mails.
+   **Attention Supabase 2026 :** sur certains projets Free créés après
+   juin 2026, les modèles du SMTP fourni par défaut ne sont pas éditables.
+   Dans ce cas, activer d'abord un SMTP personnalisé vérifié avant de
+   pouvoir enregistrer les deux modèles ci-dessous.
+
 2. Ouvrir [Authentication → Email Templates](https://supabase.com/dashboard/project/qkupckqgczdqiwxozxko/auth/templates).
    - **Confirm signup** : sujet « VISCERA — Confirmez votre adresse e-mail »,
      corps complet de `emails/confirmation.html`.
