@@ -239,7 +239,7 @@ class DoctorAuthController extends ChangeNotifier {
       email: email,
       emailRedirectTo: visceraConfirmationWebUrl,
     );
-    message = 'Si cette adresse est éligible, un nouveau lien a été envoyé.';
+    message = 'Si cette adresse est éligible, un nouveau lien a été envoyé. Vérifier vos spams.';
   });
 
   Future<bool> forgotPassword(String email) async => _execute(() async {
@@ -247,7 +247,7 @@ class DoctorAuthController extends ChangeNotifier {
     await client.auth.resetPasswordForEmail(
       pendingEmail!, redirectTo: visceraConfirmationWebUrl,
     );
-    message = 'Si un compte correspond à cette adresse, un email de réinitialisation a été envoyé.';
+    message = 'Si un compte correspond à cette adresse, un e-mail de réinitialisation a été envoyé. Vérifier vos spams.';
   });
 
   Future<bool> setNewPassword(String password) async {
