@@ -59,8 +59,9 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(edit, findsOneWidget);
-    await Scrollable.ensureVisible(tester.element(edit),
-      alignment: 0.2, duration: const Duration(milliseconds: 100));
+    // Durée nulle : ne pas attendre une animation qui nécessite les
+    // frames du testeur (blocage si await avant pumpAndSettle).
+    await tester.ensureVisible(edit);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
@@ -94,8 +95,9 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(edit, findsOneWidget);
-    await Scrollable.ensureVisible(tester.element(edit),
-      alignment: 0.2, duration: const Duration(milliseconds: 100));
+    // Durée nulle : ne pas attendre une animation qui nécessite les
+    // frames du testeur (blocage si await avant pumpAndSettle).
+    await tester.ensureVisible(edit);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
