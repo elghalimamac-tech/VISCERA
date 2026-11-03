@@ -267,11 +267,16 @@ class _AuthGateState extends State<AuthGate> {
     const Icon(Icons.mark_email_unread_outlined,color: Color(0xFF007A80),size:47),
     const SizedBox(height: 15),
     _title('Vérifiez votre adresse e-mail', 'Vous allez recevoir un message VISCERA. Cliquez sur « Confirmer mon adresse e-mail » pour valider votre inscription.'),
-    if(auth.pendingEmail!=null) Text(auth.pendingEmail!,textAlign:TextAlign.center,
-      style:const TextStyle(fontWeight:FontWeight.w700)),
+    if(auth.pendingEmail!=null)
+      Text(auth.pendingEmail!,textAlign:TextAlign.center,
+        style:const TextStyle(fontWeight:FontWeight.w700))
+    else
+      _input(email,'Adresse e-mail utilisée pour l’inscription',
+        type:TextInputType.emailAddress),
     const SizedBox(height: 16),
     _notice(),
-    _action('Renvoyer l’email', ()=>auth.resendConfirmation()),
+    _action('Renvoyer l’e-mail de validation',
+      ()=>auth.resendConfirmation(emailOverride: email.text)),
     const SizedBox(height: 14),
     OutlinedButton(onPressed: ()=>auth.refreshAccess(),child: const Text('J’ai confirmé mon email')),
     TextButton(onPressed:()=>auth.go(AuthScreen.login),child: const Text('Retour à la connexion')),

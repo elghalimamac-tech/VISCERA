@@ -115,8 +115,8 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
                             style: TextStyle(fontSize: 12,
                               fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
-                          Text(p.procedure.trim().isEmpty
-                              ? 'Non renseignée' : p.procedure,
+                          Text(p.effectiveProcedure.trim().isEmpty
+                              ? 'Non renseignée' : p.effectiveProcedure,
                             key: const Key('discharge-procedure-label'),
                             style: const TextStyle(fontSize: 13)),
                           const SizedBox(height: 10),

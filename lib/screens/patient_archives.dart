@@ -38,7 +38,7 @@ class _PatientArchivesPageState extends State<PatientArchivesPage> {
           if (!p.isArchived) return false;
           final search = _query.trim().toLowerCase();
           if (search.isEmpty) return true;
-          return '${p.name} ${p.procedure} ${p.id} ${p.surgeryType}'
+          return '${p.name} ${p.effectiveProcedure} ${p.id} ${p.surgeryType}'
               .toLowerCase().contains(search);
         }).toList()
           ..sort((a, b) {
@@ -88,8 +88,8 @@ class _PatientArchivesPageState extends State<PatientArchivesPage> {
                       color: VColors.muted),
                   ]),
                   const SizedBox(height: 8),
-                  Text(p.procedure.trim().isEmpty
-                      ? 'Intervention non renseignée' : p.procedure,
+                  Text(p.effectiveProcedure.trim().isEmpty
+                      ? 'Intervention non renseignée' : p.effectiveProcedure,
                     style: const TextStyle(fontSize: 13)),
                   const SizedBox(height: 8),
                   Text('Sortie le ${_date(p.dischargeAt)}',

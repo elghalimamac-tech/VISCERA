@@ -17,6 +17,22 @@ void main() {
     expect(link?.type, VisceraEmailLinkType.recovery);
   });
 
+  test('Une URL avec routeur hash Flutter reste reconnue', () {
+    final link = parseVisceraEmailLink(Uri.parse(
+      'https://elghalimamac-tech.github.io/VISCERA/'
+      '#/auth/confirm?token_hash=0123456789abcdef&type=signup',
+    ));
+    expect(link?.type, VisceraEmailLinkType.signup);
+    expect(link?.tokenHash, '0123456789abcdef');
+  });
+
+  test('Le portail unique reste HTTPS pour les liens Android et Web', () {
+    final uri = Uri.parse(visceraConfirmationWebUrl);
+    expect(uri.scheme, 'https');
+    expect(uri.host, 'elghalimamac-tech.github.io');
+    expect(uri.path, '/VISCERA/');
+  });
+
   test('une URL sans jeton ou avec type inconnu est rejetée', () {
     expect(parseVisceraEmailLink(Uri.parse('https://example.com/VISCERA/')), isNull);
     expect(parseVisceraEmailLink(

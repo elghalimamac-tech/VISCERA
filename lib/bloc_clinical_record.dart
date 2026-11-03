@@ -15,6 +15,7 @@ class BlocClinicalRecordService {
     'age': patient.age,
     'birthDate': patient.birthDate == null ? null : '${patient.birthDate!.year.toString().padLeft(4,'0')}-${patient.birthDate!.month.toString().padLeft(2,'0')}-${patient.birthDate!.day.toString().padLeft(2,'0')}',
     'surgeryType': patient.surgeryType,
+    'procedureOverride': patient.procedureOverride,
     'insurance': patient.insurance,
     'motive': patient.motive,
     'history': patient.history,
@@ -79,6 +80,7 @@ class BlocClinicalRecordService {
     patient.age = _text(data['age']).isEmpty ? '—' : _text(data['age']);
     patient.birthDate = _date(data['birthDate']) ?? patient.birthDate;
     patient.surgeryType = _text(data['surgeryType']).isEmpty ? patient.surgeryType : _text(data['surgeryType']);
+    patient.procedureOverride = _text(data['procedureOverride']);
     patient.insurance = _text(data['insurance']).isEmpty
       ? 'À préciser' : _text(data['insurance']);
     patient.motive = _text(data['motive']);

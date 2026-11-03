@@ -321,7 +321,21 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               p.standardizedSurgeryType),
             const Divider(height:22),
             _line(Icons.medical_services_outlined,'Bloc',
-              '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
+              '${p.effectiveProcedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
+            if (p.procedureOverride.trim().isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text('Programme original : ${p.procedure}',
+                style: const TextStyle(fontSize: 11, color: VColors.muted)),
+            ],
+            if (p.stage != CaseStage.discharged && !p.isOmitted) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('edit-surgery-details'),
+                onPressed: _editSurgery,
+                icon: const Icon(Icons.edit_note_outlined, size: 18),
+                label: const Text('Modifier type de chirurgie / intervention'),
+              ),
+            ],
             const Divider(height:22),
             _line(Icons.bed_outlined,'Avant le bloc',p.beforeBox.isEmpty ? 'Non attribué' : '${p.beforeUnit} · Box ${p.beforeBox}'),
             const Divider(height:22),
@@ -478,13 +492,201 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   }
   void _notice(String text)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(text)));
   Future<void> _changeBed() async {
-    final postoperative=p.isPostOp||p.stage==CaseStage.inTheatre;
-    String current=postoperative?p.afterUnit:p.beforeUnit;
-    final controller=TextEditingController(text:postoperative?p.afterBox:p.beforeBox);
-    await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>StatefulBuilder(builder:(sheetContext,refresh)=>Padding(padding:EdgeInsets.fromLTRB(22,8,22,MediaQuery.of(sheetContext).viewInsets.bottom+25),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text(postoperative?'Modifier l’unité postopératoire':'Modifier l’unité préopératoire',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:15),DropdownButtonFormField<String>(value:hospitalUnits.any((u)=>u.code==current)?current:null,decoration:const InputDecoration(labelText:'Unité'),items:hospitalUnits.map((u)=>DropdownMenuItem(value:u.code,child:Text(u.code))).toList(),onChanged:(v)=>refresh(()=>current=v!)),const SizedBox(height:13),TextField(controller:controller,decoration:const InputDecoration(labelText:'Numéro du box')),const SizedBox(height:17),SizedBox(width:double.infinity,child:ElevatedButton(onPressed:(){if(current.isEmpty||controller.text.trim().isEmpty){_notice('Précisez l’unité et le numéro de box.');return;}final conflicting=appStore.conflictingBox(current,controller.text,exceptPatientId:p.id);if(conflicting!=null){_notice('Box déjà occupé par ${conflicting.name}.');return;}if(postoperative){p.afterUnit=current;p.afterBox=controller.text.trim();}else{p.beforeUnit=current;p.beforeBox=controller.text.trim();}appStore.refresh(changed:p);Navigator.pop(sheetContext);},child:const Text('Enregistrer l’affectation'))),
-    ]))));
+    final postoperative = p.isPostOp || p.stage == CaseStage.inTheatre;
+    String current = postoperative ? p.afterUnit : p.beforeUnit;
+    final controller = TextEditingController(
+      text: postoperative ? p.afterBox : p.beforeBox,
+    );
+    // Capturer l'espace de navigation depuis la page : showModalBottomSheet
+    // peut supprimer le padding bas de son propre MediaQuery sur Android.
+    final navigationInset = MediaQuery.of(context).viewPadding.bottom;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, refresh) {
+          final media = MediaQuery.of(sheetContext);
+          final keyboardInset = media.viewInsets.bottom;
+          final bottomInset = keyboardInset > 0
+              ? keyboardInset + 22
+              : navigationInset + 28;
+          final contentHeight = (media.size.height -
+              keyboardInset - navigationInset - 95)
+              .clamp(180.0, media.size.height).toDouble();
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, bottomInset),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: contentHeight),
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(postoperative
+                        ? 'Modifier l’unité postopératoire'
+                        : 'Modifier l’unité préopératoire',
+                      style: Theme.of(sheetContext).textTheme.titleLarge),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: hospitalUnits.any((u) => u.code == current)
+                          ? current : null,
+                      decoration: const InputDecoration(labelText: 'Unité'),
+                      items: hospitalUnits.map((u) => DropdownMenuItem(
+                        value: u.code, child: Text(u.code),
+                      )).toList(),
+                      onChanged: (value) {
+                        if (value != null) refresh(() => current = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: 'Numéro du box',
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(width: double.infinity, child: FilledButton(
+                      key: const Key('save-bed-assignment'),
+                      onPressed: () {
+                        final box = controller.text.trim();
+                        if (current.isEmpty || box.isEmpty) {
+                          _notice('Précisez l’unité et le numéro de box.');
+                          return;
+                        }
+                        final conflict = appStore.conflictingBox(
+                          current, box, exceptPatientId: p.id,
+                        );
+                        if (conflict != null) {
+                          _notice('Box déjà occupé par ${conflict.name}.');
+                          return;
+                        }
+                        if (postoperative) {
+                          p.afterUnit = current;
+                          p.afterBox = box;
+                        } else {
+                          p.beforeUnit = current;
+                          p.beforeBox = box;
+                        }
+                        appStore.refresh(changed: p);
+                        Navigator.pop(sheetContext);
+                      },
+                      child: const Text('Enregistrer l’affectation'),
+                    )),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
     controller.dispose();
+  }
+
+  Future<void> _editSurgery() async {
+    if (p.stage == CaseStage.discharged || p.isOmitted) return;
+    final type = TextEditingController(
+      text: p.standardizedSurgeryType == 'À préciser'
+          ? '' : p.standardizedSurgeryType,
+    );
+    final procedure = TextEditingController(text: p.effectiveProcedure);
+    final navigationInset = MediaQuery.of(context).viewPadding.bottom;
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final media = MediaQuery.of(ctx);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20, 8, 20,
+            media.viewInsets.bottom > 0
+                ? media.viewInsets.bottom + 24 : navigationInset + 28,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (media.size.height - media.viewInsets.bottom -
+                  navigationInset - 90).clamp(190.0, media.size.height)
+                  .toDouble(),
+            ),
+            child: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Modifier la chirurgie',
+                    style: Theme.of(ctx).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                const Text('La correction sera enregistrée dans le dossier clinique. '
+                    'L’intitulé original du programme opératoire restera conservé.',
+                    style: TextStyle(fontSize: 12, color: VColors.muted)),
+                const SizedBox(height: 15),
+                TextField(
+                  key: const Key('surgery-type-input'),
+                  controller: type,
+                  maxLength: 120,
+                  decoration: const InputDecoration(
+                    labelText: 'Type de chirurgie',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('procedure-correction-input'),
+                  controller: procedure,
+                  maxLength: 300,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Intervention chirurgicale',
+                  ),
+                ),
+                const SizedBox(height: 15),
+                SizedBox(width: double.infinity, child: FilledButton(
+                  key: const Key('save-surgery-details'),
+                  onPressed: () {
+                    if (type.text.trim().length < 2 ||
+                        procedure.text.trim().length < 3) {
+                      _notice('Renseignez le type de chirurgie et l’intervention.');
+                      return;
+                    }
+                    Navigator.pop(ctx, [type.text.trim(), procedure.text.trim()]);
+                  },
+                  child: const Text('Enregistrer la chirurgie'),
+                )),
+                const SizedBox(height: 6),
+              ],
+            )),
+          ),
+        );
+      },
+    );
+    type.dispose();
+    procedure.dispose();
+    if (!mounted || result == null) return;
+    final oldType = p.surgeryType;
+    final oldOverride = p.procedureOverride;
+    p.surgeryType = result[0];
+    p.procedureOverride = result[1] == p.procedure ? '' : result[1];
+    setState(() {});
+    try {
+      await appStore.saveClinical(p);
+      if (!mounted) return;
+      appStore.refresh();
+      _notice('Type de chirurgie et intervention enregistrés.');
+    } catch (_) {
+      p.surgeryType = oldType;
+      p.procedureOverride = oldOverride;
+      if (!mounted) return;
+      appStore.refresh();
+      setState(() {});
+      _notice('Sauvegarde impossible : les informations précédentes ont été conservées.');
+    }
   }
 
   Future<void> _editIdentity() async {

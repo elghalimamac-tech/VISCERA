@@ -1,38 +1,67 @@
-# VISCERA — E-mails de confirmation et de récupération
-**Application :** VISCERA · Chirurgie viscérale · HUIM6 Bouskoura
+# VISCERA — Confirmation et récupération d'e-mail
 
-## 1. Personnaliser les modèles d'e-mails
-Le connecteur Supabase disponible dans ChatGPT ne permet pas d'éditer directement les réglages SMTP et les modèles d'e-mails Auth ; cette opération doit être faite dans le Dashboard par le propriétaire du projet.
+## Correctif logiciel
 
-Aller dans :
-https://supabase.com/dashboard/project/qkupckqgczdqiwxozxko/auth/templates
+Les inscriptions, renvois de confirmation et demandes de nouveau mot de passe
+utilisent désormais **la même URL HTTPS**, ouvrable même si l'application
+Android n'est pas installée :
+`https://elghalimamac-tech.github.io/VISCERA/`
 
-- **Confirm signup** : sujet **VISCERA — Confirmez votre adresse e-mail** ; coller intégralement `emails/confirmation.html`.
-- **Reset password** : sujet **VISCERA — Définissez un nouveau mot de passe** ; coller intégralement `emails/recovery.html`.
-- Enregistrer **les deux**.
+Les modèles HTML sont versionnés dans `emails/confirmation.html` et
+`emails/recovery.html`. Ils utilisent `{{ .TokenHash }}` dans le fragment
+`#token_hash=...&type=signup` ou `type=recovery` : le jeton n'est pas
+transmis à l'hébergement de GitHub Pages. L'application le valide via
+Supabase Auth (`verifyOTP`). Les anciens liens expirés peuvent demander un
+renvoi depuis l'écran de confirmation.
 
-Ces modèles utilisent `{{ .TokenHash }}` et des liens directs vers VISCERA. Le fragment de l'URL est lu côté Flutter puis échangé via `verifyOTP` ; aucune valeur de jeton ne doit être journalisée.
-Ne pas remplacer le lien par `{{ .ConfirmationURL }}` si vous souhaitez éviter le domaine du fournisseur d'authentification dans l'URL apparente.
+**Attention : modifier un fichier dans GitHub ne modifie PAS les modèles ni
+l'expéditeur actifs dans Supabase Auth. Les étapes suivantes sont obligatoires.**
 
-## 2. Domaine, expéditeur et réputation
-Les modèles changent le corps des e-mails et le lien, **pas** l'expéditeur SMTP.
-Dans Authentication > SMTP, configurer un SMTP dédié, idéalement sur un domaine vérifié appartenant au service, avec le nom d'expéditeur VISCERA. Ne pas utiliser de domaine institutionnel sans autorisation.
-Configurer DNS SPF, DKIM et DMARC du domaine. Le SMTP intégré de Supabase est limité, non prévu pour un usage de production et peut conserver son identité d'expédition.
+## À terminer dans le Dashboard Supabase (administrateur du projet)
 
-## 3. URL du site
-https://elghalimamac-tech.github.io/VISCERA/
-Vérifier dans Authentication > URL Configuration :
-- Site URL : https://elghalimamac-tech.github.io/VISCERA/
-- Redirect URLs : https://elghalimamac-tech.github.io/VISCERA/**
+1. Ouvrir [Authentication → URL Configuration](https://supabase.com/dashboard/project/qkupckqgczdqiwxozxko/auth/url-configuration).
+   - **Site URL** : `https://elghalimamac-tech.github.io/VISCERA/`
+   - **Redirect URLs** : ajouter `https://elghalimamac-tech.github.io/VISCERA/`
+     (et, uniquement si nécessaire, `https://elghalimamac-tech.github.io/VISCERA/**`).
+   - Retirer tout ancien `localhost` utilisé comme Site URL de production.
+   - Conserver éventuellement `viscera://auth-callback/**` pour compatibilité
+     avec d'anciens liens, sans l'utiliser pour les nouveaux e-mails.
+   **Attention Supabase 2026 :** sur certains projets Free créés après
+   juin 2026, les modèles du SMTP fourni par défaut ne sont pas éditables.
+   Dans ce cas, activer d'abord un SMTP personnalisé vérifié avant de
+   pouvoir enregistrer les deux modèles ci-dessous.
 
-## 4. Parcours
-**Inscription** : l'utilisateur reçoit le mail, clique sur « Confirmer mon adresse e-mail », VISCERA vérifie le jeton à usage unique, affiche « En attente » jusqu'à approbation.
+2. Ouvrir [Authentication → Email Templates](https://supabase.com/dashboard/project/qkupckqgczdqiwxozxko/auth/templates).
+   - **Confirm signup** : sujet « VISCERA — Confirmez votre adresse e-mail »,
+     corps complet de `emails/confirmation.html`.
+   - **Reset password** : sujet « VISCERA — Réinitialisation du mot de passe »,
+     corps complet de `emails/recovery.html`.
+   - Enregistrer les deux. Ne pas remplacer `{{ .TokenHash }}` par un
+     code copié depuis un e-mail reçu.
+3. Ouvrir [Authentication → SMTP](https://supabase.com/dashboard/project/qkupckqgczdqiwxozxko/auth/smtp).
+   - Choisir un fournisseur SMTP transactionnel reconnu, via un domaine
+     autorisé et **contrôlé** par le service ; définir `From` et
+     `Sender name: VISCERA`.
+   - Vérifier la propriété du domaine avec le fournisseur SMTP puis appliquer
+     les enregistrements **SPF, DKIM et DMARC** qu'il fournit.
+   - Éviter le serveur SMTP intégré de Supabase pour une application réelle,
+     le suivi publicitaire des liens, les raccourcisseurs d'URL et
+     l'utilisation sans autorisation d'un domaine institutionnel.
+   - Les mots de passe SMTP restent uniquement dans Supabase ; jamais dans
+     Flutter, GitHub, un e-mail ni un ticket de support.
 
-**Mot de passe oublié** : l'utilisateur indique son adresse, reçoit le mail, clique sur « Définir un nouveau mot de passe », VISCERA vérifie le jeton puis affiche deux champs de nouveau mot de passe (12 caractères minimum). Après mise à jour, déconnexion et retour à la connexion.
+Les filtres anti-spam des destinataires prennent en compte la réputation
+d'expédition, le domaine et l'authentification du courriel. **Le seul
+changement du modèle HTML ne garantit pas la sortie du dossier Spam.**
 
-## 5. Vérifications avant usage
-- Tester avec une nouvelle adresse de médecin de test, pas avec un patient.
-- Confirmer que le mail reçu a bien le titre, l'expéditeur, le domaine et le bouton corrects.
-- Vérifier un jeton expiré / déjà utilisé, l'envoi répété et la déconnexion après changement.
-- Un mail visuellement « VISCERA » envoyé par Supabase SMTP n'est **pas** totalement débrandé : un SMTP personnalisé est indispensable pour l'identité d'expédition.
-- Les dossiers VISCERA sont des données fictives ; ne pas introduire de données cliniques réelles sans autorisation institutionnelle, hébergement conforme et revue de sécurité.
+## Test de bout en bout (compte de démonstration sans données patient)
+
+- Créer une inscription avec une adresse de test autorisée, puis ouvrir le
+  dernier e-mail depuis Gmail mobile et bureau.
+- Cliquer sur le bouton, confirmer l'ouverture dans le navigateur et vérifier
+  l'affichage « Adresse e-mail confirmée » puis « Accès en attente ».
+- Retester « Renvoyer l’e-mail de validation », un lien expiré et
+  « Mot de passe oublié ».
+- Vérifier dans les détails du message les statuts SPF, DKIM et DMARC ;
+  mesurer la destination réelle du lien sans communiquer le jeton à autrui.
+- Ne jamais désactiver la confirmation des e-mails pour contourner le problème.
