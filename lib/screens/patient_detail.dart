@@ -228,7 +228,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
-              p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}')),
+              p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}',
+              onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_changeBed)),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
               appStore.responsibleById(p.professorId)?.name??'À attribuer')),
@@ -293,60 +294,76 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           ])),
           SectionHeading('Parcours hospitalier'),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            _line(Icons.login_rounded,'Admission',p.admissionTiming),
-            if(p.consultationAt!=null)...[
-              const Divider(height:22),
-              _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
+            // La vue principale montre seulement les données utiles à l'instant.
+            _line(Icons.medical_services_outlined,'Intervention',p.effectiveProcedure),
+            const Divider(height:22),
+            _line(Icons.event_rounded,'Date du bloc',_format(p.blockAt)),
+            if(p.stage!=CaseStage.discharged && !p.isOmitted)...[
+              const SizedBox(height:12),
+              Wrap(spacing:8,runSpacing:8,children:[
+                OutlinedButton.icon(
+                  key:const Key('edit-surgery-details'),
+                  onPressed:_editSurgery,
+                  icon:const Icon(Icons.edit_note_outlined,size:18),
+                  label:const Text('Modifier type de chirurgie / intervention')),
+                OutlinedButton.icon(
+                  key:const Key('edit-current-box'),
+                  onPressed:_changeBed,
+                  icon:const Icon(Icons.edit_location_alt_outlined,size:18),
+                  label:const Text('Modifier l’affectation')),
+              ]),
             ],
-            const Divider(height:22),
-            _line(Icons.medical_services_outlined,'Responsable admission',
-              appStore.responsibleById(p.professorId)?.name??'À attribuer'),
-            const SizedBox(height:5),
-            Text('${p.assignmentMode} · ${p.assignmentExplanation}',
-              style:const TextStyle(fontSize:11,color:VColors.muted)),
-            const SizedBox(height:8),
-            OutlinedButton.icon(onPressed:_changeProfessor,
-              icon:const Icon(Icons.manage_accounts_outlined,size:17),
-              label:const Text('Modifier responsable admission')),
-            const Divider(height:22),
-            _line(Icons.medical_services_outlined,'Responsable bloc',
-              appStore.responsibleById(p.blockResponsibleId)?.name??
-                (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')),
-            const SizedBox(height:8),
-            OutlinedButton.icon(onPressed:_changeBlockDoctor,
-              icon:const Icon(Icons.manage_accounts_outlined,size:17),
-              label:const Text('Modifier responsable du bloc')),
-            const Divider(height:22),
-            _line(Icons.category_outlined,'Type de chirurgie',
-              p.standardizedSurgeryType),
-            const Divider(height:22),
-            _line(Icons.medical_services_outlined,'Bloc',
-              '${p.effectiveProcedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
-            if (p.procedureOverride.trim().isNotEmpty) ...[
-              const SizedBox(height: 5),
-              Text('Programme original : ${p.procedure}',
-                style: const TextStyle(fontSize: 11, color: VColors.muted)),
-            ],
-            if (p.stage != CaseStage.discharged && !p.isOmitted) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const Key('edit-surgery-details'),
-                onPressed: _editSurgery,
-                icon: const Icon(Icons.edit_note_outlined, size: 18),
-                label: const Text('Modifier type de chirurgie / intervention'),
-              ),
-            ],
-            const Divider(height:22),
-            _line(Icons.bed_outlined,'Avant le bloc',p.beforeBox.isEmpty ? 'Non attribué' : '${p.beforeUnit} · Box ${p.beforeBox}'),
-            const Divider(height:22),
-            _line(Icons.bed_outlined,'Après le bloc',p.afterBox.isEmpty ? 'Non attribué' : '${p.afterUnit} · Box ${p.afterBox}'),
-            const Divider(height:22),
-            _line(Icons.event_available_outlined,'Sortie estimée',
-              p.dischargeReviewAt == null ? 'Admission à confirmer' : '${_date(p.expectedDischargeAt)} · proposition à vérifier'),
-            const SizedBox(height:12),
-            OutlinedButton.icon(onPressed:_changeBed,
-              icon:const Icon(Icons.edit_location_alt_outlined,size:18),
-              label:const Text('Modifier l’affectation')),
+            const Divider(height:26),
+            ExpansionTile(
+              key:const Key('patient-stay-details'),
+              initiallyExpanded:false,
+              tilePadding:EdgeInsets.zero,
+              childrenPadding:const EdgeInsets.only(top:10),
+              title:const Text('Informations complémentaires du séjour',
+                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
+              subtitle:const Text('Admission, médecins responsables et suivi prévu',
+                style:TextStyle(fontSize:12,color:VColors.muted)),
+              children:[
+                _line(Icons.login_rounded,'Admission',p.admissionTiming),
+                if(p.consultationAt!=null)...[
+                  const Divider(height:22),
+                  _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
+                ],
+                const Divider(height:22),
+                _line(Icons.medical_services_outlined,'Responsable admission',
+                  appStore.responsibleById(p.professorId)?.name??'À attribuer'),
+                const SizedBox(height:5),
+                Text('${p.assignmentMode} · ${p.assignmentExplanation}',
+                  style:const TextStyle(fontSize:11,color:VColors.muted)),
+                if(p.stage!=CaseStage.discharged)...[
+                  const SizedBox(height:8),
+                  OutlinedButton.icon(onPressed:_changeProfessor,
+                    icon:const Icon(Icons.manage_accounts_outlined,size:17),
+                    label:const Text('Modifier responsable admission')),
+                ],
+                const Divider(height:22),
+                _line(Icons.medical_services_outlined,'Responsable bloc',
+                  appStore.responsibleById(p.blockResponsibleId)?.name??
+                    (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')),
+                if(p.stage!=CaseStage.discharged)...[
+                  const SizedBox(height:8),
+                  OutlinedButton.icon(onPressed:_changeBlockDoctor,
+                    icon:const Icon(Icons.manage_accounts_outlined,size:17),
+                    label:const Text('Modifier responsable du bloc')),
+                ],
+                const Divider(height:22),
+                _line(Icons.category_outlined,'Type de chirurgie',p.standardizedSurgeryType),
+                if(p.procedureOverride.trim().isNotEmpty)...[
+                  const SizedBox(height:8),
+                  Text('Programme original : ${p.procedure}',
+                    style:const TextStyle(fontSize:11,color:VColors.muted)),
+                ],
+                const Divider(height:22),
+                _line(Icons.event_available_outlined,'Sortie estimée',
+                  p.dischargeReviewAt==null?'Admission à confirmer':
+                    '${_date(p.expectedDischargeAt)} · proposition à vérifier'),
+              ],
+            ),
           ])),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
             const SizedBox(height:12),
@@ -397,8 +414,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     ),
   );
 
-  Widget _factCard(IconData icon,String label,String value)=>VCard(
-    padding:const EdgeInsets.all(13),
+  Widget _factCard(IconData icon,String label,String value,{VoidCallback? onTap})=>VCard(
+    onTap:onTap,padding:const EdgeInsets.all(13),
     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Icon(icon,color:VColors.ink,size:20),
       const SizedBox(height:7),
@@ -525,9 +542,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(postoperative
-                        ? 'Modifier l’unité postopératoire'
-                        : 'Modifier l’unité préopératoire',
+                    Text('Modifier l’unité / le box',
                       style: Theme.of(sheetContext).textTheme.titleLarge),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
@@ -566,11 +581,17 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                           return;
                         }
                         if (postoperative) {
+                          // Le box précédent reste dans l'historique interne.
                           p.afterUnit = current;
                           p.afterBox = box;
                         } else {
+                          // Un transfert préopératoire ne doit pas rétablir un
+                          // ancien box à la fin du bloc si aucun autre n'était prévu.
+                          final sameAsFuture=p.afterUnit==p.beforeUnit &&
+                            p.afterBox==p.beforeBox;
                           p.beforeUnit = current;
                           p.beforeBox = box;
+                          if(sameAsFuture){p.afterUnit=current;p.afterBox=box;}
                         }
                         appStore.refresh(changed: p);
                         Navigator.pop(sheetContext);
