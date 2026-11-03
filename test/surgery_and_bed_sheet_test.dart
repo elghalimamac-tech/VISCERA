@@ -91,6 +91,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Le crayon responsable ouvre les choix admission et bloc',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final patient = patientSample()..stage = CaseStage.preoperative;
+    await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
+    await tester.tap(find.text('Responsable'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('choose-admission-responsible')), findsOneWidget);
+    expect(find.byKey(const Key('choose-block-responsible')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Entrée au bloc sous les documents et bloquée sans vérification',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final patient = patientSample()..stage = CaseStage.preoperative;
+    expect(patient.canConfirmTheatreEntry,isFalse);
+    await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
+    final entry=find.byKey(const Key('confirm-theatre-entry'));
+    await tester.scrollUntilVisible(entry, 400,
+      scrollable:find.byType(Scrollable).first);
+    expect(entry,findsOneWidget);
+    expect(tester.widget<ElevatedButton>(entry).onPressed,isNull);
+    expect(find.byKey(const Key('theatre-missing-documents')),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
   testWidgets('Le bouton de sauvegarde du box reste visible sur Android',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 780));
@@ -106,7 +135,7 @@ void main() {
         child: PatientDetailPage(patient:patient),
       ),
     ));
-    final edit=find.text('Modifier l’affectation');
+    final edit=find.text('Unité / box');
     // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
     // puis le remonter au-dessus de la zone des actions flottantes.
     for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
