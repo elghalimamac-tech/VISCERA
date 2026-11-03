@@ -5,8 +5,14 @@ import 'models.dart';
 const unassignedPatientService = 'À affecter';
 
 String patientService(PatientCase patient) {
-  final code = patient.currentUnit.trim();
-  if (code.isEmpty) return unassignedPatientService;
+  if(patient.isOmitted)return unassignedPatientService;
+  // Après la sortie, la dernière unité postopératoire garde la priorité.
+  // Le getter currentUnit revient sinon à l'unité préopératoire.
+  final code = patient.isArchived
+    ? (patient.afterUnit.trim().isNotEmpty
+        ? patient.afterUnit.trim() : patient.beforeUnit.trim())
+    : patient.currentUnit.trim();
+  if(code.isEmpty)return unassignedPatientService;
   return code;
 }
 
