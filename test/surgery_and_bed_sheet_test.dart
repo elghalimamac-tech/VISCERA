@@ -97,6 +97,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final patient = patientSample()..stage = CaseStage.preoperative;
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
+    await tester.ensureVisible(find.text('Responsable'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Responsable'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('choose-admission-responsible')), findsOneWidget);
