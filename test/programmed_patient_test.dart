@@ -58,6 +58,25 @@ void main() {
     expect(patient.stage, CaseStage.scheduled);
   });
 
+  test('Entrée au bloc impossible sans pièces vérifiées, possible après contrôle explicite', () {
+    final store=AppStore();
+    final patient=patientForTest('LOCAL-PREOP',official:false,
+      stage:CaseStage.preoperative);
+    expect(patient.canConfirmTheatreEntry,isFalse);
+    store.startTheatre(patient);
+    expect(patient.stage,CaseStage.preoperative);
+
+    for(final requirement in ClinicalDocuments.admission) {
+      final check=patient.check(requirement.key);
+      check.verified=true;
+      check.stamped=requirement.needsStamp ? true : null;
+    }
+    expect(patient.canConfirmTheatreEntry,isTrue);
+    store.startTheatre(patient);
+    expect(patient.stage,CaseStage.inTheatre);
+    expect(patient.canConfirmTheatreEntry,isFalse);
+  });
+
   test('Les rafraîchissements remplacent les imports sans effacer les admissions', () {
     final store = AppStore();
     final manuallyCreated = patientForTest('LOCAL-1', official: false,
