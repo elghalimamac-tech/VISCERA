@@ -90,7 +90,7 @@ async function verifiedGithubWorkflow(req: Request): Promise<boolean> {
       clockTolerance: "20s",
     });
     return payload.sub ===
-        "repo:elghalimamac-tech/VISCERA:ref:refs/heads/main" &&
+        "repo:elghalimamac-tech@350679422/VISCERA@1440712478:ref:refs/heads/main" &&
       payload.repository === "elghalimamac-tech/VISCERA" &&
       String(payload.repository_id) === "1440712478" &&
       payload.ref === "refs/heads/main" &&

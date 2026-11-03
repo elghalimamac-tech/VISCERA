@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/viscera-daily-discharge-push.yml'
+      - 'supabase/functions/viscera-discharge-review/index.ts'
+      - 'supabase/functions/viscera-push-dispatch/index.ts'
   schedule:
     # Deux fenêtres : le décalage horaire de Casablanca varie avec la saison.
     # La file garantit au maximum un rappel par compte et par jour.
