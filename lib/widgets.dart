@@ -97,28 +97,43 @@ class _HospitalizationDayCounterState extends State<HospitalizationDayCounter>
       date='${start.day.toString().padLeft(2,'0')}/'
         '${start.month.toString().padLeft(2,'0')}/${start.year}';
     }
-    return Row(children:[
-      const Icon(Icons.today_rounded,color:VColors.ink,size:25),
-      const SizedBox(width:12),
-      Container(
-        key:const Key('hospitalization-day-counter'),
-        padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),
-        decoration:BoxDecoration(color:VColors.softMint,
-          borderRadius:BorderRadius.circular(13)),
-        child:Text(label,style:const TextStyle(fontSize:22,
-          fontWeight:FontWeight.w900,color:VColors.ink)),
-      ),
-      const SizedBox(width:12),
-      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    // Sur un écran mobile, la pastille « Admission à confirmer » est trop
+    // longue pour partager une ligne avec le libellé et la date. Un Row
+    // à trois colonnes écrasait l'Expanded à quelques pixels et le titre
+    // s'écrivait lettre par lettre sur toute la hauteur de l'écran.
+    // Conserver le libellé et la source sur leur propre ligne évite ce bug.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            const Icon(Icons.today_rounded,color:VColors.ink,size:25),
+            const SizedBox(width:12),
+            Flexible(child:Container(
+              key:const Key('hospitalization-day-counter'),
+              padding:const EdgeInsets.symmetric(horizontal:14,vertical:9),
+              decoration:BoxDecoration(color:VColors.softMint,
+                borderRadius:BorderRadius.circular(13)),
+              child:Text(label,
+                softWrap:true,
+                style:const TextStyle(fontSize:22,
+                  fontWeight:FontWeight.w900,color:VColors.ink)),
+            )),
+          ],
+        ),
+        const SizedBox(height:10),
         Text(p.stage==CaseStage.discharged
             ? 'Durée du séjour à la sortie'
             : 'Jour d’hospitalisation',
           style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
         const SizedBox(height:3),
         Text('$source · $date',
+          softWrap:true,
           style:const TextStyle(fontSize:11,color:VColors.muted)),
-      ])),
-    ]);
+      ],
+    );
   }
 }
 
