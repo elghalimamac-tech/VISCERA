@@ -52,8 +52,12 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
 
     final edit=find.byKey(const Key('edit-surgery-details'));
-    await tester.scrollUntilVisible(edit, 450,
-      scrollable: find.byType(Scrollable).first);
+    // Les enfants sont créés à l'avance dans ce ListView : scrollUntilVisible
+    // peut s'arrêter alors que le bouton est toujours hors du viewport.
+    await tester.ensureVisible(edit);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
     expect(find.text('Modifier la chirurgie'), findsOneWidget);
@@ -79,8 +83,10 @@ void main() {
       ),
     ));
     final edit=find.text('Modifier l’affectation');
-    await tester.scrollUntilVisible(edit, 400,
-      scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(edit);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
 
