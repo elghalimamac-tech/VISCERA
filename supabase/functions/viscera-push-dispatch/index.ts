@@ -151,7 +151,16 @@ Deno.serve(async (req: Request) => {
               token:device.token,
               notification:{title:item.title,body:item.body},
               data:{kind:item.kind,notification_id:item.id},
-              android:{priority:item.kind==="urgent_admissions"?"high":"normal"},
+              android:{
+                // Les changements de programme doivent parvenir même en veille.
+                priority:["urgent_admissions","program_updates"].includes(item.kind)
+                  ? "high" : "normal",
+                notification:{
+                  channel_id:"viscera_events_v1",
+                  visibility:"PRIVATE",
+                  default_sound:true,
+                },
+              },
             }})},
         );
         if (response.ok) {
