@@ -115,6 +115,8 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0;
   let retried = 0;
+  let waitingDevice = 0;
+  let removedInvalid = 0;
   // Diagnostic FCM limité aux codes d'erreur, jamais aux jetons ni aux patients.
   const failureCounts = new Map<string, number>();
   for (const item of items || []) {
@@ -138,7 +140,8 @@ Deno.serve(async (req: Request) => {
       continue;
     }
 
-    let allOk = true;
+    let delivered = 0;
+    let invalid = 0;
     for (const device of devices) {
       try {
         const response = await fetch(
@@ -151,8 +154,9 @@ Deno.serve(async (req: Request) => {
               android:{priority:item.kind==="urgent_admissions"?"high":"normal"},
             }})},
         );
-        if (!response.ok) {
-          allOk = false;
+        if (response.ok) {
+          delivered++;
+        } else {
           let reason = "UNKNOWN";
           let fcmCode = "UNSPECIFIED";
           try {
@@ -169,17 +173,38 @@ Deno.serve(async (req: Request) => {
           }
           const category = `${response.status}:${reason}:${fcmCode}`;
           failureCounts.set(category, (failureCounts.get(category) || 0) + 1);
+          if (response.status === 404 && fcmCode === "UNREGISTERED") {
+            // Firebase certifie que ce jeton n'existe plus. Le retirer
+            // pour ne pas provoquer des renvois ni conserver des appareils
+            // réinstallés ou déconnectés. Aucun identifiant n'est journalisé.
+            const {error:deleteError} = await admin.from("push_devices")
+              .delete().eq("user_id",item.user_id).eq("token",device.token);
+            if (!deleteError) {
+              invalid++;
+              removedInvalid++;
+            }
+          }
         }
       } catch (_) {
-        allOk = false;
         failureCounts.set("NETWORK_ERROR",
           (failureCounts.get("NETWORK_ERROR") || 0) + 1);
       }
     }
-    if (allOk) {
+    if (delivered > 0) {
+      // Une livraison réussie sur un appareil du médecin suffit pour
+      // marquer la notification livrée, sans la répéter sur les autres.
       sent++;
       await admin.from("viscera_notifications").update({
         dispatch_status:"sent",delivered_at:new Date().toISOString(),
+      }).eq("id",item.id);
+    } else if (invalid === devices.length) {
+      // Aucun jeton encore valide pour ce compte. La notification reste
+      // consultable et sera renvoyée quand le téléphone se réinscrit.
+      waitingDevice++;
+      await admin.from("viscera_notifications").update({
+        dispatch_status:"waiting_device",
+        next_attempt_at:new Date(Date.now() + 60*60000).toISOString(),
+        attempts:item.attempts,
       }).eq("id",item.id);
     } else {
       retried++;
@@ -191,7 +216,10 @@ Deno.serve(async (req: Request) => {
   }
   const failures = Array.from(failureCounts.entries()).map(([category,count]) =>
     ({category,count}));
-  const summary = {processed:(items || []).length,sent,retried,failures};
+  const summary = {
+    processed:(items || []).length,sent,retried,
+    waiting_device:waitingDevice,removed_invalid:removedInvalid,failures,
+  };
   // Ne pas afficher « workflow réussi » si Firebase a refusé les messages.
   return Response.json(summary,{status:retried > 0 ? 502 : 200});
 });

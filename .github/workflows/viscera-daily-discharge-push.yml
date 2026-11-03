@@ -50,7 +50,9 @@ jobs:
       - name: Distribuer les messages FCM anonymisés
         shell: bash
         run: |
-          curl --fail-with-body --silent --show-error --retry 2 --request POST \
+          # Ne jamais relancer automatiquement un POST qui peut déjà avoir
+          # expédié des messages sur un des appareils.
+          curl --fail-with-body --silent --show-error --request POST \
             --header "Authorization: Bearer ${VISCERA_OIDC_TOKEN}" \
             --header 'Content-Type: application/json' --data '{}' \
             https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-push-dispatch
