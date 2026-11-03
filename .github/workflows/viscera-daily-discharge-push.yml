@@ -11,8 +11,10 @@ on:
       - 'supabase/functions/viscera-discharge-review/index.ts'
       - 'supabase/functions/viscera-push-dispatch/index.ts'
   schedule:
-    # Deux fenêtres : le décalage horaire de Casablanca varie avec la saison.
-    # La file garantit au maximum un rappel par compte et par jour.
+    # Les notifications entrantes sont distribuées toutes les 5 minutes.
+    # Le décalage de 2 minutes évite les pics du début d'heure GitHub.
+    - cron: '2-57/5 * * * *'
+    # La vérification quotidienne des sorties reste indépendante et limitée.
     - cron: '0 7,9 * * *'
 
 permissions:
@@ -40,6 +42,7 @@ jobs:
           printf 'VISCERA_OIDC_TOKEN=%s\n' "$token" >> "$GITHUB_ENV"
 
       - name: Identifier les dossiers à réévaluer sans informations de patient
+        if: github.event_name != 'schedule' || github.event.schedule == '0 7,9 * * *'
         shell: bash
         run: |
           curl --fail-with-body --silent --show-error --retry 2 --request POST \
