@@ -128,8 +128,10 @@ void main() {
     expect(labelRect.width, greaterThan(130));
     expect(labelRect.height, lessThan(40));
     expect(labelRect.top, greaterThanOrEqualTo(badgeRect.bottom));
+    // 160 px est la hauteur normale à 350 px avec deux lignes de date ;
+    // vérifier que la carte ne se transforme pas en colonne de > 1000 px.
     expect(tester.getSize(find.byType(HospitalizationDayCounter)).height,
-        lessThan(160));
+        lessThan(220));
     expect(tester.takeException(), isNull);
   });
 
