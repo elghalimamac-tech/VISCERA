@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'main.dart' show enableFirebasePush;
 import 'web_push_bridge_stub.dart'
     if (dart.library.js_interop) 'web_push_bridge.dart' as webPush;
@@ -97,8 +98,30 @@ class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
           await fm.requestPermission(alert: true, badge: true, sound: true);
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
       if (Platform.isIOS && await fm.getAPNSToken() == null) return;
-      final token = await fm.getToken();
-      if (token != null) {
+      // Les anciennes installations Android possédaient des jetons
+      // définitivement refusés par FCM (UNREGISTERED / HTTP 404).
+      // Un seul renouvellement par compte et version de réparation :
+      // ne jamais réinitialiser le jeton à chaque ouverture.
+      String? token;
+      if (Platform.isAndroid) {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
+        final prefs = await SharedPreferences.getInstance();
+        final marker = 'viscera_fcm_token_repair_20261103_v1_${user.id}';
+        if (prefs.getBool(marker) != true) {
+          await fm.deleteToken();
+          token = await fm.getToken();
+          if (token != null && token.isNotEmpty) {
+            await _saveToken(token, 'android');
+            await prefs.setBool(marker,true);
+          }
+        } else {
+          token = await fm.getToken();
+        }
+      } else {
+        token = await fm.getToken();
+      }
+      if (token != null && token.isNotEmpty) {
         await _saveToken(token, Platform.isIOS ? 'ios' : 'android');
       }
       _refresh = fm.onTokenRefresh.listen((token) =>
