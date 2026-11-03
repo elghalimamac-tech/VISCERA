@@ -347,9 +347,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     ),
   ));
 
-  Widget _quick(IconData icon,String title,VoidCallback onTap)=>VCard(onTap:onTap,
-      padding:const EdgeInsets.symmetric(horizontal:8,vertical:18),child:Column(children:[Icon(icon,color:VColors.ink,size:25),
-      const SizedBox(height:8),Text(title,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:12))]));
   Widget _stat(String label,String value,IconData icon,{bool attention=false})=>VCard(padding:const EdgeInsets.all(14),color:attention?VColors.orangeSoft:Colors.white,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,size:20,color:attention?const Color(0xFFA45633):VColors.muted),const SizedBox(height:14),Text(value,style:const TextStyle(fontSize:29,fontWeight:FontWeight.w800,letterSpacing:-1,color:VColors.ink)),const SizedBox(height:3),Text(label,style:const TextStyle(fontSize:11,color:VColors.muted))]));
 
   Widget _patientList(){
