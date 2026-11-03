@@ -27,7 +27,7 @@ class _DischargePageState extends State<DischargePage> {
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:VisceraPageTitle(widget.readOnly?'Documents de sortie':'Préparer la sortie'),backgroundColor:VColors.background),
     body:AnimatedBuilder(animation:appStore,builder:(context,_)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(20,14,20,35),children:[
-      VCard(color:VColors.ink,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('DOSSIER DE SORTIE',style:TextStyle(color:VColors.mint,fontSize:11,letterSpacing:1.6,fontWeight:FontWeight.w800)),const SizedBox(height:8),Text(p.name,style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w800)),const SizedBox(height:6),Text(p.procedure,style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:14),AdmissionDateHighlight(patient:p)])),
+      VCard(color:VColors.ink,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('DOSSIER DE SORTIE',style:TextStyle(color:VColors.mint,fontSize:11,letterSpacing:1.6,fontWeight:FontWeight.w800)),const SizedBox(height:8),Text(p.name,style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w800)),const SizedBox(height:6),Text(p.effectiveProcedure,style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:14),AdmissionDateHighlight(patient:p)])),
       if(p.isFar)...[const SizedBox(height:13),VCard(color:VColors.orangeSoft,child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),const Expanded(child:Text('Mutuelle FAR : préparer l’ordonnance sur le support FAR.',style:TextStyle(fontWeight:FontWeight.w700,fontSize:13)))]))],
       SectionHeading('1. Ordonnance de sortie'),
       if(!widget.readOnly)CheckboxListTile(contentPadding:EdgeInsets.zero,value:prescriptionChanged,onChanged:(v)=>setState(()=>prescriptionChanged=v??false),title:const Text('L’ordonnance doit être adaptée / modifiée ?',style:TextStyle(fontSize:13.5)),controlAffinity:ListTileControlAffinity.leading),
@@ -80,9 +80,9 @@ class _DischargePageState extends State<DischargePage> {
     }
   }
   String _prescriptionDraft(PatientCase p){
-    final standard=p.procedure==procedures[0]||p.procedure==procedures[1];
+    final standard=p.effectiveProcedure==procedures[0]||p.effectiveProcedure==procedures[1];
     return 'PROJET D’ORDONNANCE DE SORTIE — À VALIDER\n'
-      'Patient : ${p.name}\nIntervention : ${p.procedure}\n\n'
+      'Patient : ${p.name}\nIntervention : ${p.effectiveProcedure}\n\n'
       '${standard?'Parcours standard de chirurgie laparoscopique. À adapter au patient.':'Parcours individualisé.'}\n\n'
       'MÉDICAMENTS (à renseigner par le prescripteur)\n'
       '1. [Dénomination / dose / voie / fréquence / durée]\n'
@@ -97,14 +97,14 @@ class _DischargePageState extends State<DischargePage> {
     'Patient : ${p.name} (${p.id})\nOrigine : ${p.origin}\n'
     'Motif d’hospitalisation : ${p.motive}\nHistoire : ${p.history}\n'
     'Examen initial : ${p.exam}\nExamens complémentaires : ${p.investigations}\n'
-    'Bilans : ${p.labs}\nIntervention : ${p.procedure}\n'
+    'Bilans : ${p.labs}\nIntervention : ${p.effectiveProcedure}\n'
     'Déroulement / suites opératoires : [à compléter après vérification]\n'
     'Traitements reçus : [à compléter]\nÉtat clinique à la sortie : [à compléter]\n'
     'Consignes, suivi et rendez-vous : [à compléter]\n'
     'Date de sortie : [à confirmer]\nMédecin / signature : [à compléter]';
   String _operationDraft(PatientCase p)=>'PROJET DE COMPTE RENDU OPÉRATOIRE — À VALIDER\n'
     'Patient : ${p.name}\nDate programmée du bloc : ${_fmt(p.blockAt)}\n'
-    'Intitulé de l’intervention : ${p.procedure}\n'
+    'Intitulé de l’intervention : ${p.effectiveProcedure}\n'
     'Chirurgien(s) : [à préciser]\nAnesthésie : [à préciser]\n'
     'Installation / voie d’abord : [à préciser]\n'
     'Constatations peropératoires : [à documenter]\n'
