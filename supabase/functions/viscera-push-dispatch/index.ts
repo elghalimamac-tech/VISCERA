@@ -21,7 +21,7 @@ function trustedServiceKey(request: Request): string | null {
   }
   const fromApiKey = request.headers.get("apikey");
   const fromBearer = request.headers.get("Authorization")
-    ?.match(/^Bearer\\s+(.+)$/i)?.[1];
+    ?.match(/^Bearer\s+(.+)$/i)?.[1];
   const received = fromApiKey || fromBearer;
   if (!received) return null;
   if (legacy && received === legacy) return legacy;
