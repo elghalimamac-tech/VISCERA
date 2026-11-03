@@ -4,9 +4,10 @@ import 'package:viscera/models.dart';
 import 'package:viscera/store.dart';
 import 'package:viscera/screens/patient_archives.dart';
 
-PatientCase _patient({CaseStage stage = CaseStage.discharged}) => PatientCase(
-  id: 'TEST-ARCHIVES',
-  name: 'PATIENT ARCHIVE TEST',
+PatientCase _patient({CaseStage stage = CaseStage.discharged,
+    String name = 'PATIENT ARCHIVE TEST', String id = 'TEST-ARCHIVES'}) => PatientCase(
+  id: id,
+  name: name,
   age: '52', origin: 'Consultation', insurance: 'CNSS',
   motive: 'Essai', history: '', exam: '', investigations: '', labs: '',
   immediatePlan: '', procedure: 'CHOLECYSTECTOMIE LAPAROSCOPIQUE',
@@ -47,8 +48,11 @@ void main() {
       (tester) async {
     final archived = _patient()
       ..dischargeAt = DateTime(2026, 11, 2, 14);
-    final active = _patient(stage: CaseStage.postoperative)
-      ..name = 'PATIENT ACTIF TEST';
+    final active = _patient(
+      stage: CaseStage.postoperative,
+      name: 'PATIENT ACTIF TEST',
+      id: 'TEST-ACTIVE',
+    );
     appStore.patients.addAll([archived, active]);
     addTearDown(() {
       appStore.patients.remove(archived);
