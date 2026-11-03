@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -51,6 +52,8 @@ class PushDeviceRegistration extends StatefulWidget {
 class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
   StreamSubscription<String>? _refresh;
   StreamSubscription<RemoteMessage>? _foreground;
+  final FlutterLocalNotificationsPlugin _systemNotifications =
+      FlutterLocalNotificationsPlugin();
   bool _showWebOptIn = false;
   bool _requestingWebPermission = false;
 
@@ -70,6 +73,39 @@ class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
       'platform': platform,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }, onConflict: 'token');
+  }
+
+  // FCM ne montre pas automatiquement la bannière Android au premier plan.
+  // Les données cliniques sont absentes du payload serveur, et la visibilité
+  // privée préserve le contenu de l'alerte sur l'écran verrouillé.
+  Future<void> _showForegroundNotification(RemoteMessage message) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final notification = message.notification;
+    if (notification == null) return;
+    final identifier =
+        message.data['notification_id'] ?? message.messageId ??
+        DateTime.now().microsecondsSinceEpoch.toString();
+    final stableId = identifier.codeUnits.fold<int>(
+      0, (hash, value) => (hash * 31 + value) & 0x7fffffff);
+    try {
+      await _systemNotifications.show(
+        stableId,
+        notification.title ?? 'VISCERA',
+        notification.body ?? 'Nouvelle notification de service.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'viscera_events_v1',
+            'Notifications VISCERA',
+            channelDescription: 'Mises à jour du programme opératoire et du service',
+            importance: Importance.high,
+            priority: Priority.high,
+            visibility: NotificationVisibility.private,
+          ),
+        ),
+      );
+    } catch (_) {
+      // Une notification impossible à afficher ne doit jamais bloquer l'app.
+    }
   }
 
   Future<void> _register({bool interactive = false}) async {
@@ -126,8 +162,30 @@ class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
       }
       _refresh = fm.onTokenRefresh.listen((token) =>
           unawaited(_saveToken(token, Platform.isIOS ? 'ios' : 'android')));
+      if (Platform.isAndroid) {
+        try {
+          await _systemNotifications.initialize(
+            const InitializationSettings(
+              android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+            ),
+          );
+          await _systemNotifications
+              .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin>()
+              ?.createNotificationChannel(
+                const AndroidNotificationChannel(
+                  'viscera_events_v1',
+                  'Notifications VISCERA',
+                  description: 'Mises à jour du programme opératoire et du service',
+                  importance: Importance.high,
+                ),
+              );
+        } catch (_) {
+          // Garder FCM et le dossier clinique utilisables même sans canal local.
+        }
+      }
       _foreground = FirebaseMessaging.onMessage.listen((message) {
-        // Do not display clinical content on lock screens or log identifiers.
+        unawaited(_showForegroundNotification(message));
       });
     } catch (_) {
       // Web push errors must not block the medical app.
