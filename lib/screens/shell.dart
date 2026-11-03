@@ -297,10 +297,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         ],
       ]),
       const SizedBox(height:16),
-      Row(children:[
-        Expanded(child:Text('Aujourd’hui',style:Theme.of(context).textTheme.titleLarge)),
-        TextButton.icon(onPressed:openIntake,icon:const Icon(Icons.add_rounded),label:const Text('Nouvelle admission')),
-      ]),const SizedBox(height:7),
+      Text('Aujourd’hui',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:7),
       Row(children:[Expanded(child:_stat('Patients actifs','${active.length}',Icons.people_alt_outlined)),const SizedBox(width:9),Expanded(child:_stat('Bloc à venir','${appStore.theatre.length}',Icons.medical_services_outlined))]),
       const SizedBox(height:9),Row(children:[Expanded(child:_stat('Boxes occupés','${appStore.occupiedBoxes}',Icons.bed_outlined)),const SizedBox(width:9),Expanded(child:_stat('Sorties à revoir','${appStore.toDischarge.length}',Icons.assignment_turned_in_outlined,attention:appStore.toDischarge.isNotEmpty))]),
       // Les patients actuellement pris en charge sont les premiers dossiers
@@ -310,17 +307,29 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         child:const Text('Tout voir'))),
       ...active.take(6).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(active.isEmpty)const VCard(child:Text('Aucun patient actif actuellement.')),
-      SectionHeading('Accès rapides'),
-      Row(children:[
-        Expanded(child:_quick(Icons.medical_services_outlined,'Bloc',()=>setState(()=>selected=2))),const SizedBox(width:9),
-        Expanded(child:_quick(Icons.bed_outlined,'Lits',()=>setState(()=>selected=3))),const SizedBox(width:9),
-        Expanded(child:_quick(Icons.assignment_turned_in_outlined,'Sorties',()=>setState(()=>selected=1))),
-      ]),
-      if(urgent>0)...[SectionHeading('À prioriser'),VCard(color:VColors.orangeSoft,onTap:()=>setState(()=>selected=2),child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),Expanded(child:Text('$urgent patient(s) avec bloc immédiat à organiser',style:const TextStyle(fontWeight:FontWeight.w700))),const Icon(Icons.chevron_right_rounded)]))],
-      if(appStore.toDischarge.isNotEmpty)...[SectionHeading('Sorties à réévaluer'),...appStore.toDischarge.take(2).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p)))],
-      SectionHeading('Admissions automatiques du programme',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),
-      ...appStore.active.where((p)=>p.fromBlocProgram).take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
-      if(appStore.active.where((p)=>p.fromBlocProgram).isEmpty)const VCard(child:Text('Aucun programme opératoire actif chargé.')),
+      // Un dossier n'apparaît qu'une fois sur l'accueil : le programme et
+      // les autres listes spécialisées restent accessibles par leurs onglets.
+      if(urgent>0)...[
+        SectionHeading('À prioriser'),
+        VCard(color:VColors.orangeSoft,onTap:()=>setState(()=>selected=2),child:Row(children:[
+          const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),
+          const SizedBox(width:12),
+          Expanded(child:Text('$urgent intervention(s) immédiate(s) à organiser',
+            style:const TextStyle(fontWeight:FontWeight.w700))),
+          const Icon(Icons.chevron_right_rounded),
+        ])),
+      ],
+      if(appStore.toDischarge.isNotEmpty)...[
+        SectionHeading('Sorties à réévaluer'),
+        VCard(color:VColors.orangeSoft,onTap:()=>setState(() {selected=1;filter='Actifs';}),
+          child:Row(children:[
+            const Icon(Icons.assignment_turned_in_outlined,color:Color(0xFFA45633)),
+            const SizedBox(width:12),
+            Expanded(child:Text('${appStore.toDischarge.length} dossier(s) nécessitent une réévaluation de sortie',
+              style:const TextStyle(fontWeight:FontWeight.w700))),
+            const Icon(Icons.chevron_right_rounded),
+          ])),
+      ],
 
     ]);
   }
