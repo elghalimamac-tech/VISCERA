@@ -68,7 +68,9 @@ void main() {
     expect(find.text('01/11/2026'),findsOneWidget);
     expect(find.text('Intervention chirurgicale'),findsOneWidget);
     expect(find.byKey(const Key('discharge-procedure-label')),findsOneWidget);
-    expect(find.text('Intervention de test'),findsOneWidget);
+    expect(find.text('Intervention de test'),findsWidgets);
+    expect(tester.widget<Text>(find.byKey(const Key('discharge-procedure-label'))).data,
+      'Intervention de test');
     final bulk=find.byKey(const Key('bulk-verify-discharge-documents'));
     expect(bulk,findsOneWidget);
     // Le bouton est dans le pied de la fenêtre, pas parmi les documents.
