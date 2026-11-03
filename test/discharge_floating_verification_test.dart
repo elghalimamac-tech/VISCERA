@@ -61,6 +61,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
+    final bulk=find.byKey(const Key('bulk-verify-discharge-documents'));
+    expect(bulk,findsOneWidget);
+    // Le bouton est dans le pied de la fenêtre, pas parmi les documents.
+    expect(find.ancestor(of:bulk,matching:find.byType(ListView)),findsNothing);
+    expect(tester.widget<FilledButton>(bulk).onPressed,isNotNull);
     final pending=tester.widget<FilledButton>(
       find.widgetWithText(FilledButton,'Déclarer la sortie et libérer le box'));
     expect(pending.onPressed,isNull);
