@@ -57,14 +57,22 @@ jobs:
         run: flutter pub get
       - name: Tests
         run: flutter test
-      - name: Construire les APK Android release par architecture
-        run: flutter build apk --release --split-per-abi --tree-shake-icons --dart-define="ENABLE_FIREBASE_PUSH=true" --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8" --dart-define="VISCERA_BUILD_SHA=${{ github.sha }}"
-      - name: Tailles APK
-        run: du -h build/app/outputs/flutter-apk/*-release.apk
-      - name: Publier APK
+      - name: Construire un APK universel (un seul fichier)
+        run: flutter build apk --release --tree-shake-icons --dart-define="ENABLE_FIREBASE_PUSH=true" --dart-define="SUPABASE_URL=https://qkupckqgczdqiwxozxko.supabase.co" --dart-define="SUPABASE_PUBLISHABLE_KEY=sb_publishable_0G2xPDJrxhbl5sjtIYIZBw_6tK30bO8" --dart-define="VISCERA_BUILD_SHA=${{ github.sha }}"
+      - name: Vérifier et nommer l'APK unique
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_DIR="build/app/outputs/flutter-apk"
+          test -s "$APK_DIR/app-release.apk"
+          test "$(find "$APK_DIR" -maxdepth 1 -name '*-release.apk' | wc -l)" -eq 1
+          cp "$APK_DIR/app-release.apk" "$APK_DIR/VISCERA.apk"
+          test -s "$APK_DIR/VISCERA.apk"
+          du -h "$APK_DIR/VISCERA.apk"
+      - name: Publier l'APK universel unique
         uses: actions/upload-artifact@v4
         with:
           name: VISCERA-Android-Release-APK
-          path: build/app/outputs/flutter-apk/*-release.apk
+          path: build/app/outputs/flutter-apk/VISCERA.apk
           if-no-files-found: error
           retention-days: 14

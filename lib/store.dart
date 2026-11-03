@@ -525,6 +525,18 @@ class AppStore extends ChangeNotifier {
   List<PatientCase> get programmed => patients.where((p) => p.isProgrammed).toList()
     ..sort((a,b) => b.blockAt.compareTo(a.blockAt));
   List<PatientCase> get active => patients.where((p) => p.isActive).toList();
+  /// Liste prioritaire de l'accueil : uniquement les hospitalisations actives.
+  /// Exclut les dossiers programmés non encore actifs, sortis et non admis.
+  /// Un nouvel admis est affiché avant les séjours plus anciens.
+  List<PatientCase> get homeActive =>
+      patients.where((p) => p.isActive).toList()
+        ..sort((a, b) {
+          final dateA = a.hospitalizationStartDate ?? a.blockAt;
+          final dateB = b.hospitalizationStartDate ?? b.blockAt;
+          final byDate = dateB.compareTo(dateA);
+          return byDate != 0 ? byDate : a.name.compareTo(b.name);
+        });
+
   List<PatientCase> get theatre {
     final today = DateTime.now();
     final earliest = DateTime(today.year, today.month, today.day);
