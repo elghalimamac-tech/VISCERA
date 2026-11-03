@@ -12,6 +12,7 @@ import 'discharge_verification_sheet.dart';
 import 'daily_observations.dart';
 import '../voice_dictation.dart';
 import '../manual_admission_service.dart';
+import '../specialist_opinions.dart';
 
 class PatientDetailPage extends StatefulWidget {
   const PatientDetailPage({super.key,required this.patient});
@@ -333,6 +334,13 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               icon:const Icon(Icons.edit_location_alt_outlined,size:18),
               label:const Text('Modifier l’affectation')),
           ])),
+          if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
+            const SizedBox(height:12),
+            // Avis demandés aux autres services pendant l'hospitalisation.
+            // Un séjour archivé conserve leur historique en lecture seule.
+            SpecialistOpinionsCard(
+              patient:p, readOnly:p.stage==CaseStage.discharged),
+          ],
           SectionHeading('Documents et vérifications'),
           DocumentChecklist(patient:p,title:'Documents à l’admission',
             requirements:ClinicalDocuments.admission),
