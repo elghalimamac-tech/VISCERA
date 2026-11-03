@@ -225,7 +225,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             color:VColors.softMint,
             padding:const EdgeInsets.symmetric(horizontal:16,vertical:14),
             child:HospitalizationDayCounter(
-              patient:p,showStartDate:true)),
+              patient:p,showStartDate:true,compact:true)),
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
@@ -233,7 +233,12 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_changeBed)),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
-              appStore.responsibleById(p.professorId)?.name??'À attribuer',
+              (p.stage==CaseStage.inTheatre || p.isPostOp
+                ? (appStore.responsibleById(p.blockResponsibleId)?.name ??
+                   appStore.responsibleById(p.professorId)?.name)
+                : (appStore.responsibleById(p.professorId)?.name ??
+                   appStore.responsibleById(p.blockResponsibleId)?.name)) ??
+                (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer'),
               onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_editResponsible)),
           ]),
           if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
