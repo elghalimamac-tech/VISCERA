@@ -81,6 +81,31 @@ void main() {
     expect(patient.dischargeAt,isNull);
   });
 
+  testWidgets('Les FAB ne masquent jamais le bouton non admis en bas du dossier',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final patient = dischargePatient(fromBlocProgram: true);
+    await tester.pumpWidget(MaterialApp(home: PatientDetailPage(patient: patient)));
+
+    final omission = find.byKey(const Key('omit-program-admission'));
+    final dischargeFab = find.byKey(const Key('declare-discharge-fab'));
+    expect(dischargeFab, findsOneWidget);
+    await tester.scrollUntilVisible(
+      omission, 500, scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -380));
+    await tester.pumpAndSettle();
+
+    expect(omission, findsOneWidget);
+    expect(tester.widget<OutlinedButton>(omission).onPressed, isNotNull);
+    expect(
+      tester.getBottomLeft(omission).dy,
+      lessThan(tester.getTopLeft(dischargeFab).dy),
+      reason: 'L’action non admis doit être entièrement au-dessus des FAB.',
+    );
+  });
+
   testWidgets('Validation médicale également exigée après documents',
       (tester) async {
     final patient=dischargePatient();
