@@ -237,6 +237,16 @@ class PatientCase {
   bool isPostopReviewDay(DateTime now) => isProgrammed &&
       blockAt.year == now.year && blockAt.month == now.month &&
       blockAt.day == now.day && dischargeAt == null;
+  /// Un patient sorti entre immédiatement dans les Archives.
+  /// Il reste visible parmi les dossiers du service pendant 48 heures,
+  /// sans occuper de box et sans redevenir un patient actif.
+  bool get isArchived => stage == CaseStage.discharged;
+  bool isVisibleInServiceOn(DateTime now) {
+    if (!isArchived) return true;
+    final departure = dischargeAt;
+    return departure != null &&
+        now.isBefore(departure.add(const Duration(days: 2)));
+  }
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
   /// Autorisation documentaire et clinique nécessaire avant la sortie.
   bool get canDeclareDischarge =>
