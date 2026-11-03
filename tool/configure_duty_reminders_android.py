@@ -84,9 +84,13 @@ if application is None:
     raise SystemExit("Balise Android application manquante")
 activity = next((x for x in application.findall("activity")
                  if x.get(ns + "name", "").endswith("MainActivity")), None)
-if activity is not None:
-    activity.set(ns + "showWhenLocked", "true")
-    activity.set(ns + "turnScreenOn", "true")
+if activity is None:
+    raise SystemExit("MainActivity Flutter introuvable")
+# La fiche patient contient des données médicales. L'activité principale
+# ne doit jamais se présenter devant l'écran verrouillé, ni rallumer l'écran.
+# Les deux permissions sont réservées à la fenêtre native d'alarme active.
+activity.attrib.pop(ns + "showWhenLocked", None)
+activity.attrib.pop(ns + "turnScreenOn", None)
 
 def component(tag, name, **attrs):
     for existing in application.findall(tag):
