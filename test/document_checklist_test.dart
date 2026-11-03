@@ -70,14 +70,22 @@ void main() {
   testWidgets('Le raccourci attend une attestation explicite', (tester) async {
     final patient=example();
     await tester.pumpWidget(MaterialApp(home:Scaffold(
-      body:SingleChildScrollView(child:DocumentChecklist(
-        patient:patient,
-        title:'Documents de sortie',
-        requirements:ClinicalDocuments.discharge,
-      )),
+      body:SingleChildScrollView(child:Column(children: [
+        DocumentChecklist(
+          patient:patient,
+          title:'Documents de sortie',
+          requirements:ClinicalDocuments.discharge,
+        ),
+        DischargeDocumentsBulkAction(patient:patient),
+      ])),
     )));
     final bulk=find.byKey(const Key('bulk-verify-discharge-documents'));
     expect(bulk,findsOneWidget);
+    expect(find.descendant(
+      of:find.byType(DocumentChecklist),
+      matching:bulk,
+    ),findsNothing);
+    await tester.ensureVisible(bulk);
     await tester.tap(bulk);
     await tester.pumpAndSettle();
     expect(find.text('Valider les documents'),findsOneWidget);

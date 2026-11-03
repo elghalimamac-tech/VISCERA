@@ -193,7 +193,12 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-              child: SizedBox(width: double.infinity,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Action toujours visible en bas de la fenêtre de vérification.
+                DischargeDocumentsBulkAction(
+                  patient: p, readOnly: !eligible || _saving),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFB4232F),
@@ -209,7 +214,8 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
                     : 'Déclarer la sortie et libérer le box'),
                   onPressed: valid && !_saving ? _confirm : null,
                 ),
-              ),
+                ),
+              ]),
             ),
           ]),
         ),

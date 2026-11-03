@@ -40,9 +40,13 @@ class _DischargePageState extends State<DischargePage> {
       if(!widget.readOnly)...[
         SectionHeading('Validation médicale'),
         VCard(child:Column(children:[CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Évaluation clinique et documents relus, corrigés et validés par le médecin.',style:TextStyle(fontSize:12.8)),value:clinicalValidated,onChanged:(v)=>setState(()=>clinicalValidated=v??false)),if(p.isFar)CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Ordonnance sur support FAR préparée.',style:TextStyle(fontSize:12.8)),value:farPrescriptionReady,onChanged:(v)=>setState(()=>farPrescriptionReady=v??false))])),
-        const SizedBox(height:18),SizedBox(width:double.infinity,child:ElevatedButton.icon(onPressed:(!saving&&p.canDeclareDischarge&&clinicalValidated&&(!p.isFar||farPrescriptionReady))?_confirm:null,icon:const Icon(Icons.check_circle_outline_rounded),label:const Text('Valider la sortie et libérer le box'))),
         if(!p.allChecked(ClinicalDocuments.discharge))const Padding(padding:EdgeInsets.only(top:9),child:Text('Sortie bloquée : vérifiez tous les documents obligatoires et leurs cachets. Pour les pièces absentes ou non requises, utilisez « Non applicable » lorsque proposé.',style:TextStyle(color:Color(0xFFA45633),fontSize:12))),
         const SizedBox(height:10),const Text('Les textes sont des brouillons. Aucun traitement médicamenteux n’est prescrit automatiquement. La validation ne remplace pas le dossier médical officiel.',style:TextStyle(color:VColors.muted,fontSize:11.5)),
+        const SizedBox(height:18),
+        // Action groupée placée au bas du parcours, avant la décision de sortie.
+        DischargeDocumentsBulkAction(patient:p,readOnly:saving),
+        const SizedBox(height:14),
+        SizedBox(width:double.infinity,child:ElevatedButton.icon(onPressed:(!saving&&p.canDeclareDischarge&&clinicalValidated&&(!p.isFar||farPrescriptionReady))?_confirm:null,icon:const Icon(Icons.check_circle_outline_rounded),label:const Text('Valider la sortie et libérer le box'))),
       ]
     ]))),
   );

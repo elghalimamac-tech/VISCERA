@@ -30,10 +30,6 @@ class DocumentChecklist extends StatelessWidget {
         const SizedBox(height:6),
         const Text('Cochez « fait / vérifié », puis contrôlez le cachet séparément.',style:TextStyle(fontSize:11,color:VColors.muted)),
         const SizedBox(height:12),
-        if (identical(requirements, ClinicalDocuments.discharge)) ...[
-          DischargeDocumentsBulkAction(patient:patient,readOnly:readOnly),
-          const SizedBox(height:12),
-        ],
         ...requirements.map((item)=>_row(context,item)),
       ]),
     );

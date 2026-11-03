@@ -59,9 +59,7 @@ avant toute diffusion aux équipes.
 
 ## Raccourci « Tous les documents vérifiés et cachetés »
 
-La checklist des documents de sortie possède un bouton de validation groupée,
-visible dans la fenêtre ouverte par le bouton rouge « Déclarer la sortie » et
-sur l'écran de préparation des documents. Cette action exige une attestation
+Le bouton de validation groupée est positionné **en bas de l'écran de préparation de sortie**, après la checklist et les consignes, **juste au-dessus** de « Valider la sortie et libérer le box ». Il figure aussi **dans le pied fixe de la fenêtre « Vérification avant sortie »**, sous la checklist défilante et au-dessus du bouton rouge de déclaration de sortie. Cette action exige une attestation
 explicite du médecin après contrôle **réel** des documents et des cachets.
 
 - Valide d'un seul coup les documents obligatoires et les pièces facultatives
