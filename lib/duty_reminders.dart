@@ -79,6 +79,12 @@ Future<Map<String,dynamic>> dutyAlarmDeviceStatus() async {
   return await _native.invokeMapMethod<String,dynamic>('status') ?? {};
 }
 
+Future<void> openDutyNotificationSettings() async {
+  if(dutyAlarmSupported)await _native.invokeMethod<void>('notificationSettings');
+}
+Future<void> openDutyExactAlarmSettings() async {
+  if(dutyAlarmSupported)await _native.invokeMethod<void>('exactAlarmSettings');
+}
 Future<void> openDutyFullScreenSettings() async {
   if(dutyAlarmSupported)await _native.invokeMethod<void>('fullScreenSettings');
 }

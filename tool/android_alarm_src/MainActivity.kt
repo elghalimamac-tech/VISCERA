@@ -22,6 +22,12 @@ class MainActivity:FlutterActivity() {
           "cancelAll" -> {
             DutyAlarmNative.cancelAll(this);result.success(null)
           }
+          "notificationSettings" -> {
+            DutyAlarmNative.openNotifications(this);result.success(null)
+          }
+          "exactAlarmSettings" -> {
+            DutyAlarmNative.openExactAlarms(this);result.success(null)
+          }
           "fullScreenSettings" -> {
             DutyAlarmNative.openFullScreen(this);result.success(null)
           }

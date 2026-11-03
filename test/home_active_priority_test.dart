@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:viscera/models.dart';
 import 'package:viscera/store.dart';
+import 'package:viscera/patient_service_groups.dart';
 
 PatientCase caseForHome(String id, CaseStage stage, DateTime day) =>
     PatientCase(
@@ -29,6 +30,32 @@ PatientCase caseForHome(String id, CaseStage stage, DateTime day) =>
     );
 
 void main() {
+  test('Patients regroupés par service réel, sans inventer de box', () {
+    final today=DateTime(2026,11,3);
+    final preop=caseForHome('PREOP TC2',CaseStage.preoperative,today)
+      ..beforeUnit='TC2'..beforeBox='07';
+    final postop=caseForHome('POSTOP TC1',CaseStage.postoperative,today)
+      ..afterUnit='TC1'..afterBox='04';
+    final without=caseForHome('SANS SERVICE',CaseStage.preoperative,today)
+      ..beforeUnit=''..beforeBox=''..afterUnit=''..afterBox='';
+    final archived=caseForHome('ANCIEN HDJM',CaseStage.discharged,today)
+      ..beforeUnit='TC1'..afterUnit='HDJM 0';
+    final unadmitted=caseForHome('NON ADMIS',CaseStage.notAdmitted,today);
+
+    final groups=patientsByService([
+      without,preop,archived,postop,unadmitted,
+    ]);
+    expect(groups.keys.toList(),[
+      'TC1','TC2','HDJM 0',unassignedPatientService,
+    ]);
+    expect(groups['TC1']!.single.id,'POSTOP TC1');
+    expect(groups['TC2']!.single.id,'PREOP TC2');
+    expect(groups['HDJM 0']!.single.id,'ANCIEN HDJM');
+    expect(groups[unassignedPatientService]!.map((p)=>p.id),
+      ['SANS SERVICE','NON ADMIS']);
+    expect(without.currentBox,isEmpty);
+  });
+
   test('Accueil : dossiers actifs uniquement, du séjour récent au plus ancien', () {
     final store = AppStore();
     store.patients.addAll([

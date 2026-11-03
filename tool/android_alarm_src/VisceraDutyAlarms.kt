@@ -36,11 +36,35 @@ object DutyAlarmNative {
       "volume" to am.getStreamVolume(AudioManager.STREAM_ALARM),
       "maxVolume" to am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1))
   }
-  fun openFullScreen(c:Context) {
-    if (Build.VERSION.SDK_INT>=34) c.startActivity(
-      Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+  private fun appInfo(c:Context) {
+    c.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+      .setData(Uri.parse("package:" + c.packageName))
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  }
+  fun openNotifications(c:Context) {
+    try {
+      if(Build.VERSION.SDK_INT>=26)
+        c.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+          .putExtra(Settings.EXTRA_APP_PACKAGE,c.packageName)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      else appInfo(c)
+    } catch(_:Exception) { appInfo(c) }
+  }
+  fun openExactAlarms(c:Context) {
+    if(Build.VERSION.SDK_INT<31) { appInfo(c);return }
+    try {
+      c.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
         .setData(Uri.parse("package:" + c.packageName))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch(_:Exception) { appInfo(c) }
+  }
+  fun openFullScreen(c:Context) {
+    if(Build.VERSION.SDK_INT<34) { openNotifications(c);return }
+    try {
+      c.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+        .setData(Uri.parse("package:" + c.packageName))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch(_:Exception) { appInfo(c) }
   }
   fun openVolume(c:Context) {
     c.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS)
