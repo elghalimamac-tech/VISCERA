@@ -154,40 +154,41 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             ])),
           if(p.fromBlocProgram || p.fromManualAdmission)...[
             const SizedBox(height:11),
-            VCard(color:VColors.softMint,child:Row(children:[
-              const Icon(Icons.cloud_done_outlined,color:VColors.ink),
-              const SizedBox(width:10),
-              Expanded(child:Text(appStore.clinicalSyncState(p),
-                style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700))),
-              IconButton(
-                tooltip:'Enregistrer le dossier dans VISCERA',
-                onPressed:() async{
-                  try{
-                    await appStore.saveClinical(p);
-                    if(mounted)_notice('Dossier enregistré dans VISCERA.');
-                  }catch(_){
-                    if(mounted)_notice('Enregistrement impossible. Actualisez et vérifiez les modifications.');
-                  }
-                },
-                icon:const Icon(Icons.save_outlined)),
-            ])),
-            if(p.fromBlocProgram)...[
-              const SizedBox(height:10),
-              VCard(color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
-                child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            VCard(color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
+              padding:const EdgeInsets.all(14),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Row(children:[
+                  const Icon(Icons.cloud_done_outlined,color:VColors.ink),
+                  const SizedBox(width:10),
+                  Expanded(child:Text(p.fromBlocProgram
+                      ? (p.isOmitted?'Patient non admis · programme conservé'
+                          :'Programme opératoire importé')
+                      : 'Dossier partagé VISCERA',
+                    style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink))),
+                  IconButton(
+                    key:const Key('save-patient-record'),
+                    tooltip:'Enregistrer le dossier dans VISCERA',
+                    onPressed:() async{
+                      try{
+                        await appStore.saveClinical(p);
+                        if(mounted)_notice('Dossier enregistré dans VISCERA.');
+                      }catch(_){
+                        if(mounted)_notice('Enregistrement impossible. Vérifiez les modifications.');
+                      }
+                    },
+                    icon:const Icon(Icons.save_outlined,color:VColors.ink)),
+                ]),
+                if(p.fromBlocProgram)...[
+                  const SizedBox(height:4),
                   Text(p.isOmitted
-                    ? 'Patient non admis · retiré du suivi'
-                    : 'Admission automatique · programme opératoire',
-                    style:const TextStyle(fontWeight:FontWeight.w800)),
-                  const SizedBox(height:7),
-                  Text(p.isOmitted
-                    ? 'L’admission est omise ; la ligne officielle du programme est conservée.'
-                    : 'Dossier intégré automatiquement au suivi VISCERA. '
-                      'La présence physique et la fin de l’intervention ne sont pas '
-                      'attestées par le seul programme.',
-                    style:const TextStyle(fontSize:12)),
-                ])),
-            ],
+                      ? 'Admission omise ; la ligne du programme officiel est conservée.'
+                      : 'Admission de suivi créée automatiquement. La présence réelle du patient et l’intervention doivent être confirmées.',
+                    style:const TextStyle(fontSize:12,color:VColors.muted)),
+                ],
+                const SizedBox(height:5),
+                Text(appStore.clinicalSyncState(p),
+                  style:const TextStyle(fontSize:11,color:VColors.muted)),
+              ])),
             if(p.isProgrammed && !p.fromBlocProgram)...[
               const SizedBox(height:10),
               VCard(color:VColors.orangeSoft,child:Column(
@@ -224,7 +225,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             color:VColors.softMint,
             padding:const EdgeInsets.symmetric(horizontal:16,vertical:14),
             child:HospitalizationDayCounter(
-              patient:p,showStartDate:true)),
+              patient:p,showStartDate:true,compact:true)),
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
@@ -232,7 +233,13 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_changeBed)),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
-              appStore.responsibleById(p.professorId)?.name??'À attribuer')),
+              (p.stage==CaseStage.inTheatre || p.isPostOp
+                ? (appStore.responsibleById(p.blockResponsibleId)?.name ??
+                   appStore.responsibleById(p.professorId)?.name)
+                : (appStore.responsibleById(p.professorId)?.name ??
+                   appStore.responsibleById(p.blockResponsibleId)?.name)) ??
+                (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer'),
+              onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_editResponsible)),
           ]),
           if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
             const SizedBox(height:11),
@@ -244,50 +251,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   style:TextStyle(fontSize:12,fontWeight:FontWeight.w700))),
               ])),
           ],
-          SectionHeading('Suivi clinique',trailing:TextButton.icon(
-            onPressed:_openObservations,icon:const Icon(Icons.history_rounded,size:17),
-            label:const Text('Historique'))),
-          VCard(color:VColors.softMint,padding:const EdgeInsets.all(16),
-            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Row(children:[
-                const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
-                const SizedBox(width:10),
-                Expanded(child:Text(
-                  '${p.dailyObservations.length} observation(s) clinique(s)',
-                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:15))),
-              ]),
-              const SizedBox(height:8),
-              Text(p.dailyObservations.isEmpty
-                ? 'Aucune observation enregistrée pour ce séjour.'
-                : 'Dernière observation : ${_date(p.dailyObservations.first.date)}',
-                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
-              const SizedBox(height:4),
-              Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',
-                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
-            ])),
-          SectionHeading('Dossier clinique',trailing:Row(children:[
-            IconButton(onPressed:_editIdentity,tooltip:'Modifier identité et couverture',
-              icon:const Icon(Icons.badge_outlined)),
-            TextButton.icon(onPressed:_editClinical,
-              icon:const Icon(Icons.edit_outlined,size:16),
-              label:const Text('Modifier'))])),
-          VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            _clinical('Motif de prise en charge',p.motive),
-            const Divider(height:1,color:VColors.line),
-            ExpansionTile(
-              initiallyExpanded:false,tilePadding:EdgeInsets.zero,
-              childrenPadding:const EdgeInsets.only(top:10),
-              title:const Text('Voir le dossier clinique détaillé',
-                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
-              children:[
-                _clinical('Interrogatoire',p.history),
-                _clinical('Examen clinique',p.exam),
-                _clinical('Examens complémentaires',p.investigations),
-                _clinical('Bilans',p.labs),
-                _clinical('Conduite à tenir immédiate',p.immediatePlan),
-              ],
-            ),
-          ])),
           SectionHeading('Parcours hospitalier'),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             // La vue principale montre seulement les données utiles à l'instant.
@@ -302,11 +265,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   onPressed:_editSurgery,
                   icon:const Icon(Icons.edit_note_outlined,size:18),
                   label:const Text('Modifier type de chirurgie / intervention')),
-                OutlinedButton.icon(
-                  key:const Key('edit-current-box'),
-                  onPressed:_changeBed,
-                  icon:const Icon(Icons.edit_location_alt_outlined,size:18),
-                  label:const Text('Modifier l’affectation')),
               ]),
             ],
             const Divider(height:26),
@@ -361,8 +319,50 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             ),
           ])),
-          SectionHeading('Actions de prise en charge'),
-          _actions(),
+          SectionHeading('Suivi clinique',trailing:TextButton.icon(
+            onPressed:_openObservations,icon:const Icon(Icons.history_rounded,size:17),
+            label:const Text('Historique'))),
+          VCard(color:VColors.softMint,padding:const EdgeInsets.all(16),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
+                const SizedBox(width:10),
+                Expanded(child:Text(
+                  '${p.dailyObservations.length} observation(s) clinique(s)',
+                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:15))),
+              ]),
+              const SizedBox(height:8),
+              Text(p.dailyObservations.isEmpty
+                ? 'Aucune observation enregistrée pour ce séjour.'
+                : 'Dernière observation : ${_date(p.dailyObservations.first.date)}',
+                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
+              const SizedBox(height:4),
+              Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',
+                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
+            ])),
+          SectionHeading('Dossier clinique',trailing:Row(children:[
+            IconButton(onPressed:_editIdentity,tooltip:'Modifier identité et couverture',
+              icon:const Icon(Icons.badge_outlined)),
+            TextButton.icon(onPressed:_editClinical,
+              icon:const Icon(Icons.edit_outlined,size:16),
+              label:const Text('Modifier'))])),
+          VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            _clinical('Motif de prise en charge',p.motive),
+            const Divider(height:1,color:VColors.line),
+            ExpansionTile(
+              initiallyExpanded:false,tilePadding:EdgeInsets.zero,
+              childrenPadding:const EdgeInsets.only(top:10),
+              title:const Text('Voir le dossier clinique détaillé',
+                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
+              children:[
+                _clinical('Interrogatoire',p.history),
+                _clinical('Examen clinique',p.exam),
+                _clinical('Examens complémentaires',p.investigations),
+                _clinical('Bilans',p.labs),
+                _clinical('Conduite à tenir immédiate',p.immediatePlan),
+              ],
+            ),
+          ])),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
             const SizedBox(height:12),
             // Avis demandés aux autres services pendant l'hospitalisation.
@@ -417,6 +417,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             ),
             const SizedBox(height:12),
           ],
+          if(p.stage!=CaseStage.notAdmitted)...[
+            SectionHeading('Actions de prise en charge'),
+            _actions(),
+          ],
         ],
       ),
     ),
@@ -449,12 +453,66 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       icon:const Icon(Icons.how_to_reg_outlined),
       label:const Text('Confirmer admission postopératoire réelle')),
     if(!p.fromBlocProgram && p.stage==CaseStage.scheduled)ElevatedButton.icon(onPressed:_confirmAdmission,icon:const Icon(Icons.how_to_reg_outlined),label:const Text('Confirmer l’admission avant le bloc')),
-    if(p.stage==CaseStage.preoperative)ElevatedButton.icon(onPressed:_startTheatre,icon:const Icon(Icons.medical_services_outlined),label:const Text('Confirmer l’entrée au bloc')),
+    if(p.stage==CaseStage.preoperative)...[
+      if(!p.canConfirmTheatreEntry)...[
+        VCard(key:const Key('theatre-missing-documents'),
+          color:VColors.orangeSoft,padding:const EdgeInsets.all(12),
+          child:Row(children:[
+            const Icon(Icons.fact_check_outlined,color:VColors.ink),
+            const SizedBox(width:10),
+            Expanded(child:Text(
+              'Documents d’admission à vérifier : ${p.completedCount(ClinicalDocuments.admission)}/${ClinicalDocuments.admission.length}. Complétez la checklist ci-dessus.',
+              style:const TextStyle(fontSize:12,color:VColors.ink))),
+          ])),
+        const SizedBox(height:9),
+      ],
+      ElevatedButton.icon(
+        key:const Key('confirm-theatre-entry'),
+        onPressed:p.canConfirmTheatreEntry?_startTheatre:null,
+        icon:const Icon(Icons.medical_services_outlined),
+        label:const Text('Confirmer l’entrée au bloc')),
+    ],
     if(p.stage==CaseStage.inTheatre)ElevatedButton.icon(onPressed:_finishTheatre,icon:const Icon(Icons.check_rounded),label:const Text('Fin du bloc → postopératoire')),
     if(p.stage==CaseStage.postoperative)ElevatedButton.icon(onPressed:()=>appStore.markForDischarge(p),icon:const Icon(Icons.assignment_turned_in_outlined),label:const Text('Préparer la sortie')),
     if(p.stage==CaseStage.dischargeReady)ElevatedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p))),icon:const Icon(Icons.description_outlined),label:const Text('Documents et validation de sortie')),
     if(p.stage==CaseStage.discharged)OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p,readOnly:true))),icon:const Icon(Icons.file_open_outlined),label:const Text('Consulter les documents de sortie')),
   ]);
+  Future<void> _editResponsible() async {
+    if(p.stage==CaseStage.discharged || p.isOmitted) return;
+    await showModalBottomSheet<void>(
+      context:context,
+      useSafeArea:true,
+      showDragHandle:true,
+      builder:(sheetContext)=>Padding(
+        padding:const EdgeInsets.fromLTRB(16,4,16,24),
+        child:Column(mainAxisSize:MainAxisSize.min,children:[
+          Text('Modifier le responsable',
+            style:Theme.of(sheetContext).textTheme.titleLarge),
+          const SizedBox(height:12),
+          ListTile(
+            key:const Key('choose-admission-responsible'),
+            leading:const Icon(Icons.person_outline_rounded,color:VColors.ink),
+            title:const Text('Responsable de l’admission'),
+            subtitle:Text(appStore.responsibleById(p.professorId)?.name??'À attribuer'),
+            trailing:const Icon(Icons.edit_outlined),
+            onTap:(){
+              Navigator.pop(sheetContext);
+              _changeProfessor();
+            }),
+          ListTile(
+            key:const Key('choose-block-responsible'),
+            leading:const Icon(Icons.medical_services_outlined,color:VColors.ink),
+            title:const Text('Responsable du bloc'),
+            subtitle:Text(appStore.responsibleById(p.blockResponsibleId)?.name??
+              (p.programSurgeon.isEmpty?'À attribuer':p.programSurgeon)),
+            trailing:const Icon(Icons.edit_outlined),
+            onTap:(){
+              Navigator.pop(sheetContext);
+              _changeBlockDoctor();
+            }),
+        ])));
+  }
+
   Future<void> _changeBlockDoctor() async {
     final doctors=appStore.responsibleOptions(forEmergencies:false);
     if(doctors.isEmpty){_notice('Aucun médecin du service disponible.');return;}
@@ -514,7 +572,15 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     reason.dispose();
   }
   Future<void> _startTheatre() async {
-    if(await showConfirmation(context,title:'Entrée au bloc',message:'Confirmer l’entrée au bloc de ${p.name} ?',action:'Valider'))appStore.startTheatre(p);
+    if(!p.canConfirmTheatreEntry) {
+      _notice('Vérifiez les documents d’admission avant de confirmer l’entrée au bloc.');
+      return;
+    }
+    if(await showConfirmation(context,title:'Entrée au bloc',
+      message:'Les documents d’admission ont été vérifiés. Confirmer l’entrée réelle au bloc de ${p.name} ? La préparation anesthésique et médicale doit également être validée par l’équipe.',
+      action:'Confirmer l’entrée au bloc') && p.canConfirmTheatreEntry) {
+      appStore.startTheatre(p);
+    }
   }
   Future<void> _finishTheatre() async {
     final conflict=appStore.conflictingBox(p.afterUnit,p.afterBox,exceptPatientId:p.id);

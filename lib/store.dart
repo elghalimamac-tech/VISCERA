@@ -690,7 +690,14 @@ class AppStore extends ChangeNotifier {
     final requirement = ClinicalDocuments.admission[1];
     updateDocument(p, requirement, verified: !p.check('pli').verified);
   }
-  void startTheatre(PatientCase p) { if (p.stage != CaseStage.preoperative) return; p.stage = CaseStage.inTheatre; notifyListeners(); _saveIfImported(p); }
+  void startTheatre(PatientCase p) {
+    // La garde est aussi appliquée au modèle métier : le bouton n'est pas
+    // l'unique voie susceptible de déclencher l'entrée au bloc.
+    if (!p.canConfirmTheatreEntry) return;
+    p.stage = CaseStage.inTheatre;
+    notifyListeners();
+    _saveIfImported(p);
+  }
   void finishTheatre(PatientCase p) { if (p.stage != CaseStage.inTheatre) return; p.stage = CaseStage.postoperative; notifyListeners(); _saveIfImported(p); }
   void markForDischarge(PatientCase p) { if (p.stage != CaseStage.postoperative) return; p.stage = CaseStage.dischargeReady; notifyListeners(); _saveIfImported(p); }
   /// Conserver la compatibilité des tests locaux ; ne jamais utiliser cette
