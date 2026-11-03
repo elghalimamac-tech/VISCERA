@@ -113,6 +113,8 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
         return Icons.emergency_outlined;
       case 'discharge_review':
         return Icons.event_available_outlined;
+      case 'discharge_confirmed':
+        return Icons.logout_rounded;
       case 'access_updates':
         return Icons.verified_user_outlined;
       default:
