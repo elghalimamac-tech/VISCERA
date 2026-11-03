@@ -7,7 +7,11 @@ de messages non lus (99+ au-delà de 99).
 ## Centre de notifications
 
 - Affiche toutes les notifications **enregistrées sur Supabase**, toutes catégories
-  confondues : programme opératoire, urgences, validation des accès et révision des sorties.
+  confondues : programme opératoire, urgences, validation des accès, révision
+  des sorties et **sorties confirmées avec le nom du validateur**.
+  Le nom de l'utilisateur est lu du profil médical authentifié par la base
+  lors de la validation, jamais saisi par le client. Aucune donnée patient
+  n'est exposée dans les notifications push.
 - Affiche le titre générique, le contenu, la date et l'heure.
 - Filtre `Toutes / Non lues`, pagination et actualisation.
 - Toucher une notification non lue la marque comme lue.
