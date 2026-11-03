@@ -380,7 +380,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           margin:const EdgeInsets.only(bottom:10),
           child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(p.name,style:Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height:5),Text(p.procedure),
+            const SizedBox(height:5),Text(p.effectiveProcedure),
             const SizedBox(height:8),
             const Text('Postopératoire à confirmer'),
             OutlinedButton(onPressed:()=>openCase(p),
@@ -390,7 +390,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       ],
       SectionHeading('À opérer'),...upcoming.map((p)=>VCard(margin:const EdgeInsets.only(bottom:10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[Expanded(child:Text(p.name,style:Theme.of(context).textTheme.titleMedium)),VTag(p.blockTiming=='Immédiat'?'URGENT':'PROGRAMMÉ',warn:p.blockTiming=='Immédiat')]),
-        const SizedBox(height:9),Text(p.procedure,style:const TextStyle(fontSize:13)),const SizedBox(height:7),HospitalizationDayCounter(patient:p),const SizedBox(height:6),Text('Responsable admission : ${appStore.responsibleById(p.professorId)?.name??'À attribuer'} · Responsable bloc : ${appStore.responsibleById(p.blockResponsibleId)?.name??(p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
+        const SizedBox(height:9),Text(p.effectiveProcedure,style:const TextStyle(fontSize:13)),const SizedBox(height:7),HospitalizationDayCounter(patient:p),const SizedBox(height:6),Text('Responsable admission : ${appStore.responsibleById(p.professorId)?.name??'À attribuer'} · Responsable bloc : ${appStore.responsibleById(p.blockResponsibleId)?.name??(p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')}',style:const TextStyle(fontSize:12,color:VColors.muted)),const SizedBox(height:8),Text(_formatDate(p.blockAt),style:const TextStyle(color:VColors.muted,fontSize:12)),
         const SizedBox(height:13),Row(children:[OutlinedButton(onPressed:()=>openCase(p),child:const Text('Dossier')),const SizedBox(width:8),if(p.stage==CaseStage.preoperative)FilledButton.tonal(onPressed:()=>_startTheatre(p),child:const Text('Entrée au bloc')) else if(p.stage==CaseStage.inTheatre)FilledButton.tonal(onPressed:()=>_finishTheatre(p),child:const Text('Fin du bloc'))])
       ]))),if(cases.isEmpty)const VCard(child:Text('Aucune intervention en attente.')),
       SectionHeading('Postopératoire du jour / après bloc'),
