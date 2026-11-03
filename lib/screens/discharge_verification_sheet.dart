@@ -109,6 +109,15 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
                           Text('${p.stage.label} · ${p.currentUnit} · Box ${p.currentBox}',
                             style: const TextStyle(fontSize: 12)),
                           const SizedBox(height: 10),
+                          const Text('Intervention chirurgicale',
+                            style: TextStyle(fontSize: 12,
+                              fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          Text(p.procedure.trim().isEmpty
+                              ? 'Non renseignée' : p.procedure,
+                            key: const Key('discharge-procedure-label'),
+                            style: const TextStyle(fontSize: 13)),
+                          const SizedBox(height: 10),
                           Text('${ClinicalDocuments.discharge.length - missing.length}'
                             ' / ${ClinicalDocuments.discharge.length} documents vérifiés',
                             style: const TextStyle(fontWeight: FontWeight.w700)),
