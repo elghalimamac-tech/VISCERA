@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createRemoteJWKSet, jwtVerify } from "jsr:@panva/jose@6";
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 import { JWT } from "npm:google-auth-library@9.15.1";
 
@@ -10,28 +11,68 @@ import { JWT } from "npm:google-auth-library@9.15.1";
  * secrètes dans SUPABASE_SECRET_KEYS (objet JSON nommé).
  * Compatible avec l'ancien service_role pendant la transition.
  */
-function trustedServiceKey(request: Request): string | null {
+
+/**
+ * Authentifie uniquement le workflow GitHub officiel sur la branche main.
+ * Le jeton OIDC a une courte durée de vie ; aucun secret Supabase dans GitHub.
+ */
+const GITHUB_OIDC_AUDIENCE = "viscera:notifications:qkupckqgczdqiwxozxko";
+const githubKeys = createRemoteJWKSet(
+  new URL("https://token.actions.githubusercontent.com/.well-known/jwks"),
+);
+
+async function verifiedGithubWorkflow(req: Request): Promise<boolean> {
+  const auth = req.headers.get("Authorization");
+  const token = auth?.match(/^Bearer\s+([^\s]+)$/i)?.[1];
+  if (!token || token.length > 8192) return false;
+  try {
+    const { payload } = await jwtVerify(token, githubKeys, {
+      issuer: "https://token.actions.githubusercontent.com",
+      audience: GITHUB_OIDC_AUDIENCE,
+      algorithms: ["RS256"],
+      clockTolerance: "20s",
+    });
+    return payload.sub ===
+        "repo:elghalimamac-tech/VISCERA:ref:refs/heads/main" &&
+      payload.repository === "elghalimamac-tech/VISCERA" &&
+      String(payload.repository_id) === "1440712478" &&
+      payload.ref === "refs/heads/main" &&
+      payload.workflow_ref ===
+        "elghalimamac-tech/VISCERA/.github/workflows/viscera-daily-discharge-push.yml@refs/heads/main" &&
+      ["schedule", "workflow_dispatch", "push"].includes(
+        String(payload.event_name),
+      );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Choisit exclusivement une clé serveur, depuis l'environnement SUPABASE.
+ * Compatible service_role legacy, secret sb_secret_, ou un jeton signé GitHub.
+ */
+async function trustedServiceKey(request: Request): Promise<string | null> {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   let namedSecret: string | undefined;
   try {
     const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
     if (typeof keys?.default === "string") namedSecret = keys.default;
   } catch (_) {
-    // Environnement sans nouvelles clés : clé legacy uniquement.
+    // Les anciens projets restent compatibles avec SUPABASE_SERVICE_ROLE_KEY.
   }
   const fromApiKey = request.headers.get("apikey");
   const fromBearer = request.headers.get("Authorization")
-    ?.match(/^Bearer\s+(.+)$/i)?.[1];
+    ?.match(/^Bearer\s+([^\s]+)$/i)?.[1];
   const received = fromApiKey || fromBearer;
-  if (!received) return null;
   if (legacy && received === legacy) return legacy;
   if (namedSecret && received === namedSecret) return namedSecret;
+  if (await verifiedGithubWorkflow(request)) return namedSecret || legacy || null;
   return null;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", {status:405});
-  const serviceKey = trustedServiceKey(req);
+  const serviceKey = await trustedServiceKey(req);
   if (!serviceKey) return new Response("Forbidden", {status:403});
   const projectUrl = Deno.env.get("SUPABASE_URL");
   if (!projectUrl) return new Response("Server not configured", {status:503});
