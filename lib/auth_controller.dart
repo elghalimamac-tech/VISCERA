@@ -85,10 +85,12 @@ class DoctorAuthController extends ChangeNotifier {
         message = 'Adresse e-mail confirmée. Votre compte reste soumis à validation par le service.';
       }
     } on AuthException {
-      screen = AuthScreen.forgot;
+      screen = link.type == VisceraEmailLinkType.signup
+          ? AuthScreen.confirmation : AuthScreen.forgot;
       message = 'Lien invalide ou expiré. Pour réessayer, demandez un nouvel e-mail.';
     } catch (_) {
-      screen = AuthScreen.forgot;
+      screen = link.type == VisceraEmailLinkType.signup
+          ? AuthScreen.confirmation : AuthScreen.forgot;
       message = 'Vérification impossible. Vérifiez votre connexion et demandez un nouveau lien.';
     } finally {
       _linkProcessing = false;
@@ -226,9 +228,12 @@ class DoctorAuthController extends ChangeNotifier {
     });
   }
 
-  Future<bool> resendConfirmation() async => _execute(() async {
-    final email = pendingEmail ?? client.auth.currentUser?.email;
-    if (email == null || email.isEmpty) throw StateError('Adresse email inconnue.');
+  Future<bool> resendConfirmation({String? emailOverride}) async => _execute(() async {
+    final email = pendingEmail ?? client.auth.currentUser?.email ??
+        emailOverride?.trim().toLowerCase();
+    if (email == null || email.isEmpty) {
+      throw StateError('Saisissez l’adresse e-mail utilisée lors de l’inscription.');
+    }
     await client.auth.resend(
       type: OtpType.signup,
       email: email,
