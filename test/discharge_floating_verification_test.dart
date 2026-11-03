@@ -119,8 +119,12 @@ void main() {
     expect(observation, findsOneWidget);
 
     // Atteindre le bas réel de l'écran sur un téléphone étroit.
+    await tester.scrollUntilVisible(
+      exclusion, 350,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.drag(find.byType(ListView).first,
-      const Offset(0, -4000));
+      const Offset(0, -600));
     await tester.pumpAndSettle();
 
     expect(exclusion, findsOneWidget);
