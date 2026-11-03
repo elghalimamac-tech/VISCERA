@@ -103,6 +103,24 @@ class DailyObservation {
   bool get fullyReported => reportedMagica && reportedSillage;
 }
 
+/// Demande d'avis d'un autre service pendant l'hospitalisation.
+/// Plusieurs avis peuvent concerner le même service durant un séjour.
+class SpecialistOpinion {
+  SpecialistOpinion({
+    required this.id,
+    required this.service,
+    this.done = false,
+    DateTime? requestedAt,
+    this.doneAt,
+  }) : requestedAt = requestedAt ?? DateTime.now();
+
+  final String id;
+  final String service;
+  bool done;
+  final DateTime requestedAt;
+  DateTime? doneAt;
+}
+
 class PatientCase {
   PatientCase({
     required this.id,
@@ -182,6 +200,8 @@ class PatientCase {
   bool confidentialEnvelopeDone;
   final Map<String, DocumentCheck> documents = {};
   final List<DailyObservation> dailyObservations = [];
+  /// Avis demandés aux autres spécialités, avec statut indépendant.
+  final List<SpecialistOpinion> specialistOpinions = [];
   DocumentCheck check(String key) => documents.putIfAbsent(key, DocumentCheck.new);
   int completedCount(List<DocumentRequirement> requirements) =>
       requirements.where((r) => check(r.key).complete(r)).length;
