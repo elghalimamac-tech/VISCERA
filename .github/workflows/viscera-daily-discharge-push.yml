@@ -1,4 +1,6 @@
 name: VISCERA - Daily discharge review push
+# La variable GitHub garde son nom historique, mais accepte sb_secret_*
+# ou l'ancienne clé service_role. Jamais de clé dans le dépôt ni dans Flutter.
 on:
   workflow_dispatch:
   schedule:
@@ -17,7 +19,7 @@ jobs:
           VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$VISCERA_SERVICE_KEY" ]; then
-            echo "::warning::Secret GitHub VISCERA_SUPABASE_SERVICE_ROLE_KEY manquant. Aucun push serveur envoyé."
+            echo "::warning::Secret GitHub VISCERA_SUPABASE_SERVICE_ROLE_KEY manquant (clé legacy service_role ou nouvelle sb_secret_). Aucun push serveur envoyé."
             exit 1
           fi
       - name: Identifier les dossiers à réévaluer sans informations de patient
@@ -25,7 +27,7 @@ jobs:
           VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           curl --fail-with-body --silent --show-error --retry 2 --request POST \
-            --header "Authorization: Bearer $VISCERA_SERVICE_KEY" \
+            --header "apikey: $VISCERA_SERVICE_KEY" \
             --header 'Content-Type: application/json' --data '{}' \
             https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-discharge-review
       - name: Distribuer les messages FCM anonymisés
@@ -33,6 +35,6 @@ jobs:
           VISCERA_SERVICE_KEY: ${{ secrets.VISCERA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           curl --fail-with-body --silent --show-error --retry 2 --request POST \
-            --header "Authorization: Bearer $VISCERA_SERVICE_KEY" \
+            --header "apikey: $VISCERA_SERVICE_KEY" \
             --header 'Content-Type: application/json' --data '{}' \
             https://qkupckqgczdqiwxozxko.supabase.co/functions/v1/viscera-push-dispatch
