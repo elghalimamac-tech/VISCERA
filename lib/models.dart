@@ -151,6 +151,7 @@ class PatientCase {
     this.fromManualAdmission = false,
     this.birthDate,
     this.surgeryType = '',
+    this.procedureOverride = '',
     this.linkedProgramEntryId,
     this.programRoom = '',
     this.programSurgeon = '',
@@ -176,6 +177,11 @@ class PatientCase {
   String age, insurance;
   DateTime? birthDate;
   String surgeryType;
+  /// Rectification clinique affichée sans écraser l'intervention source du PDF
+  /// ou de l'admission. Les deux restent traçables dans le dossier.
+  String procedureOverride;
+  String get effectiveProcedure =>
+      procedureOverride.trim().isEmpty ? procedure : procedureOverride.trim();
   int? linkedProgramEntryId;
   String motive, history, exam;
   String investigations, labs, immediatePlan;
@@ -274,11 +280,14 @@ class PatientCase {
   bool get physicallyAdmitted =>
       isActive && admittedAt != null;
   /// Uniformisation depuis le LIBELLÉ du programme, sans changer le texte source.
-  SurgeryClassification get surgeryClassification => classifySurgery(procedure);
-  String get standardizedSurgeryType => surgeryClassification.recognized
-      ? surgeryClassification.label
-      : (surgeryType.trim().isNotEmpty && surgeryType.trim() != 'À préciser'
-          ? surgeryType.trim() : surgeryClassification.label);
+  SurgeryClassification get surgeryClassification =>
+      classifySurgery(effectiveProcedure);
+  String get standardizedSurgeryType {
+    final entered = surgeryType.trim();
+    if (entered.isNotEmpty && entered != 'À préciser' &&
+        entered != 'Autre chirurgie / à confirmer') return entered;
+    return surgeryClassification.label;
+  }
   /// Propositions de révision, jamais une décision médicale de sortie.
   DateTime? get dischargeReviewAt => admittedAt == null ? null
       : proposedDischargeReviewDate(admittedAt!,expectedDays,surgeryClassification);
