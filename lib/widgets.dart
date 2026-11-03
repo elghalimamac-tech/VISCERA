@@ -147,7 +147,16 @@ class PatientTile extends StatelessWidget {
         const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(patient.name,style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:3),Text(patient.isProgrammed ? 'Consultation • Bloc programmé' : '${patient.age} ans  •  ${patient.origin}',style:const TextStyle(fontSize:12,color:VColors.muted))])),
         const Icon(Icons.chevron_right_rounded,color:VColors.muted)
       ]),const SizedBox(height:13),Text(patient.isProgrammed ? patient.effectiveProcedure : patient.motive,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:13,color:VColors.ink)),const SizedBox(height:13),
-      Wrap(spacing:6,runSpacing:6,children:[VTag(patient.stage.label,highlight:patient.isPostOp,warn:patient.stage==CaseStage.dischargeReady),if(patient.isArchived)const VTag('Archivé',highlight:true),HospitalizationDayCounter(patient:patient),if(patient.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),if(patient.physicallyAdmitted)VTag('${patient.currentUnit} • Box ${patient.currentBox}'),if(!patient.isProgrammed&&!patient.isArchived)VTag('Docs sortie ${patient.completedCount(ClinicalDocuments.discharge)}/${ClinicalDocuments.discharge.length}')])
+      Wrap(spacing:6,runSpacing:6,children:[
+        VTag(patient.stage.label,highlight:patient.isPostOp,warn:patient.stage==CaseStage.dischargeReady),
+        if(patient.isArchived)const VTag('Archivé',highlight:true),
+        if(patient.physicallyAdmitted)HospitalizationDayCounter(patient:patient),
+        if(patient.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),
+        if(patient.physicallyAdmitted && patient.currentBox.trim().isNotEmpty)
+          VTag('${patient.currentUnit} • Box ${patient.currentBox}'),
+        if(patient.isPostOp && !patient.allChecked(ClinicalDocuments.discharge))
+          VTag('Docs sortie ${patient.completedCount(ClinicalDocuments.discharge)}/${ClinicalDocuments.discharge.length}',warn:patient.stage==CaseStage.dischargeReady),
+      ])
     ]),
   );
 }
