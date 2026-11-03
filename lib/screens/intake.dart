@@ -27,7 +27,7 @@ class _IntakePageState extends State<IntakePage> {
   DateTime? selectedBirthDate;
   final surgeryType=TextEditingController();
   final name=TextEditingController(),age=TextEditingController(),motive=TextEditingController(),history=TextEditingController(),exam=TextEditingController(),investigations=TextEditingController(),labs=TextEditingController(),plan=TextEditingController();
-  final preBox=TextEditingController(),postBox=TextEditingController();
+  final box=TextEditingController();
   final length=TextEditingController(text:'1');
   final assignmentReason=TextEditingController();
   String? professorOverrideId;
@@ -38,7 +38,7 @@ class _IntakePageState extends State<IntakePage> {
   ProfessorMatch get match => appStore.resolveProfessor(origin, origin=='Urgences'?arrivalAt:consultationAt);
   String? get selectedProfessorId => professorOverrideId??match.professorId;
   bool get manualOverride => professorOverrideId!=null && match.professorId!=null && professorOverrideId!=match.professorId;
-  String origin='Urgences',insurance='À préciser',procedure=procedures.first,blockTiming='Différé',admissionTiming='Le jour du bloc',preUnit='TC1',postUnit='TC1';
+  String origin='Urgences',insurance='À préciser',procedure=procedures.first,blockTiming='Différé',admissionTiming='Le jour du bloc',unit='TC1';
   DateTime blockAt=DateTime.now().add(const Duration(days:1));
   @override void initState() {
     super.initState();
@@ -51,7 +51,7 @@ class _IntakePageState extends State<IntakePage> {
     length.text = classified.standardReviewDays.toString();
   }
 
-  @override void dispose(){for(final c in [name,age,surgeryType,motive,history,exam,investigations,labs,plan,preBox,postBox,length,assignmentReason]){c.dispose();}super.dispose();}
+  @override void dispose(){for(final c in [name,age,surgeryType,motive,history,exam,investigations,labs,plan,box,length,assignmentReason]){c.dispose();}super.dispose();}
 
   void alert(String message)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));
   void next(){
@@ -64,13 +64,13 @@ class _IntakePageState extends State<IntakePage> {
 
     if(step==1&&motive.text.trim().isEmpty){alert('Renseignez le motif de consultation.');return;}
     if(step==2&&surgeryType.text.trim().isEmpty){alert('Renseignez le type de chirurgie.');return;}
-    if(step==2){if(preBox.text.trim().isEmpty||postBox.text.trim().isEmpty){alert('Renseignez les boxes pré- et postopératoires.');return;}if(int.tryParse(length.text.trim())==null||int.parse(length.text.trim())<0){alert('Renseignez une durée de séjour valide.');return;}}
+    if(step==2){if(admissionTiming=='Immédiate' && box.text.trim().isEmpty){alert('Renseignez le numéro du box actuellement attribué.');return;}if(int.tryParse(length.text.trim())==null||int.parse(length.text.trim())<0){alert('Renseignez une durée de séjour valide.');return;}}
     if(step<3){setState(()=>step++);}else{unawaited(_save());}
   }
   Future<void> _save() async {
     final effectiveDate=blockTiming=='Immédiat'?DateTime.now():blockAt;
-    final conflict=admissionTiming=='Immédiate'?appStore.conflictingBox(preUnit,preBox.text):null;
-    if(conflict!=null){alert('Box préopératoire déjà attribué à ${conflict.name}.');return;}
+    final conflict=admissionTiming=='Immédiate'?appStore.conflictingBox(unit,box.text):null;
+    if(conflict!=null){alert('Box déjà attribué à ${conflict.name}.');return;}
     final existing = appStore.findDuplicateCase(name.text.trim(),effectiveDate,
       birthDate:selectedBirthDate);
     if(existing!=null){
@@ -102,7 +102,7 @@ class _IntakePageState extends State<IntakePage> {
       id:appStore.nextId(),name:name.text.trim(),age:age.text.trim().isEmpty?'—':age.text.trim(),origin:origin,insurance:insurance,
       birthDate:selectedBirthDate,surgeryType:surgeryType.text.trim(),
       motive:motive.text.trim(),history:history.text.trim(),exam:exam.text.trim(),investigations:investigations.text.trim(),labs:labs.text.trim(),immediatePlan:plan.text.trim(),
-      procedure:procedure,blockTiming:blockTiming,admissionTiming:admissionTiming,beforeUnit:preUnit,beforeBox:preBox.text.trim(),afterUnit:postUnit,afterBox:postBox.text.trim(),
+      procedure:procedure,blockTiming:blockTiming,admissionTiming:admissionTiming,beforeUnit:unit,beforeBox:box.text.trim(),afterUnit:unit,afterBox:box.text.trim(),
       expectedDays:int.parse(length.text.trim()),blockAt:effectiveDate,
       admittedAt:admissionTiming=='Immédiate'?arrivalAt:null,
       stage:admissionTiming=='Immédiate'?CaseStage.preoperative:CaseStage.scheduled,
@@ -163,7 +163,7 @@ class _IntakePageState extends State<IntakePage> {
         ))),
       ),
       Expanded(child:ListView(padding:const EdgeInsets.fromLTRB(20,9,20,20),children:[
-        Overline('ÉTAPE ${step+1} SUR 4'),const SizedBox(height:7),Text(['Identité & couverture','Dossier clinique','Séjour & intervention','Vérification'][step],style:Theme.of(context).textTheme.headlineMedium),const SizedBox(height:6),Text(['L’essentiel à l’arrivée.','Un seul dossier médical continu.','Lits avant/après bloc et séjour prévu.','Confirmez avant de créer le dossier.'][step],style:const TextStyle(color:VColors.muted)),const SizedBox(height:25),
+        Overline('ÉTAPE ${step+1} SUR 4'),const SizedBox(height:7),Text(['Identité & couverture','Dossier clinique','Séjour & intervention','Vérification'][step],style:Theme.of(context).textTheme.headlineMedium),const SizedBox(height:6),Text(['L’essentiel à l’arrivée.','Un seul dossier médical continu.','Un emplacement, une intervention et un séjour prévu.','Confirmez avant de créer le dossier.'][step],style:const TextStyle(color:VColors.muted)),const SizedBox(height:25),
         if(step==0)..._identity(),if(step==1)..._clinical(),if(step==2)..._organization(),if(step==3)..._review(),
       ])),
       Container(padding:const EdgeInsets.fromLTRB(20,12,20,15),decoration:const BoxDecoration(color:Colors.white,border:Border(top:BorderSide(color:VColors.line))),child:Row(children:[if(step>0)...[Expanded(child:OutlinedButton(onPressed:()=>setState(()=>step--),child:const Padding(padding:EdgeInsets.symmetric(vertical:13),child:Text('Retour')))),const SizedBox(width:10)],Expanded(flex:2,child:ElevatedButton(onPressed:saving?null:next,child:Text(saving?'Enregistrement…':step==3?'Enregistrer dans VISCERA':'Continuer')))])),
@@ -207,12 +207,23 @@ class _IntakePageState extends State<IntakePage> {
     VCard(color:insurance=='FAR'?VColors.orangeSoft:VColors.softMint,child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(insurance=='FAR'?Icons.priority_high_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:11),Expanded(child:Text(insurance=='FAR'?'Rappel : créer un pli confidentiel sur mutuelle FAR.':'Rappel : demander la création du pli confidentiel.',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)))])),
   ];
   List<Widget> _clinical()=>[
-    _field('Motif de consultation',motive,hint:'Motif principal',maxLines:2),const SizedBox(height:12),
-    _field('Interrogatoire / histoire de la maladie',history,maxLines:4),const SizedBox(height:12),
-    _field('Examen clinique',exam,maxLines:4),const SizedBox(height:12),
-    _field('Examens complémentaires',investigations,maxLines:3),const SizedBox(height:12),
-    _field('Bilans biologiques',labs,maxLines:3),const SizedBox(height:12),
-    _field('Conduite à tenir immédiate',plan,maxLines:3),
+    _field('Motif de consultation',motive,hint:'Motif principal',maxLines:2),
+    const SizedBox(height:14),
+    VCard(child:ExpansionTile(
+      key:const Key('intake-clinical-details'),
+      initiallyExpanded:false,
+      tilePadding:EdgeInsets.zero,
+      childrenPadding:const EdgeInsets.only(top:10),
+      title:const Text('Compléter le dossier clinique',style:TextStyle(fontWeight:FontWeight.w800,color:VColors.ink)),
+      subtitle:const Text('Interrogatoire, examen, bilans et conduite à tenir',style:TextStyle(fontSize:12,color:VColors.muted)),
+      children:[
+        _field('Interrogatoire / histoire de la maladie',history,maxLines:4),const SizedBox(height:12),
+        _field('Examen clinique',exam,maxLines:4),const SizedBox(height:12),
+        _field('Examens complémentaires',investigations,maxLines:3),const SizedBox(height:12),
+        _field('Bilans biologiques',labs,maxLines:3),const SizedBox(height:12),
+        _field('Conduite à tenir immédiate',plan,maxLines:3),
+      ],
+    )),
   ];
   List<Widget> _organization()=>[
     _field('Type de chirurgie harmonisé *',surgeryType,hint:'Déduit automatiquement ou à préciser'),
@@ -238,8 +249,13 @@ class _IntakePageState extends State<IntakePage> {
         : 'Admission prévue le jour du bloc : ce patient reste « Programmé » et ne compte pas comme hospitalisé.',
       style:const TextStyle(fontSize:12))),
     const SizedBox(height:19),
-    _picker('Unité avant bloc',preUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>preUnit=v)),const SizedBox(height:12),_field('Numéro de box avant bloc',preBox,hint:'Ex. 03'),const SizedBox(height:20),
-    _picker('Unité après bloc',postUnit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>postUnit=v)),const SizedBox(height:12),_field('Numéro de box après bloc',postBox,hint:'Ex. 08'),const SizedBox(height:20),
+    const Overline('EMPLACEMENT DU PATIENT'),const SizedBox(height:9),
+    _picker('Unité / service',unit,hospitalUnits.map((u)=>u.code).toList(),(v)=>setState(()=>unit=v)),const SizedBox(height:12),
+    TextField(key:const Key('intake-current-box'),controller:box,decoration:InputDecoration(
+      labelText:admissionTiming=='Immédiate'?'Numéro de box actuel *':'Numéro de box (facultatif)',
+      hintText:'Ex. 03')),
+    const SizedBox(height:7),const Text('Le box est renseigné une seule fois. Tout transfert se modifie ensuite dans le dossier patient.',style:TextStyle(fontSize:12,color:VColors.muted)),
+    const SizedBox(height:20),
     _field('Durée prévisionnelle du séjour (jours)',length,number:true),const SizedBox(height:12),
     VCard(color:VColors.softMint,child:Text(
       'Première révision de sortie proposée à J${classifySurgery(procedure).standardReviewDays} '
@@ -251,11 +267,11 @@ class _IntakePageState extends State<IntakePage> {
     _reviewBlock('PATIENT',['${name.text}  •  ${age.text.isEmpty?'Âge non renseigné':'${age.text} ans'}',
       'Date de naissance : ${selectedBirthDate==null?'À renseigner':_formatDate(selectedBirthDate!)}',origin,'Mutuelle : $insurance','Médecin responsable de l’admission : ${appStore.responsibleById(selectedProfessorId)?.name??'À attribuer'}','Attribution : ${professorOverrideId!=null?'Manuelle':match.mode}',if(origin=='Consultation')'Consultation le ${_format(consultationAt)}']),
     const SizedBox(height:13),_reviewBlock('CLINIQUE',[motive.text,'Histoire : ${history.text.isEmpty?'À compléter':history.text}','CAT : ${plan.text.isEmpty?'À compléter':plan.text}']),
-    const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Médecin responsable du bloc : ${appStore.responsibleById(selectedBlockDoctorId)?.name??'À attribuer'}','Hospitalisation : $admissionTiming','Avant : $preUnit • Box ${preBox.text}','Après : $postUnit • Box ${postBox.text}','Séjour estimé : ${length.text} jour(s)']),
+    const SizedBox(height:13),_reviewBlock('PARCOURS',['Type de chirurgie : ${surgeryType.text}',procedure,'Date prévue du bloc : ${_format(blockTiming=='Immédiat'?DateTime.now():blockAt)}','Médecin responsable du bloc : ${appStore.responsibleById(selectedBlockDoctorId)?.name??'À attribuer'}','Hospitalisation : $admissionTiming','Unité / box : $unit • ${box.text.trim().isEmpty?'À attribuer':'Box ${box.text.trim()}'}','Séjour estimé : ${length.text} jour(s)']),
     const SizedBox(height:15),DocumentChecklist(patient:_intakeDocs,title:'Documents à l’admission',requirements:ClinicalDocuments.admission),
     const SizedBox(height:12),PreoperativeReadinessCard(patient:_intakeDocs,
       onChanged:()=>setState((){})),
-    const SizedBox(height:15),VCard(color:VColors.orangeSoft,child:const Text('Les affectations de box sont prévisionnelles tant que le patient n’y est pas transféré. Toute sortie et toute prescription nécessitent une validation médicale.',style:TextStyle(fontSize:12))),
+    const SizedBox(height:15),VCard(color:VColors.orangeSoft,child:const Text('Le box peut être réattribué lors d’un transfert depuis le dossier patient. Toute sortie et toute prescription nécessitent une validation médicale.',style:TextStyle(fontSize:12))),
   ];
   Widget _reviewBlock(String title,List<String> lines)=>VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(title),const SizedBox(height:12),...lines.map((s)=>Padding(padding:const EdgeInsets.only(bottom:7),child:Text(s,style:const TextStyle(fontSize:13))))]));
   Widget _field(String label,TextEditingController controller,{String? hint,int maxLines=1,bool number=false})=>maxLines>1 ? VoiceClinicalField(label:label,controller:controller,hint:hint,maxLines:maxLines) : TextField(controller:controller,maxLines:maxLines,keyboardType:number?TextInputType.number:TextInputType.text,decoration:InputDecoration(labelText:label,hintText:hint));

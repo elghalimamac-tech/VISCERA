@@ -72,6 +72,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Un seul box courant est affiché, les anciens emplacements ne sont pas dupliqués',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final patient = patientSample();
+    // Ancien dossier : deux emplacements distincts existent toujours en base.
+    // L'écran doit présenter uniquement l'emplacement du stade courant.
+    expect(patient.beforeBox, '03');
+    expect(patient.currentBox, '0105');
+    await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
+    expect(find.text('Unité / box'), findsOneWidget);
+    expect(find.text('HDJM 0 · 0105'), findsOneWidget);
+    expect(find.text('Avant le bloc'), findsNothing);
+    expect(find.text('Après le bloc'), findsNothing);
+    expect(find.text('Modifier l’unité préopératoire'), findsNothing);
+    expect(find.text('Modifier l’unité postopératoire'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Le bouton de sauvegarde du box reste visible sur Android',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 780));
@@ -102,7 +121,7 @@ void main() {
     await tester.tap(edit);
     await tester.pumpAndSettle();
 
-    expect(find.text('Modifier l’unité postopératoire'), findsOneWidget);
+    expect(find.text('Modifier l’unité / le box'), findsOneWidget);
     final save = find.byKey(const Key('save-bed-assignment'));
     expect(save, findsOneWidget);
     expect(tester.getBottomLeft(save).dy, lessThan(746),
