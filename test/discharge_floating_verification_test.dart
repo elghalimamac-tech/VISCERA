@@ -61,6 +61,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
+    expect(find.text('Intervention chirurgicale'),findsOneWidget);
+    expect(find.byKey(const Key('discharge-procedure-label')),findsOneWidget);
+    expect(find.text('Intervention de test'),findsOneWidget);
     final bulk=find.byKey(const Key('bulk-verify-discharge-documents'));
     expect(bulk,findsOneWidget);
     // Le bouton est dans le pied de la fenêtre, pas parmi les documents.

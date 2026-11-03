@@ -123,6 +123,84 @@ class BlocPatientSync {
       if (response.length < pageSize) break;
       offset += pageSize;
     }
+    // Les programmes remplacés ne sont plus « courants », mais leurs
+    // dossiers VALIDÉS « Sorti » doivent rester retrouvables dans Archives.
+    // Sans ce second chargement, un nouveau PDF du bloc effacerait
+    // l'affichage des anciennes sorties (sans effacer la base Supabase).
+    final loadedIds = result.map((p) => p.id).toSet();
+    final archived = <int, Map<String, dynamic>>{};
+    const archivePageSize = 400;
+    for (var page = 0;; page += archivePageSize) {
+      final rows = await api.from('bloc_patient_records')
+          .select('entry_id,version,clinical_data')
+          .eq('clinical_data->>stage', CaseStage.discharged.name)
+          .order('entry_id').range(page, page + archivePageSize - 1);
+      for (final row in rows) {
+        final entryId = row['entry_id'];
+        if (entryId is int && !linkedIds.contains(entryId) &&
+            !loadedIds.contains('BLOC-$entryId') &&
+            row['clinical_data'] is Map) {
+          archived[entryId] = Map<String, dynamic>.from(row);
+        }
+      }
+      if (rows.length < archivePageSize) break;
+    }
+    final archiveIds = archived.keys.toList();
+    const chunkSize = 250;
+    for (var start = 0; start < archiveIds.length; start += chunkSize) {
+      final ids = archiveIds.skip(start).take(chunkSize).toList();
+      final entries = await api.from('bloc_program_entries').select(
+        'id,room,scheduled_time,source_service,patient_name,procedure_name,'
+        'surgeon,bloc_program_imports!inner(program_date)',
+      ).inFilter('id', ids);
+      for (final raw in entries) {
+        final row = Map<String, dynamic>.from(raw);
+        final entryId = row['id'];
+        final program = row['bloc_program_imports'];
+        if (entryId is! int || program is! Map) continue;
+        final caseData = archived[entryId];
+        final date = _str(program['program_date']);
+        final scheduledAt = _scheduledAt(date, _str(row['scheduled_time']));
+        final name = _str(row['patient_name']);
+        final procedure = _str(row['procedure_name']);
+        if (caseData == null || scheduledAt == null ||
+            name.isEmpty || procedure.isEmpty) continue;
+        final surgeon = _str(row['surgeon']);
+        final patient = PatientCase(
+          id: 'BLOC-$entryId',
+          name: name,
+          age: '—',
+          origin: 'Consultation',
+          insurance: 'À préciser',
+          motive: '', history: '', exam: '', investigations: '',
+          labs: '', immediatePlan: '',
+          procedure: procedure,
+          surgeryType: classifySurgery(procedure).label,
+          blockTiming: 'Différé',
+          admissionTiming: ProgramAdmission.source,
+          beforeUnit: '', beforeBox: '',
+          afterUnit: '', afterBox: '',
+          expectedDays: 0,
+          blockAt: scheduledAt,
+          admittedAt: null,
+          blockResponsibleId: surgeon.isEmpty
+              ? null : appStore.responsibleIdForName(surgeon),
+          stage: CaseStage.scheduled,
+          fromBlocProgram: true,
+          programRoom: _str(row['room']),
+          programSurgeon: surgeon,
+          programSourceService: _str(row['source_service']),
+          programScheduledTime: _str(row['scheduled_time']),
+        );
+        BlocClinicalRecordService.apply(patient,
+          Map<String, dynamic>.from(caseData['clinical_data'] as Map),
+          caseData['version'] is int ? caseData['version'] as int : 0);
+        if (patient.isArchived) {
+          result.add(patient);
+          loadedIds.add(patient.id);
+        }
+      }
+    }
     // Un même patient peut figurer dans plusieurs interventions : préserver
     // chaque ligne source au lieu de fusionner des homonymes par hypothèse.
     return result..sort((a, b) => b.blockAt.compareTo(a.blockAt));

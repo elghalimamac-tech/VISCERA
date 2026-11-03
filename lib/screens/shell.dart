@@ -12,6 +12,7 @@ import '../branding.dart';
 import '../widgets.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
+import 'patient_archives.dart';
 import 'planning.dart';
 import 'personal_planning.dart';
 import 'admin_page.dart';
@@ -26,6 +27,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int selected=0;String query='';String filter='Tous';String unit='Tous';
   Timer? _programTimer;
   Timer? _notificationTimer;
+  Timer? _serviceArchiveExpiryTimer;
   int _unreadCount = 0;
   String? _lastNotificationUser;
   final NotificationCenterService _notificationCenter = NotificationCenterService();
@@ -36,12 +38,37 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    appStore.addListener(_scheduleServiceArchiveExpiry);
+    _scheduleServiceArchiveExpiry();
     unawaited(_refreshUnreadCount());
     _notificationTimer = Timer.periodic(const Duration(seconds: 40),
       (_) => unawaited(_refreshUnreadCount()));
     unawaited(_refreshProgrammedPatients());
     _programTimer = Timer.periodic(const Duration(minutes: 15),
       (_) => unawaited(_refreshProgrammedPatients()));
+  }
+
+  /// Programme le prochain retrait VISUEL des patients sortis à H+48.
+  /// Aucun dossier clinique n'est supprimé ou modifié dans Supabase.
+  void _scheduleServiceArchiveExpiry() {
+    _serviceArchiveExpiryTimer?.cancel();
+    final now = DateTime.now();
+    DateTime? next;
+    for (final patient in appStore.patients) {
+      if (!patient.isArchived || patient.dischargeAt == null) continue;
+      final expiry = patient.dischargeAt!.add(const Duration(days: 2));
+      if (expiry.isAfter(now) && (next == null || expiry.isBefore(next))) {
+        next = expiry;
+      }
+    }
+    if (next == null) return;
+    _serviceArchiveExpiryTimer = Timer(
+      next.difference(now) + const Duration(milliseconds: 50), () {
+        if (!mounted) return;
+        setState(() {});
+        _scheduleServiceArchiveExpiry();
+      },
+    );
   }
 
   Future<void> _refreshUnreadCount() async {
@@ -69,12 +96,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _scheduleServiceArchiveExpiry();
+      if (mounted) setState(() {});
       unawaited(_refreshUnreadCount());
     }
   }
 
   @override void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    appStore.removeListener(_scheduleServiceArchiveExpiry);
+    _serviceArchiveExpiryTimer?.cancel();
     _notificationTimer?.cancel();
     _programTimer?.cancel();
     super.dispose();
@@ -158,6 +189,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> shellKey=GlobalKey<ScaffoldState>();
   void openCase(PatientCase p)=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:p)));
   void openIntake()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const IntakePage()));
+  void openArchives()=>Navigator.push(context,
+      MaterialPageRoute(builder:(_)=>const PatientArchivesPage()));
   void openPlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PersonalPlanningPage()));
   void openReferencePlanning()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PlanningPage()));
   void openInbox() {
@@ -214,6 +247,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _drawerItem(Icons.dashboard_outlined,'Tableau de bord',()=>_switchTab(0)),
     _drawerItem(Icons.person_add_alt_1_outlined,'Nouvelle admission',(){Navigator.pop(context);openIntake();}),
     _drawerItem(Icons.folder_copy_outlined,'Patients',()=>_switchTab(1)),
+    _drawerItem(Icons.inventory_2_outlined,'Archives',(){
+      Navigator.pop(context);
+      openArchives();
+    }),
     _drawerItem(Icons.medical_services_outlined,'Bloc opératoire',()=>_switchTab(2)),
     _drawerItem(Icons.bed_outlined,'Lits / Boxes',()=>_switchTab(3)),
     _drawerItem(Icons.logout_rounded,'Sorties à préparer',(){Navigator.pop(context);setState((){selected=1;filter='Actifs';});}),
@@ -302,16 +339,26 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Widget _stat(String label,String value,IconData icon,{bool attention=false})=>VCard(padding:const EdgeInsets.all(14),color:attention?VColors.orangeSoft:Colors.white,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,size:20,color:attention?const Color(0xFFA45633):VColors.muted),const SizedBox(height:14),Text(value,style:const TextStyle(fontSize:29,fontWeight:FontWeight.w800,letterSpacing:-1,color:VColors.ink)),const SizedBox(height:3),Text(label,style:const TextStyle(fontSize:11,color:VColors.muted))]));
 
   Widget _patientList(){
+    final now=DateTime.now();
+    // Après 48 h, seuls les archives affichent les patients sortis.
+    // Les lignes d'hospitalisation actives ne sont jamais effacées.
     final results=appStore.patients.where((p){
+      if (!p.isVisibleInServiceOn(now)) return false;
       final matches='${p.name} ${p.motive} ${p.id} ${p.beforeUnit} ${p.afterUnit}'.toLowerCase().contains(query.toLowerCase());
-      return matches && (filter=='Tous'||(filter=='Programmés'&&p.isProgrammed)||(filter=='Actifs'&&p.isActive)||(filter=='Sortis'&&p.stage==CaseStage.discharged)||(filter=='Non admis'&&p.isOmitted));
+      return matches && (filter=='Tous'||(filter=='Programmés'&&p.isProgrammed)||(filter=='Actifs'&&p.isActive)||(filter=='Sortis récents'&&p.isArchived)||(filter=='Non admis'&&p.isOmitted));
     }).toList();
     return _scroll([_top('Dossiers et suivi individuel.','Patients'),const SizedBox(height:22),TextField(onChanged:(v)=>setState(()=>query=v),decoration:const InputDecoration(hintText:'Rechercher nom, motif, box...',prefixIcon:Icon(Icons.search_rounded),hintStyle:TextStyle(color:VColors.muted))),const SizedBox(height:14),
-      Wrap(spacing:8,children:['Tous','Programmés','Actifs','Non admis','Sortis'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
+      Wrap(spacing:8,runSpacing:8,children:['Tous','Programmés','Actifs','Non admis','Sortis récents'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:VColors.softMint,showCheckmark:false)).toList()),
+      Align(alignment:Alignment.centerRight,child:TextButton.icon(
+        onPressed:openArchives,
+        icon:const Icon(Icons.inventory_2_outlined),
+        label:const Text('Archives des patients sortis'))),
       Row(children:[Expanded(child:Text(_syncProblem ?? 'Dossiers partagés synchronisés depuis Supabase',
         style:const TextStyle(fontSize:11,color:VColors.muted))),
         IconButton(tooltip:'Actualiser les dossiers partagés',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
-      SectionHeading('${results.length} patient(s)'),...results.map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),if(results.isEmpty)const VCard(child:Text('Aucun patient trouvé.')),
+      SectionHeading('${results.length} patient(s)'),
+      ...results.map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      if(results.isEmpty)const VCard(child:Text('Aucun patient trouvé dans le service. Consultez les Archives pour les sorties anciennes.')),
     ]);
   }
 
