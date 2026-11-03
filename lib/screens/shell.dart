@@ -282,7 +282,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   ]);
 
   Widget _dashboard(){
-    final active=appStore.active;final urgent=appStore.theatre.where((p)=>p.blockTiming=='Immédiat').length;
+    final active=appStore.homeActive;final urgent=appStore.theatre.where((p)=>p.blockTiming=='Immédiat').length;
     return _scroll([
       _top('Votre service, en un regard.','Vue d’ensemble',action:Row(children:[VisceraNotificationBell(unreadCount:_unreadCount,onPressed:openInbox),IconButton(tooltip:'Équipe et planning',onPressed:openPlanning,icon:const Icon(Icons.calendar_month_outlined,color:VColors.ink)),CircleAvatar(backgroundColor:VColors.softMint,child:IconButton(tooltip:'À propos',onPressed:()=>_about(),icon:const Icon(Icons.shield_outlined,color:VColors.ink)))])),
       const SizedBox(height:12),
@@ -303,6 +303,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       ]),const SizedBox(height:7),
       Row(children:[Expanded(child:_stat('Patients actifs','${active.length}',Icons.people_alt_outlined)),const SizedBox(width:9),Expanded(child:_stat('Bloc à venir','${appStore.theatre.length}',Icons.medical_services_outlined))]),
       const SizedBox(height:9),Row(children:[Expanded(child:_stat('Boxes occupés','${appStore.occupiedBoxes}',Icons.bed_outlined)),const SizedBox(width:9),Expanded(child:_stat('Sorties à revoir','${appStore.toDischarge.length}',Icons.assignment_turned_in_outlined,attention:appStore.toDischarge.isNotEmpty))]),
+      // Les patients actuellement pris en charge sont les premiers dossiers
+      // présentés à l'accueil, avant les raccourcis, plannings et rappels.
+      SectionHeading('Patients actifs',trailing:TextButton(
+        onPressed:()=>setState((){selected=1;filter='Actifs';}),
+        child:const Text('Tout voir'))),
+      ...active.take(6).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
+      if(active.isEmpty)const VCard(child:Text('Aucun patient actif actuellement.')),
       SectionHeading('Accès rapides'),
       Row(children:[
         Expanded(child:_quick(Icons.medical_services_outlined,'Bloc',()=>setState(()=>selected=2))),const SizedBox(width:9),
@@ -314,8 +321,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       SectionHeading('Admissions automatiques du programme',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),
       ...appStore.active.where((p)=>p.fromBlocProgram).take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
       if(appStore.active.where((p)=>p.fromBlocProgram).isEmpty)const VCard(child:Text('Aucun programme opératoire actif chargé.')),
-      SectionHeading('Dossiers en cours',trailing:TextButton(onPressed:()=>setState((){selected=1;filter='Actifs';}),child:const Text('Tout voir'))),...active.take(4).map((p)=>PatientTile(patient:p,onTap:()=>openCase(p))),
-      if(active.isEmpty)const VCard(child:Text('Aucun patient actif. Créez votre première admission.')),
 
     ]);
   }
