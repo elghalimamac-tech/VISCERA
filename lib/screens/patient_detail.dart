@@ -264,10 +264,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               const SizedBox(height:4),
               Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',
                 style:const TextStyle(fontSize:12.5,color:VColors.muted)),
-              const SizedBox(height:10),
-              TextButton.icon(onPressed:_openObservations,
-                icon:const Icon(Icons.visibility_outlined,size:18),
-                label:const Text('Consulter les observations')),
             ])),
           SectionHeading('Dossier clinique',trailing:Row(children:[
             IconButton(onPressed:_editIdentity,tooltip:'Modifier identité et couverture',
@@ -373,12 +369,24 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               patient:p, readOnly:p.stage==CaseStage.discharged),
           ],
           SectionHeading('Documents et vérifications'),
-          DocumentChecklist(patient:p,title:'Documents à l’admission',
-            requirements:ClinicalDocuments.admission),
-          const SizedBox(height:12),
-          PreoperativeReadinessCard(patient:p,
-            onChanged:()=>appStore.refresh(changed:p),
-            readOnly:p.stage==CaseStage.discharged),
+          VCard(child:ExpansionTile(
+            key:const Key('patient-admission-documents'),
+            initiallyExpanded:p.stage==CaseStage.preoperative ||
+              p.stage==CaseStage.scheduled || p.stage==CaseStage.inTheatre,
+            tilePadding:EdgeInsets.zero,
+            title:const Text('Admission et préparation opératoire',
+              style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
+            subtitle:Text('${p.completedCount(ClinicalDocuments.admission)}/${ClinicalDocuments.admission.length} documents d’admission vérifiés',
+              style:const TextStyle(fontSize:12,color:VColors.muted)),
+            children:[
+              DocumentChecklist(patient:p,title:'Documents à l’admission',
+                requirements:ClinicalDocuments.admission),
+              const SizedBox(height:12),
+              PreoperativeReadinessCard(patient:p,
+                onChanged:()=>appStore.refresh(changed:p),
+                readOnly:p.stage==CaseStage.discharged),
+            ],
+          )),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
             p.stage==CaseStage.discharged)...[
             const SizedBox(height:12),
