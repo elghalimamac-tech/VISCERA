@@ -4,7 +4,8 @@ import 'package:viscera/models.dart';
 import 'package:viscera/screens/patient_detail.dart';
 
 PatientCase dischargePatient({CaseStage stage = CaseStage.postoperative,
-    DateTime? admittedAt}) => PatientCase(
+    DateTime? admittedAt, DateTime? blockAt,
+    bool fromBlocProgram = false}) => PatientCase(
   id:'TEST-DISCHARGE', name:'PATIENT TEST', age:'52',
   origin:'Consultation', insurance:'CNSS',
   motive:'Motif à vérifier', history:'', exam:'',
@@ -12,8 +13,9 @@ PatientCase dischargePatient({CaseStage stage = CaseStage.postoperative,
   procedure:'Intervention de test', blockTiming:'Différé',
   admissionTiming:'Immédiate', beforeUnit:'TC1', beforeBox:'02',
   afterUnit:'TC2', afterBox:'06', expectedDays:2,
-  blockAt:DateTime(2026, 11, 1),
+  blockAt:blockAt ?? DateTime(2026, 11, 1),
   admittedAt:admittedAt ?? DateTime(2026, 11, 1, 7),
+  fromBlocProgram:fromBlocProgram,
   stage:stage,
 );
 
@@ -61,6 +63,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
+    expect(find.text('DATE D’ADMISSION'),findsOneWidget);
+    expect(find.byKey(const Key('discharge-admission-date')),findsOneWidget);
+    expect(find.text('01/11/2026'),findsOneWidget);
     expect(find.text('Intervention chirurgicale'),findsOneWidget);
     expect(find.byKey(const Key('discharge-procedure-label')),findsOneWidget);
     expect(find.text('Intervention de test'),findsOneWidget);
@@ -97,4 +102,37 @@ void main() {
     expect(find.byKey(const Key('declare-discharge-fab')),findsNothing);
     expect(find.text('Observation clinique'),findsOneWidget);
   });
+  testWidgets('Date d’admission : programme officiel prioritaire sur admittedAt',
+      (tester) async {
+    final patient = dischargePatient(
+      blockAt: DateTime(2026, 10, 30, 7),
+      admittedAt: DateTime(2026, 11, 2, 18),
+      fromBlocProgram: true,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: PatientDetailPage(patient: patient),
+    ));
+    await tester.tap(find.byKey(const Key('declare-discharge-fab')));
+    await tester.pumpAndSettle();
+    expect(find.text('30/10/2026'), findsOneWidget);
+    expect(find.text('02/11/2026'), findsNothing);
+    expect(find.text('Date du programme opératoire · admission de suivi'),
+      findsOneWidget);
+  });
+
+  testWidgets('Date d’admission manuelle : admis réel, pas date du bloc',
+      (tester) async {
+    final patient = dischargePatient(
+      blockAt: DateTime(2026, 11, 3),
+      admittedAt: DateTime(2026, 11, 1, 8),
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: PatientDetailPage(patient: patient),
+    ));
+    await tester.tap(find.byKey(const Key('declare-discharge-fab')));
+    await tester.pumpAndSettle();
+    expect(find.text('01/11/2026'), findsOneWidget);
+    expect(find.text('Date d’admission enregistrée'), findsOneWidget);
+  });
+
 }
