@@ -120,7 +120,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       ):null,
       floatingActionButtonLocation:FloatingActionButtonLocation.endFloat,
       body:ListView(
-        padding:const EdgeInsets.fromLTRB(18,14,18,120),
+        // Espace défilable réservé aux actions : elles ne sont jamais
+        // recouvertes par les boutons flottants, même sur un petit écran.
+        padding:EdgeInsets.fromLTRB(18,14,18,
+          p.isPostOp && p.physicallyAdmitted ? 220
+            : (p.isActive || p.isProgrammed ? 150 : 26)),
         children:[
           VCard(color:VColors.ink,padding:const EdgeInsets.all(18),
             child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
