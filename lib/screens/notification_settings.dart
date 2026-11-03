@@ -4,6 +4,8 @@ import '../store.dart';
 import '../branding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'notification_inbox.dart';
+import '../theme.dart';
+import '../widgets.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -11,21 +13,34 @@ class NotificationSettingsPage extends StatefulWidget {
       _NotificationSettingsPageState();
 }
 
-class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
+class _NotificationSettingsPageState extends State<NotificationSettingsPage> with WidgetsBindingObserver {
   DutyAlarmPreferences preferences = const DutyAlarmPreferences();
   bool busy = true;
   String? status;
   Map<String,dynamic> deviceStatus = {};
   bool checkingDevice = false;
+  String? permissionFeedback;
   Map<String,bool> pushTypes = {'program_updates':true,'urgent_admissions':true,'access_updates':true,'discharge_review':true,'discharge_confirmed':true};
   bool pushBusy = false;
   String? get userId => appStore.activeLocalProfile?.id;
 
   @override void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _loadPush();
     _checkDevice();
+  }
+
+  @override void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override void didChangeAppLifecycleState(AppLifecycleState state) {
+    if(state==AppLifecycleState.resumed && dutyAlarmSupported) {
+      _checkDevice();
+    }
   }
 
   Future<void> _load() async {
@@ -37,15 +52,42 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
 
   Future<void> _checkDevice() async {
-    if(!dutyAlarmSupported)return;
+    if(!dutyAlarmSupported || !mounted)return;
     setState(()=>checkingDevice=true);
     try {
       final value=await dutyAlarmDeviceStatus();
-      if(mounted)setState(()=>deviceStatus=value);
-    } catch (_) {
-      if(mounted)setState(()=>status='Impossible de lire les autorisations Android.');
+      if(!mounted)return;
+      final allowed=['notifications','exact','fullScreen']
+        .where((key)=>value[key]==true).length;
+      setState((){
+        deviceStatus=value;
+        permissionFeedback=allowed==3
+          ? 'Autorisations vérifiées : notifications, alarmes exactes et plein écran autorisés.'
+          : '$allowed/3 autorisations accordées. Utilisez les réglages ci-dessous, puis revenez dans VISCERA : le contrôle se relancera automatiquement.';
+      });
+    } catch(error) {
+      if(mounted)setState((){
+        deviceStatus={};
+        permissionFeedback='Contrôle Android indisponible : ${error.toString()}. '
+          'Réinstallez le dernier APK VISCERA si le problème persiste.';
+      });
     } finally {
       if(mounted)setState(()=>checkingDevice=false);
+    }
+  }
+
+  Future<void> _openPermissionSettings(Future<void> Function() open) async {
+    try {
+      await open();
+      // Ne pas vérifier tout de suite : Android affiche d'abord son panneau.
+      // didChangeAppLifecycleState(resumed) réinterroge la permission au retour.
+      if(mounted)setState((){
+        permissionFeedback='Modifiez l’autorisation dans Android, puis revenez à VISCERA. '
+          'Les statuts seront actualisés automatiquement.';
+      });
+    } catch(error) {
+      if(mounted)setState(()=>permissionFeedback=
+        'Impossible d’ouvrir le réglage Android : ${error.toString()}');
     }
   }
 
@@ -178,52 +220,83 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   preferences = preferences.copyWith(loudFullScreen:v)),
         ),
         if(dutyAlarmSupported) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height:12),
+          VCard(color:VColors.softMint,padding:const EdgeInsets.all(14),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                Icon(checkingDevice?Icons.sync_rounded:Icons.verified_user_outlined,
+                  color:VColors.ink,size:22),
+                const SizedBox(width:9),
+                const Expanded(child:Text('Autorisations Android',
+                  style:TextStyle(fontWeight:FontWeight.w800,color:VColors.ink))),
+              ]),
+              const SizedBox(height:8),
+              Text(permissionFeedback ??
+                'Appuyez sur « Vérifier » pour contrôler les autorisations réelles de ce téléphone.',
+                key:const Key('duty-permission-feedback'),
+                style:const TextStyle(fontSize:12,color:VColors.ink)),
+            ])),
           ListTile(
-            leading: const Icon(Icons.volume_up_rounded),
-            title: const Text('Volume des alarmes Android'),
-            subtitle: Text(deviceStatus['maxVolume'] is num &&
-                    (deviceStatus['maxVolume'] as num)>0
-                ? 'Niveau actuel : '+(((deviceStatus['volume'] as num? ?? 0) /
-                  (deviceStatus['maxVolume'] as num))*100).round().toString()+' %'
-                : 'Consultez le volume Alarme du téléphone.'),
-            trailing: TextButton(
-              onPressed: () async {
-                await openDutyAlarmVolumeSettings();
-                if(mounted) _checkDevice();
-              },
-              child: const Text('Régler'),
-            ),
+            key:const Key('notification-permission-row'),
+            leading:Icon(deviceStatus['notifications']==true
+              ? Icons.check_circle_outline_rounded
+              : Icons.notifications_off_outlined),
+            title:const Text('Notifications Android'),
+            subtitle:Text(deviceStatus['notifications']==true
+              ? 'Notifications autorisées par Android'
+              : 'Notifications non autorisées ou non vérifiées'),
+            trailing:TextButton(
+              onPressed:()=>_openPermissionSettings(openDutyNotificationSettings),
+              child:const Text('Réglages')),
           ),
           ListTile(
-            leading: Icon(deviceStatus['fullScreen']==true
-              ? Icons.check_circle_outline : Icons.phonelink_ring_outlined),
-            title: const Text('Affichage sur écran verrouillé'),
-            subtitle: Text(deviceStatus['fullScreen']==true
-                ? 'Accès plein écran autorisé sur cet appareil'
-                : 'Autorisation spéciale Android nécessaire'),
-            trailing: TextButton(
-              onPressed: () async {
-                await openDutyFullScreenSettings();
-                if(mounted) _checkDevice();
-              },
-              child: const Text('Autoriser'),
-            ),
+            key:const Key('fullscreen-permission-row'),
+            leading:Icon(deviceStatus['fullScreen']==true
+              ? Icons.check_circle_outline_rounded
+              : Icons.phonelink_ring_outlined),
+            title:const Text('Alarme sur écran verrouillé'),
+            subtitle:Text(deviceStatus['fullScreen']==true
+              ? 'Autorisation plein écran disponible'
+              : 'Accès plein écran non accordé ou non vérifié'),
+            trailing:TextButton(
+              onPressed:()=>_openPermissionSettings(openDutyFullScreenSettings),
+              child:const Text('Réglages')),
           ),
           ListTile(
-            leading: Icon(deviceStatus['exact']==true
-                ? Icons.check_circle_outline : Icons.schedule),
-            title: const Text('Horaires des alarmes'),
-            subtitle: Text(deviceStatus['exact']==true
+            key:const Key('exact-alarm-permission-row'),
+            leading:Icon(deviceStatus['exact']==true
+              ? Icons.check_circle_outline_rounded : Icons.schedule_rounded),
+            title:const Text('Horaires des alarmes'),
+            subtitle:Text(deviceStatus['exact']==true
               ? 'Alarmes exactes autorisées'
-              : 'Précision limitée : Android peut retarder une alarme. '
-                'Enregistrez les rappels pour demander l’autorisation.'),
+              : 'Autorisation « Alarmes et rappels » à accorder'),
+            trailing:TextButton(
+              onPressed:()=>_openPermissionSettings(openDutyExactAlarmSettings),
+              child:const Text('Autoriser')),
+          ),
+          ListTile(
+            leading:const Icon(Icons.volume_up_rounded),
+            title:const Text('Volume des alarmes Android'),
+            subtitle:Text(deviceStatus['maxVolume'] is num &&
+                (deviceStatus['maxVolume'] as num)>0
+              ? 'Niveau actuel : '+(((deviceStatus['volume'] as num? ?? 0) /
+                (deviceStatus['maxVolume'] as num))*100).round().toString()+' %'
+              : 'Consultez le volume Alarme du téléphone.'),
+            trailing:TextButton(
+              onPressed:()=>_openPermissionSettings(openDutyAlarmVolumeSettings),
+              child:const Text('Régler')),
           ),
           OutlinedButton.icon(
-            onPressed: checkingDevice ? null : _checkDevice,
-            icon: const Icon(Icons.rule_rounded),
-            label: const Text('Vérifier les autorisations de mon téléphone'),
-          ),
+            key:const Key('check-duty-device-permissions'),
+            onPressed:checkingDevice?null:_checkDevice,
+            icon:const Icon(Icons.rule_rounded),
+            label:Text(checkingDevice?'Vérification en cours…'
+              :'Vérifier les autorisations de mon téléphone')),
+          const SizedBox(height:6),
+          const Text('Sur certains Xiaomi / Redmi, autorisez aussi les '
+            'notifications sur écran verrouillé et le lancement en arrière-plan '
+            'dans les réglages du téléphone.',
+            style:TextStyle(fontSize:11,color:VColors.muted)),
         ],
         const SizedBox(height: 12),
         FilledButton.icon(
