@@ -7,6 +7,26 @@ import '../build_info.dart';
 import '../branding.dart';
 import 'shell.dart';
 
+/// Rappel de délivrabilité affiché pour les deux parcours d'e-mail Auth.
+/// Indépendant de Supabase : testable avant l'envoi et sur écran étroit.
+class AuthEmailSpamReminder extends StatelessWidget {
+  const AuthEmailSpamReminder({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.only(top: 8, bottom: 14),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(Icons.mark_email_unread_outlined, size: 18, color: Color(0xFF007A80)),
+      SizedBox(width: 9),
+      Expanded(child: Text(
+        'Vérifier vos spams. Consultez également le dossier « Courrier indésirable » si vous ne recevez pas le message.',
+        key: Key('auth-spam-reminder'),
+        style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF274B59)),
+      )),
+    ]),
+  );
+}
+
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
   @override State<AuthGate> createState() => _AuthGateState();
@@ -145,19 +165,6 @@ class _AuthGateState extends State<AuthGate> {
 
   /// Rappel visible pour les liens d'inscription et de récupération :
   /// les filtres e-mail peuvent classer les messages transactionnels en spam.
-  Widget _spamReminder() => const Padding(
-    padding: EdgeInsets.only(top: 8, bottom: 14),
-    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(Icons.mark_email_unread_outlined, size: 18, color: Color(0xFF007A80)),
-      SizedBox(width: 9),
-      Expanded(child: Text(
-        'Vérifier vos spams. Consultez également le dossier « Courrier indésirable » si vous ne recevez pas le message.',
-        key: Key('auth-spam-reminder'),
-        style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF274B59)),
-      )),
-    ]),
-  );
-
   Widget _action(String label, VoidCallback callback) => SizedBox(
     height: 52, child: FilledButton(onPressed: auth.busy ? null : callback,
       style: FilledButton.styleFrom(backgroundColor: const Color(0xFF142B38)),
@@ -282,7 +289,7 @@ class _AuthGateState extends State<AuthGate> {
     const Icon(Icons.mark_email_unread_outlined,color: Color(0xFF007A80),size:47),
     const SizedBox(height: 15),
     _title('Vérifiez votre adresse e-mail', 'Vous allez recevoir un message VISCERA. Cliquez sur « Confirmer mon adresse e-mail » pour valider votre inscription.'),
-    _spamReminder(),
+    const AuthEmailSpamReminder(),
     if(auth.pendingEmail!=null)
       Text(auth.pendingEmail!,textAlign:TextAlign.center,
         style:const TextStyle(fontWeight:FontWeight.w700))
@@ -302,7 +309,7 @@ class _AuthGateState extends State<AuthGate> {
     const Icon(Icons.lock_reset_outlined,size:43,color:Color(0xFF007A80)),
     const SizedBox(height:12),
     _title('Mot de passe oublié ?', 'Indiquez votre adresse e-mail. Vous recevrez un message VISCERA pour choisir un nouveau mot de passe.'),
-    _spamReminder(),
+    const AuthEmailSpamReminder(),
     _input(email,'Adresse email',type:TextInputType.emailAddress),
     _notice(),
     _action('Recevoir l’e-mail de réinitialisation',(){if(_valid())auth.forgotPassword(email.text);}),
