@@ -115,6 +115,8 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0;
   let retried = 0;
+  // Diagnostic FCM limité aux codes d'erreur, jamais aux jetons ni aux patients.
+  const failureCounts = new Map<string, number>();
   for (const item of items || []) {
     const due = new Date(Date.now() + 5*60000).toISOString();
     const {data:claimed,error:claimError} = await admin.from("viscera_notifications")
@@ -149,9 +151,29 @@ Deno.serve(async (req: Request) => {
               android:{priority:item.kind==="urgent_admissions"?"high":"normal"},
             }})},
         );
-        if (!response.ok) allOk = false;
+        if (!response.ok) {
+          allOk = false;
+          let reason = "UNKNOWN";
+          let fcmCode = "UNSPECIFIED";
+          try {
+            const json = await response.json();
+            reason = String(json?.error?.status || "UNKNOWN");
+            const details = json?.error?.details;
+            if (Array.isArray(details)) {
+              const fcmError = details.find((item) =>
+                item?.["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError");
+              fcmCode = String(fcmError?.errorCode || "UNSPECIFIED");
+            }
+          } catch (_) {
+            // Ne jamais journaliser de corps de réponse non contrôlé.
+          }
+          const category = `${response.status}:${reason}:${fcmCode}`;
+          failureCounts.set(category, (failureCounts.get(category) || 0) + 1);
+        }
       } catch (_) {
         allOk = false;
+        failureCounts.set("NETWORK_ERROR",
+          (failureCounts.get("NETWORK_ERROR") || 0) + 1);
       }
     }
     if (allOk) {
@@ -167,5 +189,9 @@ Deno.serve(async (req: Request) => {
       }).eq("id",item.id);
     }
   }
-  return Response.json({processed:(items || []).length,sent,retried});
+  const failures = Array.from(failureCounts.entries()).map(([category,count]) =>
+    ({category,count}));
+  const summary = {processed:(items || []).length,sent,retried,failures};
+  // Ne pas afficher « workflow réussi » si Firebase a refusé les messages.
+  return Response.json(summary,{status:retried > 0 ? 502 : 200});
 });
