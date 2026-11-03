@@ -73,3 +73,19 @@ explicite du médecin après contrôle **réel** des documents et des cachets.
 - Il ne déclenche **jamais** la sortie : la validation clinique,
   la confirmation FAR si applicable et la confirmation finale restent requises.
 - Il n'est pas accessible avant le postopératoire avec admission réelle.
+
+## Date d'admission dans les vérifications documentaires
+
+La fenêtre « Vérification avant sortie » et la page « Préparer la sortie »
+mettent en évidence la **date d'admission de suivi** en grand format JJ/MM/AAAA.
+
+- Dossier issu du **programme opératoire** : date du programme où le patient
+  est apparu (champ `blockAt`, basé sur `program_date`), indépendamment
+  de la date d'importation du PDF ou d'un `admittedAt` modifié.
+- Dossier d'**admission manuelle** (urgences/consultation) : date
+  `admittedAt` effectivement enregistrée dans le dossier.
+- La date du programme vaut comme origine du suivi **sans attester
+  une admission physique réelle**. Les contrôles d'admission et de sortie
+  médicale restent inchangés.
+
+Tests Flutter : `test/discharge_floating_verification_test.dart`.

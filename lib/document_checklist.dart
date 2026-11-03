@@ -158,3 +158,65 @@ class _DischargeDocumentsBulkActionState
     },
   );
 }
+
+
+/// Date retenue pour le suivi du séjour, mise en évidence lors du contrôle
+/// des documents de sortie. Pour le programme officiel, la date d'origine est
+/// celle du programme opératoire et ne certifie pas une présence physique.
+class AdmissionDateHighlight extends StatelessWidget {
+  const AdmissionDateHighlight({super.key, required this.patient});
+
+  final PatientCase patient;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = patient.hospitalizationStartDate;
+    final dateLabel = date == null
+        ? 'Non renseignée'
+        : '${date.day.toString().padLeft(2, '0')}/'
+          '${date.month.toString().padLeft(2, '0')}/${date.year}';
+    final source = patient.fromBlocProgram
+        ? 'Date du programme opératoire · admission de suivi'
+        : 'Date d’admission enregistrée';
+
+    return Container(
+      key: const Key('discharge-admission-date'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: VColors.softMint,
+        border: Border.all(color: VColors.ink, width: 1.2),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.event_available_rounded,
+            size: 24, color: VColors.ink),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('DATE D’ADMISSION',
+                style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w800,
+                  color: VColors.ink,
+                )),
+              const SizedBox(height: 3),
+              Text(dateLabel,
+                key: const Key('discharge-admission-date-value'),
+                style: const TextStyle(
+                  fontSize: 21, fontWeight: FontWeight.w900,
+                  color: VColors.ink,
+                )),
+              const SizedBox(height: 2),
+              Text(source, style: const TextStyle(
+                fontSize: 11, color: VColors.muted,
+              )),
+            ],
+          )),
+        ],
+      ),
+    );
+  }
+}
