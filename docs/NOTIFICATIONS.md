@@ -14,6 +14,17 @@
 2. Une admission manuelle des urgences/immediate est créée : seniors approuvés uniquement, si activé (sauf son auteur).
 3. Un compte demande une validation : administrateurs approuvés.
 4. Un compte reçoit un statut approuvé, rejeté ou désactivé : propriétaire du compte.
+5. **Une sortie médicale réellement validée et enregistrée** : tous les
+   médecins juniors et seniors approuvés, sauf ceux ayant désactivé
+   « Sorties confirmées ». La notification indique **le nom du praticien
+   connecté qui a validé la sortie** (depuis `doctor_profiles.display_name`),
+   avec une seule alerte par dossier et par destinataire. Aucune alerte
+   n'est envoyée si l'enregistrement de sortie échoue. Elle est visible dans
+   le centre de notifications et intégrée à la file d'envoi Firebase.
+
+   Exemple : « Sortie confirmée — Sortie validée par Dr [praticien].
+   Le dossier est disponible dans Archives. » Le nom du patient et son
+   intervention ne figurent pas dans le message push.
 
 Le backend ne place **aucun nom, date de naissance, acte opératoire ni ID patient**
 dans le titre, corps ou les données FCM. Une alerte sert à ouvrir l'application
