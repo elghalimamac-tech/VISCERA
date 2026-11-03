@@ -103,4 +103,57 @@ void main() {
     expect(find.textContaining('Jour d’hospitalisation'),findsOneWidget);
     expect(tester.takeException(),isNull);
   });
+  testWidgets('Admission à confirmer : hauteur compacte sur écran étroit',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(350, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final p = caseForTest(
+      stage: CaseStage.scheduled,
+      programme: DateTime(2026, 11, 9),
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(children: [
+          HospitalizationDayCounter(patient:p,showStartDate:true),
+        ]),
+      )),
+    ));
+    expect(find.text('Admission à confirmer'), findsOneWidget);
+    expect(find.text('Jour d’hospitalisation'), findsOneWidget);
+    final labelRect = tester.getRect(find.text('Jour d’hospitalisation'));
+    final badgeRect = tester.getRect(
+        find.byKey(const Key('hospitalization-day-counter')));
+    expect(labelRect.width, greaterThan(130));
+    expect(labelRect.height, lessThan(40));
+    expect(labelRect.top, greaterThanOrEqualTo(badgeRect.bottom));
+    expect(tester.getSize(find.byType(HospitalizationDayCounter)).height,
+        lessThan(160));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Séjour terminé : libellé long reste horizontal sur mobile',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 680));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final p = caseForTest(
+      admitted:DateTime(2026,11,1),
+      stage:CaseStage.discharged,
+      discharged:DateTime(2026,11,2),
+    );
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:Padding(padding:const EdgeInsets.all(18),
+        child:Column(children:[
+          HospitalizationDayCounter(patient:p,showStartDate:true),
+        ])),
+    )));
+    final rect = tester.getRect(find.text('Durée du séjour à la sortie'));
+    expect(rect.width, greaterThan(120));
+    expect(rect.height, lessThan(40));
+    expect(tester.getSize(find.byType(HospitalizationDayCounter)).height,
+      lessThan(160));
+    expect(tester.takeException(), isNull);
+  });
+
 }
