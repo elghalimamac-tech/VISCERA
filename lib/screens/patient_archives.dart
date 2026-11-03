@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
+import '../patient_service_groups.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../branding.dart';
@@ -23,6 +24,28 @@ class _PatientArchivesPageState extends State<PatientArchivesPage> {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
+
+  Widget _archiveCard(PatientCase p)=>VCard(
+    margin:const EdgeInsets.only(bottom:10),
+    onTap:()=>Navigator.push(context,
+      MaterialPageRoute(builder:(_)=>PatientDetailPage(patient:p))),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[
+        const Icon(Icons.inventory_2_outlined,color:VColors.ink),
+        const SizedBox(width:10),
+        Expanded(child:Text(p.name,style:const TextStyle(
+          fontWeight:FontWeight.w800,fontSize:15))),
+        const Icon(Icons.chevron_right_rounded,color:VColors.muted),
+      ]),
+      const SizedBox(height:8),
+      Text(p.effectiveProcedure.trim().isEmpty
+        ? 'Intervention non renseignée':p.effectiveProcedure,
+        style:const TextStyle(fontSize:13)),
+      const SizedBox(height:8),
+      Text('Sortie le ${_date(p.dischargeAt)}',
+        style:const TextStyle(fontSize:12,color:VColors.muted)),
+    ]),
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -72,32 +95,20 @@ class _PatientArchivesPageState extends State<PatientArchivesPage> {
             Text('${archived.length} dossier(s) archivé(s)',
               style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
-            ...archived.map((p) => VCard(
-              margin: const EdgeInsets.only(bottom: 10),
-              onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => PatientDetailPage(patient: p))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.inventory_2_outlined, color: VColors.ink),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(p.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 15))),
-                    const Icon(Icons.chevron_right_rounded,
-                      color: VColors.muted),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text(p.effectiveProcedure.trim().isEmpty
-                      ? 'Intervention non renseignée' : p.effectiveProcedure,
-                    style: const TextStyle(fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Text('Sortie le ${_date(p.dischargeAt)}',
-                    style: const TextStyle(fontSize: 12,
-                      color: VColors.muted)),
-                ],
-              ),
-            )),
+            ...patientsByService(archived).entries.expand((group)=><Widget>[
+              VCard(color:VColors.softMint,padding:const EdgeInsets.all(12),
+                margin:const EdgeInsets.only(bottom:10),
+                child:Row(children:[
+                  const Icon(Icons.domain_outlined,color:VColors.ink,size:20),
+                  const SizedBox(width:9),
+                  Expanded(child:Text(group.key,
+                    style:const TextStyle(color:VColors.ink,
+                      fontSize:14,fontWeight:FontWeight.w800))),
+                  Text('${group.value.length}',style:const TextStyle(
+                    color:VColors.ink,fontWeight:FontWeight.w900)),
+                ])),
+              ...group.value.map((p)=>_archiveCard(p)),
+            ]),
             if (archived.isEmpty)
               const VCard(child: Text('Aucun dossier archivé pour cette recherche.')),
           ],
