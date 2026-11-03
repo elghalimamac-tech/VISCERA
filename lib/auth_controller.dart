@@ -201,9 +201,10 @@ class DoctorAuthController extends ChangeNotifier {
     );
     if (gradeError != null) { message = gradeError; notifyListeners(); return false; }
     final medicalTitle = role == 'junior' ? 'Dr' : seniorTitle!;
-    final redirectUrl = kIsWeb
-        ? '${Uri.base.origin}${Uri.base.path}'
-        : 'viscera://auth-callback/';
+    // Un seul portail HTTPS pour Android, Web et les applications mail :
+    // un schéma viscera:// pouvait aboutir à une page vide si l'application
+    // n'était pas installée ou si le navigateur refusait l'ouverture.
+    final redirectUrl = visceraConfirmationWebUrl;
     final metadata = <String, dynamic>{
       'first_name': first,
       'last_name': last,
@@ -228,14 +229,18 @@ class DoctorAuthController extends ChangeNotifier {
   Future<bool> resendConfirmation() async => _execute(() async {
     final email = pendingEmail ?? client.auth.currentUser?.email;
     if (email == null || email.isEmpty) throw StateError('Adresse email inconnue.');
-    await client.auth.resend(type: OtpType.signup, email: email);
+    await client.auth.resend(
+      type: OtpType.signup,
+      email: email,
+      emailRedirectTo: visceraConfirmationWebUrl,
+    );
     message = 'Si cette adresse est éligible, un nouveau lien a été envoyé.';
   });
 
   Future<bool> forgotPassword(String email) async => _execute(() async {
     pendingEmail = email.trim().toLowerCase();
     await client.auth.resetPasswordForEmail(
-      pendingEmail!, redirectTo: kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : 'viscera://auth-callback/',
+      pendingEmail!, redirectTo: visceraConfirmationWebUrl,
     );
     message = 'Si un compte correspond à cette adresse, un email de réinitialisation a été envoyé.';
   });
