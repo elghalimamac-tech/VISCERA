@@ -361,6 +361,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             ),
           ])),
+          SectionHeading('Actions de prise en charge'),
+          _actions(),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
             const SizedBox(height:12),
             // Avis demandés aux autres services pendant l'hospitalisation.
@@ -394,8 +396,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               requirements:ClinicalDocuments.postBlock,
               readOnly:p.stage==CaseStage.discharged),
           ],
-          SectionHeading('Actions de prise en charge'),
-          _actions(),
           if(p.stage==CaseStage.discharged)...[
             const SizedBox(height:12),
             VCard(color:VColors.softMint,child:Text(
@@ -425,7 +425,13 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   Widget _factCard(IconData icon,String label,String value,{VoidCallback? onTap})=>VCard(
     onTap:onTap,padding:const EdgeInsets.all(13),
     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Icon(icon,color:VColors.ink,size:20),
+      Row(children:[
+        Icon(icon,color:VColors.ink,size:20),
+        if(onTap!=null)...[
+          const Spacer(),
+          const Icon(Icons.edit_outlined,color:VColors.muted,size:16),
+        ],
+      ]),
       const SizedBox(height:7),
       Text(label,style:const TextStyle(fontSize:11,color:VColors.muted)),
       const SizedBox(height:4),
