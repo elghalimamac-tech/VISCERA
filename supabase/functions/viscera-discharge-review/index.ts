@@ -61,14 +61,37 @@ function reviewDue(stay: Stay, nowDay: string): boolean {
   return Number.isFinite(elapsed) && elapsed >= days && elapsed >= 0;
 }
 
+/**
+ * Autorise exclusivement une clé de service du projet, jamais une clé
+ * publishable ni un JWT utilisateur. Supabase expose les nouvelles clés
+ * secrètes dans SUPABASE_SECRET_KEYS (objet JSON nommé).
+ * Compatible avec l'ancien service_role pendant la transition.
+ */
+function trustedServiceKey(request: Request): string | null {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  let namedSecret: string | undefined;
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
+    if (typeof keys?.default === "string") namedSecret = keys.default;
+  } catch (_) {
+    // Environnement sans nouvelles clés : clé legacy uniquement.
+  }
+  const fromApiKey = request.headers.get("apikey");
+  const fromBearer = request.headers.get("Authorization")
+    ?.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const received = fromApiKey || fromBearer;
+  if (!received) return null;
+  if (legacy && received === legacy) return legacy;
+  if (namedSecret && received === namedSecret) return namedSecret;
+  return null;
+}
+
 Deno.serve(async (request:Request) => {
   if (request.method !== "POST") return new Response("Method not allowed",{status:405});
+  const key = trustedServiceKey(request);
+  if (!key) return new Response("Forbidden",{status:403});
   const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) return new Response("Not configured",{status:503});
-  if (request.headers.get("Authorization") !== "Bearer " + key) {
-    return new Response("Forbidden",{status:403});
-  }
+  if (!url) return new Response("Not configured",{status:503});
   const supabase = createClient(url,key,{
     auth:{autoRefreshToken:false,persistSession:false},
   });
