@@ -95,6 +95,43 @@ void main() {
     expect(patient.stage,CaseStage.postoperative);
   });
 
+
+  testWidgets('Les boutons flottants ne recouvrent pas le bouton non admis',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final patient = dischargePatient(fromBlocProgram: true);
+    await tester.pumpWidget(MaterialApp(
+      home: PatientDetailPage(patient: patient),
+    ));
+
+    final exclusion = find.byKey(const Key('omit-program-admission'));
+    final discharge = find.byKey(const Key('declare-discharge-fab'));
+    final observation = find.widgetWithText(
+      FloatingActionButton, 'Observation clinique');
+
+    expect(discharge, findsOneWidget);
+    expect(observation, findsOneWidget);
+
+    // Atteindre le bas réel de l'écran sur un téléphone étroit.
+    await tester.drag(find.byType(ListView).first,
+      const Offset(0, -4000));
+    await tester.pumpAndSettle();
+
+    expect(exclusion, findsOneWidget);
+    final omitRect = tester.getRect(exclusion);
+    final dischargeRect = tester.getRect(discharge);
+    final observationRect = tester.getRect(observation);
+    expect(omitRect.bottom, lessThan(dischargeRect.top - 8));
+    expect(omitRect.bottom, lessThan(observationRect.top - 8));
+    expect(omitRect.top, greaterThan(0));
+  });
+
   testWidgets('Pas de bouton rouge avant postopératoire',
       (tester) async {
     final patient=dischargePatient(stage:CaseStage.preoperative);
