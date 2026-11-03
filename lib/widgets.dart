@@ -35,9 +35,10 @@ class SectionHeading extends StatelessWidget {
 class HospitalizationDayCounter extends StatefulWidget {
   const HospitalizationDayCounter({
     super.key, required this.patient, this.showStartDate = false,
+    this.compact = false,
   });
   final PatientCase patient;
-  final bool showStartDate;
+  final bool showStartDate, compact;
 
   @override
   State<HospitalizationDayCounter> createState()=>_HospitalizationDayCounterState();
@@ -96,6 +97,32 @@ class _HospitalizationDayCounterState extends State<HospitalizationDayCounter>
     if(start!=null){
       date='${start.day.toString().padLeft(2,'0')}/'
         '${start.month.toString().padLeft(2,'0')}/${start.year}';
+    }
+    if(widget.compact){
+      return Row(children:[
+        const Icon(Icons.today_rounded,color:VColors.ink,size:22),
+        const SizedBox(width:9),
+        Container(
+          key:const Key('hospitalization-day-counter'),
+          padding:const EdgeInsets.symmetric(horizontal:10,vertical:7),
+          decoration:BoxDecoration(color:VColors.softMint,
+            borderRadius:BorderRadius.circular(12)),
+          child:Text(label,style:const TextStyle(fontSize:17,
+            fontWeight:FontWeight.w900,color:VColors.ink)),
+        ),
+        const SizedBox(width:12),
+        Expanded(child:Column(
+          crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text(p.stage==CaseStage.discharged
+                ? 'Durée du séjour à la sortie' : 'Jour d’hospitalisation',
+              style:const TextStyle(fontWeight:FontWeight.w800,fontSize:12)),
+            const SizedBox(height:3),
+            Text('$source · $date',maxLines:2,overflow:TextOverflow.ellipsis,
+              style:const TextStyle(fontSize:11,color:VColors.muted)),
+          ],
+        )),
+      ]);
     }
     // Sur un écran mobile, la pastille « Admission à confirmer » est trop
     // longue pour partager une ligne avec le libellé et la date. Un Row
