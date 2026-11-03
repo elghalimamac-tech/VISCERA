@@ -25,8 +25,10 @@ jobs:
         run: |
           flutter create --platforms=web --project-name viscera --org com.viscera .
           flutter pub get
+      - name: Vérifier le logo et les liens des deux e-mails
+        run: python3 tool/check_email_templates.py
       - name: Analyze changed Dart sources
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test access controls and clinical flows
         run: |
-          flutter test test/surgery_and_bed_sheet_test.dart test/email_link_test.dart test/specialist_opinions_test.dart test/hospitalization_days_test.dart test/discharge_floating_verification_test.dart test/document_checklist_test.dart test/patient_archives_test.dart test/manual_admission_persistence_test.dart test/bloc_clinical_record_test.dart test/programmed_patient_test.dart test/admin_access_test.dart test/team_admin_permission_test.dart test/patient_observation_fab_test.dart test/daily_observation_test.dart test/planning_logic_test.dart test/manual_duty_edit_test.dart test/personal_month_validation_test.dart test/personal_planning_tiles_test.dart test/personal_planning_types_test.dart
+          flutter test test/home_active_priority_test.dart test/surgery_and_bed_sheet_test.dart test/email_link_test.dart test/specialist_opinions_test.dart test/hospitalization_days_test.dart test/discharge_floating_verification_test.dart test/document_checklist_test.dart test/patient_archives_test.dart test/manual_admission_persistence_test.dart test/bloc_clinical_record_test.dart test/programmed_patient_test.dart test/admin_access_test.dart test/team_admin_permission_test.dart test/patient_observation_fab_test.dart test/daily_observation_test.dart test/planning_logic_test.dart test/manual_duty_edit_test.dart test/personal_month_validation_test.dart test/personal_planning_tiles_test.dart test/personal_planning_types_test.dart
