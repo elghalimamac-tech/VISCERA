@@ -52,6 +52,13 @@ class BlocClinicalRecordService {
       'notApplicable': value.notApplicable,
       'checkedAt': value.checkedAt?.toIso8601String(),
     })),
+    'specialistOpinions': patient.specialistOpinions.map((opinion) => {
+      'id': opinion.id,
+      'service': opinion.service,
+      'done': opinion.done,
+      'requestedAt': opinion.requestedAt.toIso8601String(),
+      'doneAt': opinion.doneAt?.toIso8601String(),
+    }).toList(),
     'dailyObservations': patient.dailyObservations.map((note) => {
       'date': note.date.toIso8601String(),
       'vitals': note.vitals,
@@ -148,6 +155,26 @@ class BlocClinicalRecordService {
           ..notApplicable = _bool(state['notApplicable'])
           ..checkedAt = _date(state['checkedAt']);
         patient.documents[item.key as String] = doc;
+      }
+    }
+    // Compatibilité : les anciens dossiers n'ont pas ce tableau.
+    patient.specialistOpinions.clear();
+    if (data['specialistOpinions'] is List) {
+      final seenIds = <String>{};
+      for (final raw in data['specialistOpinions'] as List) {
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final id = _text(item['id']);
+        final service = _text(item['service']).trim();
+        if (id.isEmpty || service.isEmpty || !seenIds.add(id)) continue;
+        final done = _bool(item['done']);
+        patient.specialistOpinions.add(SpecialistOpinion(
+          id: id,
+          service: service,
+          done: done,
+          requestedAt: _date(item['requestedAt']) ?? patient.blockAt,
+          doneAt: done ? _date(item['doneAt']) : null,
+        ));
       }
     }
     patient.dailyObservations.clear();
