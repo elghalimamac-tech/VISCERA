@@ -52,11 +52,15 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
 
     final edit=find.byKey(const Key('edit-surgery-details'));
-    // Les enfants sont créés à l'avance dans ce ListView : scrollUntilVisible
-    // peut s'arrêter alors que le bouton est toujours hors du viewport.
-    await tester.ensureVisible(edit);
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
+    // puis le remonter au-dessus de la zone des actions flottantes.
+    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(edit, findsOneWidget);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment: 0.2, duration: const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
@@ -83,9 +87,15 @@ void main() {
       ),
     ));
     final edit=find.text('Modifier l’affectation');
-    await tester.ensureVisible(edit);
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
+    // puis le remonter au-dessus de la zone des actions flottantes.
+    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(edit, findsOneWidget);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment: 0.2, duration: const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
