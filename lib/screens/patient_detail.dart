@@ -321,7 +321,21 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               p.standardizedSurgeryType),
             const Divider(height:22),
             _line(Icons.medical_services_outlined,'Bloc',
-              '${p.procedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
+              '${p.effectiveProcedure}\n${_format(p.blockAt)} · ${p.blockTiming}'),
+            if (p.procedureOverride.trim().isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text('Programme original : ${p.procedure}',
+                style: const TextStyle(fontSize: 11, color: VColors.muted)),
+            ],
+            if (p.stage != CaseStage.discharged && !p.isOmitted) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('edit-surgery-details'),
+                onPressed: _editSurgery,
+                icon: const Icon(Icons.edit_note_outlined, size: 18),
+                label: const Text('Modifier type de chirurgie / intervention'),
+              ),
+            ],
             const Divider(height:22),
             _line(Icons.bed_outlined,'Avant le bloc',p.beforeBox.isEmpty ? 'Non attribué' : '${p.beforeUnit} · Box ${p.beforeBox}'),
             const Divider(height:22),
@@ -573,6 +587,106 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       ),
     );
     controller.dispose();
+  }
+
+  Future<void> _editSurgery() async {
+    if (p.stage == CaseStage.discharged || p.isOmitted) return;
+    final type = TextEditingController(
+      text: p.standardizedSurgeryType == 'À préciser'
+          ? '' : p.standardizedSurgeryType,
+    );
+    final procedure = TextEditingController(text: p.effectiveProcedure);
+    final navigationInset = MediaQuery.of(context).viewPadding.bottom;
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final media = MediaQuery.of(ctx);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20, 8, 20,
+            media.viewInsets.bottom > 0
+                ? media.viewInsets.bottom + 24 : navigationInset + 28,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (media.size.height - media.viewInsets.bottom -
+                  navigationInset - 90).clamp(190.0, media.size.height)
+                  .toDouble(),
+            ),
+            child: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Modifier la chirurgie',
+                    style: Theme.of(ctx).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                const Text('La correction sera enregistrée dans le dossier clinique. '
+                    'L’intitulé original du programme opératoire restera conservé.',
+                    style: TextStyle(fontSize: 12, color: VColors.muted)),
+                const SizedBox(height: 15),
+                TextField(
+                  key: const Key('surgery-type-input'),
+                  controller: type,
+                  maxLength: 120,
+                  decoration: const InputDecoration(
+                    labelText: 'Type de chirurgie',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('procedure-correction-input'),
+                  controller: procedure,
+                  maxLength: 300,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Intervention chirurgicale',
+                  ),
+                ),
+                const SizedBox(height: 15),
+                SizedBox(width: double.infinity, child: FilledButton(
+                  key: const Key('save-surgery-details'),
+                  onPressed: () {
+                    if (type.text.trim().length < 2 ||
+                        procedure.text.trim().length < 3) {
+                      _notice('Renseignez le type de chirurgie et l’intervention.');
+                      return;
+                    }
+                    Navigator.pop(ctx, [type.text.trim(), procedure.text.trim()]);
+                  },
+                  child: const Text('Enregistrer la chirurgie'),
+                )),
+                const SizedBox(height: 6),
+              ],
+            )),
+          ),
+        );
+      },
+    );
+    type.dispose();
+    procedure.dispose();
+    if (!mounted || result == null) return;
+    final oldType = p.surgeryType;
+    final oldOverride = p.procedureOverride;
+    p.surgeryType = result[0];
+    p.procedureOverride = result[1] == p.procedure ? '' : result[1];
+    setState(() {});
+    try {
+      await appStore.saveClinical(p);
+      if (!mounted) return;
+      appStore.refresh();
+      _notice('Type de chirurgie et intervention enregistrés.');
+    } catch (_) {
+      p.surgeryType = oldType;
+      p.procedureOverride = oldOverride;
+      if (!mounted) return;
+      appStore.refresh();
+      setState(() {});
+      _notice('Sauvegarde impossible : les informations précédentes ont été conservées.');
+    }
   }
 
   Future<void> _editIdentity() async {
