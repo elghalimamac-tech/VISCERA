@@ -275,6 +275,10 @@ class PatientCase {
   }
   bool get isPostOp => stage == CaseStage.postoperative || stage == CaseStage.dischargeReady;
   /// Autorisation documentaire et clinique nécessaire avant la sortie.
+  /// Vérification documentaire avant l'entrée au bloc ; aucune case n'est
+  /// considérée comme validée tant qu'un soignant ne l'a pas attestée.
+  bool get canConfirmTheatreEntry =>
+      stage == CaseStage.preoperative && allChecked(ClinicalDocuments.admission);
   bool get canDeclareDischarge =>
       isPostOp && physicallyAdmitted && allChecked(ClinicalDocuments.discharge);
   bool get physicallyAdmitted =>
