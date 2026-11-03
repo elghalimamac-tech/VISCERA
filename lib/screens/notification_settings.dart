@@ -17,7 +17,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   String? status;
   Map<String,dynamic> deviceStatus = {};
   bool checkingDevice = false;
-  Map<String,bool> pushTypes = {'program_updates':true,'urgent_admissions':true,'access_updates':true,'discharge_review':true};
+  Map<String,bool> pushTypes = {'program_updates':true,'urgent_admissions':true,'access_updates':true,'discharge_review':true,'discharge_confirmed':true};
   bool pushBusy = false;
   String? get userId => appStore.activeLocalProfile?.id;
 
@@ -55,7 +55,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     try {
       final data = await Supabase.instance.client
         .from('viscera_notification_preferences')
-        .select('program_updates,urgent_admissions,access_updates,discharge_review')
+        .select('program_updates,urgent_admissions,access_updates,discharge_review,discharge_confirmed')
         .eq('user_id',id).maybeSingle();
       if (data != null && mounted) setState(() {
         for (final kind in pushTypes.keys) {
@@ -279,6 +279,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           subtitle: const Text('Rappel générique au seuil J1 ou à partir de J4, selon le type de chirurgie'),
           value: pushTypes['discharge_review'] ?? true,
           onChanged: pushBusy ? null : (v) => _setPushType('discharge_review',v),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.logout_rounded),
+          title: const Text('Sorties confirmées'),
+          subtitle: const Text('Alerte à l’équipe avec le nom du médecin ayant validé la sortie, sans identité du patient'),
+          value: pushTypes['discharge_confirmed'] ?? true,
+          onChanged: pushBusy ? null : (v) => _setPushType('discharge_confirmed',v),
         ),
         OutlinedButton.icon(
           onPressed: () => Navigator.push(context,MaterialPageRoute(
