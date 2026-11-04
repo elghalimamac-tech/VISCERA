@@ -50,6 +50,7 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
     final api = Supabase.instance.client;
     final imports = await api.from('bloc_program_imports')
       .select('id,source_received_at')
+      .eq('hospital_id','huim6')
       .eq('program_date', dateKey(date))
       .eq('is_current', true)
       .order('source_received_at', ascending: false)
@@ -59,6 +60,7 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
     final rows = await api.from('bloc_program_entries')
       .select('sequence_no,room,scheduled_time,source_service,patient_name,'
         'procedure_name,surgeon,assistant,nurse,anaesthetist,iar,source_status')
+      .eq('hospital_id','huim6')
       .eq('import_id', importId)
       .order('sequence_no');
     return _BlocSnapshot(
