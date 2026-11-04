@@ -44,8 +44,12 @@ class DocumentChecklist extends StatelessWidget {
         SizedBox(width:38,height:42,child:Checkbox(
           value:check.verified,onChanged:disabled||check.notApplicable?null:(v)=>appStore.updateDocument(patient,item,verified:v??false),
           activeColor:VColors.ink)),
-        Expanded(child:Text(item.title,style:TextStyle(fontSize:13,fontWeight:FontWeight.w700,
-          color:check.notApplicable?VColors.muted:VColors.ink))),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(item.title,style:TextStyle(fontSize:13,fontWeight:FontWeight.w700,
+            color:check.notApplicable?VColors.muted:VColors.ink)),
+          if(check.fromProgram) const Text('Pré-coché · programme officiel (contrôler la pièce si nécessaire)',
+            style:TextStyle(fontSize:10.5,color:VColors.muted)),
+        ])),
         if(check.complete(item))const Icon(Icons.check_circle_rounded,color:Color(0xFF248567),size:20)
         else if(check.verified && item.needsStamp && check.stamped==false)
           const Icon(Icons.error_outline_rounded,color:Color(0xFFBF773D),size:20),
