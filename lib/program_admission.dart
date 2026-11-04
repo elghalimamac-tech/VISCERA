@@ -14,6 +14,16 @@ class ProgramAdmission {
       patient.blockAt.month,patient.blockAt.day);
     final today=DateTime(now.year,now.month,now.day);
     patient.admittedAt ??= surgeryDay;
+    // Le service considère les trois pièces d'admission déjà présentes
+    // pour les patients du programme. Ne jamais remplacer une correction
+    // manuelle ou une pièce explicitement décochée après import.
+    for (final requirement in ClinicalDocuments.admission) {
+      if (patient.documents.containsKey(requirement.key)) continue;
+      patient.documents[requirement.key] = DocumentCheck()
+        ..verified = true
+        ..stamped = requirement.needsStamp ? true : null
+        ..fromProgram = true;
+    }
     if(patient.admissionTiming.isEmpty || patient.admissionTiming=='À confirmer'
         || patient.admissionTiming==source) {
       patient.admissionTiming=source;
