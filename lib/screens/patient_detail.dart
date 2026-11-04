@@ -286,40 +286,51 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             ),
           ])),
-          SectionHeading('Suivi clinique',trailing:TextButton.icon(
-            onPressed:_openObservations,icon:const Icon(Icons.history_rounded,size:17),
-            label:const Text('Historique'))),
-          VCard(color:VColors.softMint,padding:const EdgeInsets.all(16),
-            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Row(children:[
-                const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
-                const SizedBox(width:10),
-                Expanded(child:Text(
-                  '${p.dailyObservations.length} observation(s) clinique(s)',
-                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:15))),
-              ]),
-              const SizedBox(height:8),
-              Text(p.dailyObservations.isEmpty
-                ? 'Aucune observation enregistrée pour ce séjour.'
-                : 'Dernière observation : ${_date(p.dailyObservations.first.date)}',
-                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
-              const SizedBox(height:4),
-              Text('${p.dailyObservations.where((o)=>!o.fullyReported).length} en attente de report Magica/Sillage',
-                style:const TextStyle(fontSize:12.5,color:VColors.muted)),
+          SectionHeading('Clinique et observations',trailing:Row(
+            mainAxisSize:MainAxisSize.min,children:[
+              IconButton(onPressed:_editIdentity,
+                tooltip:'Modifier identité et couverture',
+                icon:const Icon(Icons.badge_outlined,size:20)),
+              IconButton(onPressed:_editClinical,
+                tooltip:'Modifier le dossier clinique',
+                icon:const Icon(Icons.edit_outlined,size:20)),
             ])),
-          SectionHeading('Dossier clinique',trailing:Row(children:[
-            IconButton(onPressed:_editIdentity,tooltip:'Modifier identité et couverture',
-              icon:const Icon(Icons.badge_outlined)),
-            TextButton.icon(onPressed:_editClinical,
-              icon:const Icon(Icons.edit_outlined,size:16),
-              label:const Text('Modifier'))])),
-          VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          VCard(child:Column(
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[
+              const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
+              const SizedBox(width:10),
+              Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                children:[
+                Text(p.dailyObservations.length.toString() +
+                  ' observation(s) clinique(s)',
+                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+                const SizedBox(height:3),
+                Text(p.dailyObservations.isEmpty
+                    ? 'Aucune observation enregistrée'
+                    : 'Dernière : ' + _date(p.dailyObservations.first.date),
+                  style:const TextStyle(fontSize:11.5,color:VColors.muted)),
+              ])),
+              IconButton(
+                key:const Key('patient-clinical-history'),
+                onPressed:_openObservations,
+                tooltip:'Voir les observations et leur historique',
+                icon:const Icon(Icons.history_rounded,color:VColors.ink)),
+            ]),
+            if(p.dailyObservations.any((observation)=>!observation.fullyReported))...[
+              const SizedBox(height:6),
+              Text(p.dailyObservations.where((o)=>!o.fullyReported)
+                  .length.toString() + ' observation(s) à reporter dans Magica/Sillage',
+                style:const TextStyle(fontSize:11,color:VColors.muted)),
+            ],
+            const Divider(height:24,color:VColors.line),
             _clinical('Motif de prise en charge',p.motive),
-            const Divider(height:1,color:VColors.line),
             ExpansionTile(
-              initiallyExpanded:false,tilePadding:EdgeInsets.zero,
+              key:const Key('patient-clinical-details'),
+              initiallyExpanded:false,
+              tilePadding:EdgeInsets.zero,
               childrenPadding:const EdgeInsets.only(top:10),
-              title:const Text('Voir le dossier clinique détaillé',
+              title:const Text('Interrogatoire, examen et bilans',
                 style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
               children:[
                 _clinical('Interrogatoire',p.history),
@@ -332,10 +343,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           ])),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
             const SizedBox(height:12),
-            // Avis demandés aux autres services pendant l'hospitalisation.
-            // Un séjour archivé conserve leur historique en lecture seule.
             SpecialistOpinionsCard(
-              patient:p, readOnly:p.stage==CaseStage.discharged),
+              patient:p,readOnly:p.stage==CaseStage.discharged),
           ],
           SectionHeading('Documents et vérifications'),
           VCard(child:ExpansionTile(
