@@ -224,6 +224,12 @@ class BlocClinicalRecordService {
           clinicalExam: _text(item['clinicalExam']),
           results: _text(item['results']),
           plan: _text(item['plan']),
+          biology: item['biology'] is Map
+            ? Map<String, double>.fromEntries(
+                (item['biology'] as Map).entries.where(
+                  (e) => e.key is String && e.value is num).map(
+                    (e) => MapEntry(e.key as String,(e.value as num).toDouble())))
+            : const {},
           reportedMagica: _bool(item['reportedMagica']),
           reportedSillage: _bool(item['reportedSillage']),
           reportedMagicaAt: _date(item['reportedMagicaAt']),
