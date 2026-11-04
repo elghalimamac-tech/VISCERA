@@ -79,6 +79,21 @@ const clinicalScoreSpecs = <ClinicalScoreSpec>[
       ClinicalChoice('unresponsive','Sans réponse'),
     ]),
   ]),
+  ClinicalScoreSpec('mdulk','mDULK · Vigilance fistule colorectale','Postopératoire',[
+    ClinicalQuestion('deterioration','Altération de l’état clinique depuis la veille',_yesNo),
+    ClinicalQuestion('abdominalPain','Douleur abdominale non limitée à la cicatrice',_yesNo),
+  ]),
+  ClinicalScoreSpec('isrec','ISREC · Fistule anastomotique colorectale','Postopératoire',[
+    ClinicalQuestion('confirmed','Fistule colorectale confirmée par le médecin',[
+      ClinicalChoice('no','Non · ne pas attribuer de grade'),
+      ClinicalChoice('yes','Oui · classification à renseigner'),
+    ]),
+    ClinicalQuestion('grade','Prise en charge de la fistule confirmée',[
+      ClinicalChoice('A','A · Aucune modification de prise en charge'),
+      ClinicalChoice('B','B · Traitement actif sans reprise abdominale'),
+      ClinicalChoice('C','C · Reprise chirurgicale abdominale nécessaire'),
+    ]),
+  ]),
   ClinicalScoreSpec('clavien','Clavien-Dindo · Complications','Postopératoire',[
     ClinicalQuestion('grade','Grade médical de la complication',[
       ClinicalChoice('I','I · Soins simples'),
