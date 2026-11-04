@@ -363,30 +363,37 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               PreoperativeReadinessCard(patient:p,
                 onChanged:()=>appStore.refresh(changed:p),
                 readOnly:p.stage==CaseStage.discharged),
-              const SizedBox(height:12),
-              CfsAssessmentCard(
-                key:const Key('cfs-preoperative-assessment'),
-                patient:p,
-                readOnly:p.stage==CaseStage.discharged || p.isOmitted),
             ],
           )),
+          if(p.stage==CaseStage.inTheatre || p.isPostOp ||
+              p.stage==CaseStage.discharged)...[
+            const SizedBox(height:12),
+            VCard(child:ExpansionTile(
+              key:const Key('patient-postoperative-documents'),
+              initiallyExpanded:false,
+              tilePadding:EdgeInsets.zero,
+              title:const Text('Documents postopératoires',
+                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
+              subtitle:Text(p.completedCount(ClinicalDocuments.postBlock).toString() +
+                '/' + ClinicalDocuments.postBlock.length.toString() + ' documents vérifiés',
+                style:const TextStyle(fontSize:12,color:VColors.muted)),
+              children:[
+                DocumentChecklist(patient:p,title:'Vérifications postopératoires',
+                  requirements:ClinicalDocuments.postBlock,
+                  readOnly:p.stage==CaseStage.discharged),
+              ],
+            )),
+          ],
+          SectionHeading('Scores et évaluations'),
+          CfsAssessmentCard(
+            key:const Key('cfs-preoperative-assessment'),
+            patient:p,
+            readOnly:p.stage==CaseStage.discharged || p.isOmitted),
           const SizedBox(height:12),
           ClinicalScoresCard(
             key:const Key('patient-clinical-scores'),
             patient:p,
             readOnly:p.stage==CaseStage.discharged || p.isOmitted),
-          if(p.stage==CaseStage.inTheatre || p.isPostOp ||
-            p.stage==CaseStage.discharged)...[
-            const SizedBox(height:12),
-            DocumentChecklist(patient:p,title:'Vérifications postopératoires',
-              requirements:ClinicalDocuments.postBlock,
-              readOnly:p.stage==CaseStage.discharged),
-          ],
-          if(p.stage==CaseStage.discharged)...[
-            const SizedBox(height:12),
-            VCard(color:VColors.softMint,child:Text(
-              'Sortie validée le ${_format(p.dischargeAt!)}. Dossier de sortie archivé.')),
-          ],
           if(p.fromBlocProgram && p.stage!=CaseStage.discharged)...[
             const SizedBox(height:18),
             const Divider(),
