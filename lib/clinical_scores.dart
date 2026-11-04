@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'clinical_score_engine.dart';
+import 'caprini_assessment.dart';
 import 'clinical_score_specs.dart';
 import 'models.dart';
 import 'store.dart';
@@ -102,26 +103,168 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       SnackBar(content: Text(message)));
   }
 
-  Widget _choice(ClinicalQuestion question) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: DropdownButtonFormField<String>(
-      key: ValueKey(widget.spec.id + '-' + question.id),
-      value: question.choices.any((c) => c.value == answers[question.id])
-        ? answers[question.id] : null,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: question.title,
-        labelStyle: const TextStyle(fontSize: 12),
-        border: const OutlineInputBorder()),
-      items: question.choices.map((c) => DropdownMenuItem<String>(
-        value: c.value,
-        child: Text(c.label, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12)))).toList(),
-      onChanged: widget.readOnly || saving ? null
-        : (v) => setState(() {
-            if (v != null) answers[question.id] = v;
-          }),
-    ),
-  );
+
+  Future<void> _selectChoice(ClinicalQuestion question) async {
+    if (widget.readOnly || saving) return;
+    final value = await showModalBottomSheet<String>(
+      context: context, isScrollControlled: true, showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: DraggableScrollableSheet(
+          expand: false, initialChildSize: .68,
+          minChildSize: .35, maxChildSize: .92,
+          builder: (context, scrollController) => ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              Text(question.title,
+                style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text('Lire le descriptif complet avant de choisir.',
+                style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 14),
+              for (final option in question.choices)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                    selected: answers[question.id] == option.value,
+                    title: Text(option.label, softWrap: true),
+                    trailing: answers[question.id] == option.value
+                      ? const Icon(Icons.check_circle_outline) : null,
+                    onTap: () => Navigator.pop(sheetContext, option.value),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && value != null) {
+      setState(() => answers[question.id] = value);
+    }
+  }
+
+  Widget _choice(ClinicalQuestion question) {
+    final index = question.choices.indexWhere(
+      (item) => item.value == answers[question.id]);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        key: ValueKey(widget.spec.id + '-' + question.id),
+        onTap: widget.readOnly || saving
+          ? null : () => _selectChoice(question),
+        borderRadius: BorderRadius.circular(12),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: question.title,
+            border: const OutlineInputBorder(),
+            suffixIcon: const Icon(Icons.expand_more)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Text(index < 0 ? 'Sélectionner une réponse'
+                : question.choices[index].label,
+              softWrap: true, style: const TextStyle(fontSize: 13)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _capriniFactor(CapriniFactor factor) {
+    final chosen = answers[factor.id];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(factor.label, style: const TextStyle(fontSize: 12.5)),
+          const SizedBox(height: 5),
+          if (factor.countable)
+            TextFormField(
+              key: ValueKey('caprini-count-' + factor.id),
+              initialValue: chosen ?? '',
+              readOnly: widget.readOnly || saving,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                isDense: true, labelText: 'Nombre vérifié (0 si aucun)',
+                border: OutlineInputBorder()),
+              onChanged: (value) => setState(() =>
+                answers[factor.id] = value.trim()),
+            )
+          else Wrap(spacing: 8, runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('Oui'), selected: chosen == 'yes',
+                onSelected: widget.readOnly || saving ? null
+                  : (_) => setState(() => answers[factor.id] = 'yes'),
+              ),
+              ChoiceChip(
+                label: const Text('Non'), selected: chosen == 'no',
+                onSelected: widget.readOnly || saving ? null
+                  : (_) => setState(() => answers[factor.id] = 'no'),
+              ),
+              if (factor.womenOnly)
+                ChoiceChip(
+                  label: const Text('Non applicable'),
+                  selected: chosen == 'na',
+                  onSelected: widget.readOnly || saving ? null
+                    : (_) => setState(() => answers[factor.id] = 'na'),
+                ),
+            ],
+          ),
+          const Divider(),
+        ],
+      ),
+    );
+  }
+
+  Widget _capriniForm(int? age) {
+    final done = CapriniAssessment.answeredCount(answers);
+    final total = capriniFactors.length;
+    final conflict = CapriniAssessment.conflict(answers);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Grille Caprini 2013 : vérifier chaque facteur. Une '
+        'réponse manquante ne vaut jamais « Non ». L’âge est repris '
+        'du dossier.', style: TextStyle(fontSize: 12)),
+      const SizedBox(height: 8),
+      Text(age == null ? 'Âge absent : compléter le dossier.'
+        : 'Âge : $age ans · ${CapriniAssessment.agePoints(age)} point(s)',
+        style: const TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 8),
+      LinearProgressIndicator(value: done / total),
+      const SizedBox(height: 5),
+      Text('$done / $total facteurs vérifiés',
+        style: const TextStyle(fontSize: 12)),
+      const SizedBox(height: 8),
+      for (final points in const [1, 2, 3, 5])
+        Card(
+          elevation: 0, margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade300)),
+          child: ExpansionTile(
+            key: ValueKey('caprini-group-$points'),
+            initiallyExpanded: points == 1,
+            title: Text('$points point(s) par facteur'),
+            subtitle: Text(
+              '${capriniFactors.where((f) => f.points == points && CapriniAssessment.validAnswer(f, answers[f.id])).length}'
+              ' / ${capriniFactors.where((f) => f.points == points).length} vérifiés',
+              style: const TextStyle(fontSize: 11)),
+            children: [
+              for (final factor in capriniFactors.where(
+                  (f) => f.points == points)) _capriniFactor(factor),
+            ],
+          ),
+        ),
+      if (conflict != null)
+        Text(conflict, style: const TextStyle(
+          fontSize: 12, color: Colors.deepOrange)),
+      const Text('Score calculé uniquement après vérification complète. '
+        'Décision de prévention selon le protocole et le risque hémorragique.',
+        style: TextStyle(fontSize: 11, color: Colors.black54)),
+      const SizedBox(height: 12),
+    ]);
+  }
 
   Widget _number(String id, String label, {bool decimal = false}) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
@@ -160,14 +303,7 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
                 ? 'Âge manquant : compléter la date de naissance ou l’âge'
                 : 'Âge du dossier pris en compte : ' + age.toString() + ' ans',
               style: const TextStyle(fontSize: 12))),
-        if (widget.spec.id == 'caprini') ...[
-          const Text('Renseigner le total après calcul sur la grille Caprini '
-            '2013 complète. Aucune déduction automatique des facteurs absents. '
-            'Interprétation et prévention selon le protocole local.',
-            style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 8),
-          _number('total', 'Total de la grille complète'),
-        ],
+        if (widget.spec.id == 'caprini') _capriniForm(age),
         if (widget.spec.id == 'news2') ...[
           const Text('L’échelle SpO₂ 2 n’est utilisable que si la cible '
             '88–92 % a été prescrite par un clinicien compétent. '
