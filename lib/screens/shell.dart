@@ -23,6 +23,7 @@ import 'notification_inbox.dart';
 import '../duty_reminders.dart';
 import '../notification_center_service.dart';
 import '../notification_bell.dart';
+import 'bloc_program_section.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
@@ -517,6 +518,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final review=cases.where((p)=>p.isPostopReviewDay(DateTime.now())).toList();
     final upcoming=cases.where((p)=>!p.isPostopReviewDay(DateTime.now())).toList();
     return _scroll([_top('Interventions urgentes et programmées.','Programme du bloc'),const SizedBox(height:22),
+      const BlocProgramSection(),
+      const SizedBox(height:12),
+      SectionHeading('Suivi clinique du service'),
       Row(children:[Expanded(child:Text(_syncProblem ?? 'Admissions manuelles et programmes officiels',
         style:const TextStyle(fontSize:12,color:VColors.muted))),
         IconButton(tooltip:'Actualiser les admissions et programmes',onPressed:()=>unawaited(_refreshProgrammedPatients()),icon:const Icon(Icons.refresh))]),
