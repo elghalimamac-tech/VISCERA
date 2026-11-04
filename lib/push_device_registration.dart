@@ -24,14 +24,14 @@ Future<void> unregisterCurrentPushDevice() async {
       final token = webPush.currentToken();
       if (token != null) {
         await client.from('push_devices')
-            .delete().eq('user_id', user.id).eq('token', token);
+            .delete().eq('user_id', user.id).eq('hospital_id','huim6').eq('token', token);
       }
       await webPush.deleteToken();
     } else {
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
         await client.from('push_devices')
-            .delete().eq('user_id', user.id).eq('token', token);
+            .delete().eq('user_id', user.id).eq('hospital_id','huim6').eq('token', token);
       }
       await FirebaseMessaging.instance.deleteToken();
     }
@@ -70,6 +70,7 @@ class _PushDeviceRegistrationState extends State<PushDeviceRegistration> {
     await client.from('push_devices').upsert({
       'token': token,
       'user_id': user.id,
+      'hospital_id': 'huim6',
       'platform': platform,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }, onConflict: 'token');
