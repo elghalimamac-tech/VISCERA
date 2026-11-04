@@ -61,6 +61,7 @@ class BlocClinicalRecordService {
       'stamped': value.stamped,
       'notApplicable': value.notApplicable,
       'checkedAt': value.checkedAt?.toIso8601String(),
+      'fromProgram': value.fromProgram,
     })),
     'specialistOpinions': patient.specialistOpinions.map((opinion) => {
       'id': opinion.id,
@@ -76,6 +77,7 @@ class BlocClinicalRecordService {
       'clinicalExam': note.clinicalExam,
       'results': note.results,
       'plan': note.plan,
+      'biology': note.biology,
       'reportedMagica': note.reportedMagica,
       'reportedSillage': note.reportedSillage,
       'reportedMagicaAt': note.reportedMagicaAt?.toIso8601String(),
@@ -183,7 +185,8 @@ class BlocClinicalRecordService {
           ..verified = _bool(state['verified'])
           ..stamped = state['stamped'] is bool ? state['stamped'] as bool : null
           ..notApplicable = _bool(state['notApplicable'])
-          ..checkedAt = _date(state['checkedAt']);
+          ..checkedAt = _date(state['checkedAt'])
+          ..fromProgram = _bool(state['fromProgram']);
         patient.documents[item.key as String] = doc;
       }
     }
