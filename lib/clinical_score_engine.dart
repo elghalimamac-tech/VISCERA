@@ -69,6 +69,32 @@ class ClinicalScoring {
         if (legacy == null || legacy < 0 || legacy > 100) return null;
         return ScoreResult(legacy.toString(),
           'Ancien total saisi manuellement, sans détail des facteurs ; à réévaluer.');
+      case 'mdulk':
+        // Quatre critères du mDULK : FR>20, détérioration clinique,
+        // douleur abdominale extra-cicatricielle, CRP>250 mg/L.
+        // Données incomplètes => aucun score.
+        if(!all(['rr','crp','deterioration','abdominalPain']))return null;
+        final rate=n('rr');
+        final crp=double.tryParse(data['crp']!.replaceAll(',','.'));
+        if(rate==null||rate<1||rate>90||crp==null||
+          !crp.isFinite||crp<0||crp>1500||
+          ![0,1].contains(n('deterioration'))||
+          ![0,1].contains(n('abdominalPain')))return null;
+        final points=(rate>20?1:0)+(crp>250?1:0)+
+          n('deterioration')!+n('abdominalPain')!;
+        return ScoreResult(points.toString(),
+          'Critères de vigilance mDULK sur 4 · ne confirme pas une fistule.');
+      case 'isrec':
+        if(data['confirmed']!='yes')return null;
+        const grades={
+          'A':'Aucune modification de la prise en charge',
+          'B':'Traitement actif sans réintervention abdominale',
+          'C':'Réintervention abdominale nécessaire',
+        };
+        final grade=data['grade'];
+        if(grade==null||!grades.containsKey(grade))return null;
+        return ScoreResult(grade,
+          'Fistule colorectale confirmée · '+grades[grade]!);
       case 'clavien':
         const grades = <String,String>{
           'I':'Soins simples', 'II':'Traitement pharmacologique / transfusion',
