@@ -156,72 +156,39 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ]),
             ])),
           if(p.fromBlocProgram || p.fromManualAdmission)...[
-            const SizedBox(height:11),
-            VCard(color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
-              padding:const EdgeInsets.all(14),
-              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Row(children:[
-                  const Icon(Icons.cloud_done_outlined,color:VColors.ink),
-                  const SizedBox(width:10),
-                  Expanded(child:Text(p.fromBlocProgram
-                      ? (p.isOmitted?'Patient non admis · programme conservé'
-                          :'Programme opératoire importé')
-                      : 'Dossier partagé VISCERA',
-                    style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink))),
-                  IconButton(
-                    key:const Key('save-patient-record'),
-                    tooltip:'Enregistrer le dossier dans VISCERA',
-                    onPressed:() async{
-                      try{
-                        await appStore.saveClinical(p);
-                        if(mounted)_notice('Dossier enregistré dans VISCERA.');
-                      }catch(_){
-                        if(mounted)_notice('Enregistrement impossible. Vérifiez les modifications.');
-                      }
-                    },
-                    icon:const Icon(Icons.save_outlined,color:VColors.ink)),
-                ]),
-                if(p.fromBlocProgram)...[
-                  const SizedBox(height:4),
-                  Text(p.isOmitted
-                      ? 'Admission omise ; la ligne du programme officiel est conservée.'
-                      : 'Admission de suivi créée automatiquement. La présence réelle du patient et l’intervention doivent être confirmées.',
-                    style:const TextStyle(fontSize:12,color:VColors.muted)),
-                ],
-                const SizedBox(height:5),
-                Text(appStore.clinicalSyncState(p),
-                  style:const TextStyle(fontSize:11,color:VColors.muted)),
-              ])),
-            if(p.isProgrammed && !p.fromBlocProgram)...[
-              const SizedBox(height:10),
-              VCard(color:VColors.orangeSoft,child:Column(
-                crossAxisAlignment:CrossAxisAlignment.start,children:[
-                  const Text('Admission manuelle programmée',
-                    style:TextStyle(fontWeight:FontWeight.w800)),
-                  const SizedBox(height:9),
-                  FilledButton.icon(onPressed:_confirmAdmission,
-                    icon:const Icon(Icons.how_to_reg_outlined),
-                    label:const Text('Confirmer l’admission réelle')),
-                ])),
-            ],
-          ],
-          if(p.fromManualAdmission && p.origin=='Consultation')...[
             const SizedBox(height:10),
-            VCard(color:VColors.softMint,child:Column(
-              crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text(p.linkedProgramEntryId==null
-                ? 'Programme opératoire non encore associé'
-                : 'Programme opératoire associé au dossier de consultation',
-                style:const TextStyle(fontWeight:FontWeight.w700)),
-              if(p.linkedProgramEntryId!=null && p.programRoom.isNotEmpty)
-                Text('Salle ${p.programRoom} · ${p.programScheduledTime} · ${p.programSurgeon}',
-                  style:const TextStyle(fontSize:12)),
-              if(p.linkedProgramEntryId==null)...[
-                const SizedBox(height:8),
-                OutlinedButton.icon(onPressed:_reconcileBloc,
-                  icon:const Icon(Icons.link),label:const Text('Rapprocher avec le programme du bloc')),
-              ],
-            ])),
+            VCard(
+              color:p.isOmitted?VColors.orangeSoft:VColors.softMint,
+              padding:const EdgeInsets.symmetric(horizontal:12,vertical:6),
+              child:Row(children:[
+                Icon(p.isOmitted?Icons.person_off_outlined:Icons.cloud_done_outlined,
+                  color:VColors.ink,size:20),
+                const SizedBox(width:10),
+                Expanded(child:Column(
+                  crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(p.isOmitted?'Admission annulée · programme conservé'
+                    :p.fromBlocProgram?'Programme importé · dossier partagé'
+                    :'Dossier partagé VISCERA',
+                    style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w800)),
+                  const SizedBox(height:3),
+                  Text(appStore.clinicalSyncState(p),
+                    maxLines:2,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(fontSize:11,color:VColors.muted)),
+                ])),
+                IconButton(
+                  key:const Key('save-patient-record'),
+                  tooltip:'Enregistrer le dossier dans VISCERA',
+                  onPressed:() async {
+                    try {
+                      await appStore.saveClinical(p);
+                      if(mounted)_notice('Dossier enregistré dans VISCERA.');
+                    } catch (_) {
+                      if(mounted)_notice('Enregistrement impossible. Vérifiez les modifications.');
+                    }
+                  },
+                  icon:const Icon(Icons.save_outlined,color:VColors.ink)),
+              ]),
+            ),
           ],
           const SizedBox(height:11),
           VCard(
