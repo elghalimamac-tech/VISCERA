@@ -11,7 +11,7 @@ const normal = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .toUpperCase().replace(/\s+/g, " ").trim();
 const surgeons = (Deno.env.get("VISCERA_BLOC_SURGEONS") ||
   "GHADDOU,BENSAAD,LAABOULI,LAFKIH,FAHSI").split(",").map(normal).filter(Boolean);
-const escapeRegex = (name: string) => name.replace(/[.*+?^$()|[\]{}\\]/g, "\\  "GHADDOU,BENSAAD,LAABOULI,LAFKIH,FAHSI").split(",").map(normal).filter(Boolean);");
+const escapeRegex = (name: string) => name.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&");
 const isVisceral = (name: string) => surgeons.some((surgeon) =>
   new RegExp("(^|[^A-Z])" + escapeRegex(surgeon) + "($|[^A-Z])").test(normal(name)));
 
