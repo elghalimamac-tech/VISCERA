@@ -31,6 +31,7 @@ class BlocClinicalRecordService {
     'comorbiditySummary': patient.comorbiditySummary,
     'nutritionAssessmentStatus': patient.nutritionAssessmentStatus,
     'geriatricAssessmentStatus': patient.geriatricAssessmentStatus,
+    'clinicalScores': patient.clinicalScores,
     'cpaStatus': patient.cpaStatus,
     'preopLabStatus': patient.preopLabStatus,
     'admissionPrescriptionStatus': patient.admissionPrescriptionStatus,
@@ -112,6 +113,10 @@ class BlocClinicalRecordService {
     patient.geriatricAssessmentStatus =
       const {'a_evaluer','faite','non_indiquee'}.contains(geriatrics)
         ? geriatrics : 'a_evaluer';
+    final rawScores = data['clinicalScores'];
+    patient.clinicalScores = rawScores is Map
+      ? Map<String, dynamic>.from(rawScores)
+      : <String, dynamic>{};
     patient.cpaStatus = _text(data['cpaStatus']).isEmpty ? 'a_verifier' : _text(data['cpaStatus']);
     patient.preopLabStatus = _text(data['preopLabStatus']).isEmpty ? 'a_verifier' : _text(data['preopLabStatus']);
     patient.admissionPrescriptionStatus = _text(data['admissionPrescriptionStatus']).isEmpty ? 'a_verifier' : _text(data['admissionPrescriptionStatus']);
