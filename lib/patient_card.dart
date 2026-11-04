@@ -84,13 +84,13 @@ class PatientCard extends StatelessWidget {
               border: Border.all(color: VColors.line),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                Container(width: 4, color: _accent),
-                Expanded(child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 15, 12, 15),
+                Positioned(
+                  left: 0, top: 0, bottom: 0,
+                  child: Container(width: 4, color: _accent)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 15, 12, 15),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -170,7 +170,7 @@ class PatientCard extends StatelessWidget {
                       ]),
                     ],
                   ),
-                )),
+                ),
               ],
             ),
           ),
