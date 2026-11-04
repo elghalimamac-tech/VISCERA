@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../build_info.dart';
 import '../branding.dart';
 import '../widgets.dart';
+import '../patient_card.dart';
 import 'intake.dart';
 import 'patient_detail.dart';
 import 'patient_archives.dart';
@@ -25,7 +26,7 @@ import '../notification_bell.dart';
 
 class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
-  int selected=0;String query='';String filter='Tous';String unit='Tous';String patientServiceFilter='Tous';
+  int selected=0;String query='';String filter='Actifs';String unit='Tous';String patientServiceFilter='Tous';
   Timer? _programTimer;
   Timer? _notificationTimer;
   Timer? _serviceArchiveExpiryTimer;
@@ -333,7 +334,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         ],
       ]),
       const SizedBox(height:16),
-      SectionHeading('Patients actifs · par service',
+      SectionHeading('Patients hospitalisés · par service',
         trailing:TextButton(onPressed:()=>setState((){
           selected=1;filter='Actifs';patientServiceFilter='Tous';
         }),child:const Text('Tout voir'))),
@@ -419,7 +420,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       result.add(_serviceHeader(service,people.length,
         onTap:previewLimit==null?null:()=>openService(service)));
       for(final patient in previewLimit==null?people:people.take(previewLimit)){
-        result.add(PatientTile(patient:patient,onTap:()=>openCase(patient)));
+        result.add(PatientCard(patient:patient,onTap:()=>openCase(patient)));
       }
       if(previewLimit!=null && people.length>previewLimit){
         result.add(Align(alignment:Alignment.centerRight,
@@ -470,18 +471,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       allServices.add(patientServiceFilter);
     }
     return _scroll([
-      _top('Dossiers regroupés par service.','Patients'),
+      _top('Patients et dossiers actifs, par unité.','Patients'),
       const SizedBox(height:20),
       TextField(onChanged:(v)=>setState(()=>query=v),
         decoration:const InputDecoration(
           hintText:'Nom, motif, box ou service…',
           prefixIcon:Icon(Icons.search_rounded))),
       const SizedBox(height:12),
-      Wrap(spacing:7,runSpacing:7,children:
-        ['Tous','Actifs','Programmés','Non admis','Sortis récents'].map((v)=>
-          ChoiceChip(label:Text(v),selected:filter==v,
-            selectedColor:VColors.softMint,showCheckmark:false,
-            onSelected:(_)=>setState(()=>filter=v))).toList()),
+      SingleChildScrollView(scrollDirection:Axis.horizontal,
+        child:Row(children:['Actifs','Tous','Programmés','Non admis'].map((v)=>
+          Padding(padding:const EdgeInsets.only(right:7),
+            child:ChoiceChip(label:Text(v),selected:filter==v,
+              selectedColor:VColors.softMint,showCheckmark:false,
+              onSelected:(_)=>setState(()=>filter=v)))).toList())),
       const SizedBox(height:10),
       const Text('SERVICE',style:TextStyle(color:VColors.muted,
         letterSpacing:1.5,fontSize:11,fontWeight:FontWeight.w800)),

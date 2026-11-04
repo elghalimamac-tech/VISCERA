@@ -1,7 +1,7 @@
 # Score CFS dans VISCERA
 
 ## Emplacement et saisie
-Dossier patient → **Documents et vérifications** → **Admission et préparation opératoire** → **Fragilité clinique (CFS)**.
+Dossier patient → **Scores et évaluations** → **Fragilité clinique (CFS)**.
 La rubrique est repliable pour préserver la lisibilité. Le score est choisi par un médecin (1 à 9) ; il n'est jamais déduit de l'âge, d'un diagnostic ou d'une intervention. CFS ≥ 5 déclenche un indicateur dans l'en-tête du dossier et une recommandation non bloquante d'évaluation nutritionnelle/gériatrique. Le CFS 9 correspond à une phase terminale et ne signifie pas systématiquement une fragilité sévère.
 
 Date obligatoire pour tout score saisi : autonomie habituelle pré-épisode aigu, typiquement environ 2 semaines auparavant. Une saisie peut être effacée. Le formulaire accepte également ASA I–VI, une synthèse des comorbidités, et le statut des évaluations nutritionnelle/gériatrique (à évaluer, réalisée ou non indiquée).
