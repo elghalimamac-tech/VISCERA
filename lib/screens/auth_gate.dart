@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../build_info.dart';
 import '../branding.dart';
 import '../hospital_site.dart';
+import '../store.dart';
 import 'shell.dart';
 
 /// Rappel de délivrabilité affiché pour les deux parcours d'e-mail Auth.
