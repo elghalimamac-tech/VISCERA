@@ -41,6 +41,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool _syncInProgress = false;
   bool _dischargeDigestShown = false;
   String? _syncProblem;
+  bool _initialClinicalSyncPending = true;
 
   @override void initState() {
     super.initState();
@@ -136,6 +137,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         _syncProblem = 'Impossible de charger les dossiers partagés. Réessayez.');
     } finally {
       _syncInProgress = false;
+      if (mounted && _initialClinicalSyncPending) {
+        setState(() => _initialClinicalSyncPending = false);
+      }
     }
   }
   // Notification IN-APP au lancement. Seulement les patients réellement
@@ -319,14 +323,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                 letterSpacing:1,color:VColors.mint))),
           ]),
           const SizedBox(height:13),
-          Text('${active.length} patient(s) actif(s)',
+          Text(_syncProblem != null ? 'Dossiers indisponibles'
+              : _initialClinicalSyncPending ? 'Chargement des patients…'
+              : '${active.length} patient(s) actif(s)',
             style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900,
               color:Colors.white)),
           const SizedBox(height:4),
-          Text('${services.length} service(s) dans le suivi actuel',
+          Text(_syncProblem != null ? 'Chargement impossible : réessayez ci-dessous'
+              : _initialClinicalSyncPending ? 'Synchronisation sécurisée en cours'
+              : '${services.length} service(s) dans le suivi actuel',
             style:const TextStyle(color:Colors.white70,fontSize:13)),
           const SizedBox(height:16),
-          Row(children:[
+          if(_syncProblem == null && !_initialClinicalSyncPending) Row(children:[
             Expanded(child:_heroMetric('Bloc',appStore.theatre.length)),
             const SizedBox(width:8),
             Expanded(child:_heroMetric('Boxes',appStore.occupiedBoxes)),
@@ -350,7 +358,25 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           selected=1;filter='Actifs';patientServiceFilter='Tous';
         }),child:const Text('Tout voir'))),
       ..._servicePatientSections(active,previewLimit:3),
-      if(active.isEmpty)
+      if(_syncProblem != null)
+        VCard(color:VColors.orangeSoft,child:Column(
+          crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Impossible de synchroniser les dossiers patients.',
+              style:TextStyle(fontWeight:FontWeight.w800,color:VColors.ink)),
+            const SizedBox(height:6),
+            const Text('Les données du serveur ne sont pas nécessairement perdues. '
+              'L’affichage peut être incomplet tant que la connexion aux dossiers échoue.',
+              style:TextStyle(color:VColors.ink,fontSize:13)),
+            const SizedBox(height:10),
+            FilledButton.icon(
+              key:const Key('retry-clinical-sync-home'),
+              onPressed:()=>unawaited(_refreshProgrammedPatients()),
+              icon:const Icon(Icons.refresh_rounded),
+              label:const Text('Réessayer la synchronisation')),
+          ])),
+      if(_syncProblem == null && _initialClinicalSyncPending && active.isEmpty)
+        const VCard(child:Text('Chargement des dossiers depuis HUIM6…')),
+      if(_syncProblem == null && !_initialClinicalSyncPending && active.isEmpty)
         const VCard(child:Text('Aucun patient actif actuellement.')),
       if(urgent>0 || discharge>0)...[
         SectionHeading('À traiter'),
