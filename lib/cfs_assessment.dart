@@ -19,15 +19,24 @@ class CfsAssessmentCard extends StatefulWidget {
 
 class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
   static const _levels = <(int, String)>[
-    (1, '1 · Très en forme'),
-    (2, '2 · En forme'),
-    (3, '3 · Autonome, maladies contrôlées'),
-    (4, '4 · Vulnérable'),
-    (5, '5 · Fragilité légère'),
-    (6, '6 · Fragilité modérée'),
-    (7, '7 · Fragilité sévère'),
-    (8, '8 · Fragilité très sévère'),
-    (9, '9 · Phase terminale'),
+    (1, '1 · Très en forme — robuste, actif, exercice régulier'),
+    (2, '2 · En forme — autonome, sans symptômes actifs, exercice occasionnel'),
+    (3, '3 · Autonome — maladies contrôlées, activité habituelle conservée'),
+    (4, '4 · Vulnérable — ralenti ou fatigué, sans dépendance quotidienne'),
+    (5, '5 · Fragilité légère — aide pour certaines activités instrumentales'),
+    (6, '6 · Fragilité modérée — aide pour les activités extérieures et le ménage'),
+    (7, '7 · Fragilité sévère — dépendance pour les soins personnels'),
+    (8, '8 · Fragilité très sévère — dépendance totale, proche de la fin de vie'),
+    (9, '9 · Phase terminale — espérance de vie < 6 mois, sans autre fragilité nécessaire'),
+  ];
+  static const _asaLevels = <(String, String)>[
+    ('', 'Non renseignée — attendre une évaluation médicale'),
+    ('I', 'ASA I — patient en bonne santé'),
+    ('II', 'ASA II — maladie systémique légère, sans limitation importante'),
+    ('III', 'ASA III — maladie systémique sévère avec retentissement fonctionnel'),
+    ('IV', 'ASA IV — maladie systémique sévère menaçant constamment la vie'),
+    ('V', 'ASA V — patient moribond qui ne survivrait pas sans intervention'),
+    ('VI', 'ASA VI — mort encéphalique déclarée, prélèvement d’organes'),
   ];
   static const _statuses = <(String, String)>[
     ('a_evaluer', 'À évaluer'),
@@ -140,6 +149,57 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
     }
   }
 
+
+  /// Liste lisible en entier, utilisable aussi sur écran mobile étroit.
+  Future<T?> _chooseDescription<T>(
+      String title, List<(T, String)> options, T? current) =>
+    showModalBottomSheet<T>(
+      context: context, isScrollControlled: true, showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: DraggableScrollableSheet(
+          expand: false, initialChildSize: .67,
+          minChildSize: .35, maxChildSize: .91,
+          builder: (context, scrollController) => ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 10),
+              for (final option in options)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 9),
+                    title: Text(option.$2, softWrap: true),
+                    selected: current == option.$1,
+                    trailing: current == option.$1
+                        ? const Icon(Icons.check_circle_outline) : null,
+                    onTap: () => Navigator.pop(sheetContext, option.$1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+  Widget _selector(String label, String selected, VoidCallback onTap) =>
+    InkWell(
+      onTap: widget.readOnly || _saving ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label, border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.expand_more)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Text(selected, softWrap: true,
+            style: const TextStyle(fontSize: 13)),
+        ),
+      ),
+    );
+
   Widget _assessmentChoice({
     required String title,
     required String value,
@@ -191,19 +251,20 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
             'd’une intervention ou d’une admission en réanimation.',
             style: TextStyle(fontSize: 12, color: VColors.muted)),
           const SizedBox(height: 14),
-          DropdownButtonFormField<int>(
-            key: const Key('cfs-score-field'),
-            value: _score,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Clinical Frailty Scale · 1 à 9',
-              hintText: 'Sélectionner le niveau clinique',
-              border: OutlineInputBorder()),
-            items: _levels.map((v) => DropdownMenuItem<int>(
-              value: v.$1, child: Text(v.$2, overflow: TextOverflow.ellipsis),
-            )).toList(),
-            onChanged: widget.readOnly || _saving ? null
-              : (value) => setState(() => _score = value),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('1. Fragilité clinique',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
+          const SizedBox(height: 10),
+          _selector(
+            'Quel était le niveau d’autonomie habituel ?',
+            _score == null ? 'Choisir le niveau CFS (1–9)'
+              : _levels.firstWhere((level) => level.$1 == _score).$2,
+            () async {
+              final choice = await _chooseDescription<int>(
+                'Clinical Frailty Scale (CFS)', _levels, _score);
+              if (choice != null && mounted) setState(() => _score = choice);
+            },
           ),
           if (_score != null && !widget.readOnly)
             Align(alignment: Alignment.centerRight,
@@ -234,20 +295,38 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
             ),
           ],
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _asa,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Classe ASA (si connue)',
-              border: OutlineInputBorder()),
-            items: [
-              const DropdownMenuItem(value: '', child: Text('Non renseignée')),
-              for (final asa in const ['I','II','III','IV','V','VI'])
-                DropdownMenuItem(value: asa, child: Text('ASA $asa')),
-            ],
-            onChanged: widget.readOnly || _saving ? null
-              : (value) => setState(() => _asa = value ?? ''),
+          const Divider(height: 28),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('2. Classe ASA',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
+          const SizedBox(height: 5),
+          const Text(
+            'Quelle classe d’état physique a été retenue ? '
+            'Reprendre la classification documentée par l’équipe '
+            'd’anesthésie, sans la déduire automatiquement du CFS.',
+            style: TextStyle(fontSize: 12, color: VColors.muted)),
+          const SizedBox(height: 10),
+          _selector(
+            'Classe ASA',
+            _asaLevels.firstWhere((v) => v.$1 == _asa,
+              orElse: () => _asaLevels.first).$2,
+            () async {
+              final selected = await _chooseDescription<String>(
+                'Classification ASA', _asaLevels, _asa);
+              if (selected != null && mounted) {
+                setState(() => _asa = selected);
+              }
+            },
           ),
+          const Divider(height: 28),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('3. Compléments et suivi',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
+          const SizedBox(height: 5),
+          const Text('Informations facultatives associées à cette évaluation.',
+            style: TextStyle(fontSize: 12, color: VColors.muted)),
           const SizedBox(height: 12),
           TextField(
             key: const Key('cfs-comorbidities'),
