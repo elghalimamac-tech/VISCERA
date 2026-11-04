@@ -193,6 +193,17 @@ class PatientCase {
   DateTime? admittedAt;
   DateTime? consultationAt;
   int clinicalVersion = 0;
+  /// CFS : jugement médical sur l'autonomie habituelle avant la maladie aiguë.
+  /// Null = non évalué ; ne jamais déduire ce score de l'âge ou des diagnostics.
+  int? cfsScore;
+  DateTime? cfsBaselineDate;
+  DateTime? cfsAssessedAt;
+  /// Contexte clinique facultatif exploitable pour l'analyse périopératoire.
+  String asaClass = '';
+  String comorbiditySummary = '';
+  String nutritionAssessmentStatus = 'a_evaluer';
+  String geriatricAssessmentStatus = 'a_evaluer';
+  bool get requiresFrailtyAttention => cfsScore != null && cfsScore! >= 5;
   /// Programme officiel source ; l'admission de suivi peut être déduite automatiquement.
   final bool fromBlocProgram;
   final bool fromManualAdmission;
