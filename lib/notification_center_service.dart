@@ -25,7 +25,7 @@ class NotificationCenterService {
     var query = _client
         .from('viscera_notifications')
         .select('id,kind,title,body,created_at,read_at')
-        .eq('user_id', id)
+        .eq('user_id', id).eq('hospital_id','huim6')
         .isFilter('dismissed_at', null);
     if (unreadOnly) query = query.isFilter('read_at', null);
     final data = await query
@@ -40,7 +40,7 @@ class NotificationCenterService {
     await _client.from('viscera_notifications')
         .update({'read_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', notificationId)
-        .eq('user_id', id)
+        .eq('user_id', id).eq('hospital_id','huim6')
         .isFilter('dismissed_at', null);
   }
 
@@ -51,7 +51,7 @@ class NotificationCenterService {
     if (id == null) return false;
     final profile = await _client.from('doctor_profiles')
         .select('is_admin,approval_status')
-        .eq('user_id', id)
+        .eq('user_id', id).eq('hospital_id','huim6')
         .maybeSingle();
     return profile?['is_admin'] == true &&
         profile?['approval_status'] == 'approved';
@@ -67,7 +67,7 @@ class NotificationCenterService {
     }
     await _client.from('viscera_notifications')
         .update({'dismissed_at': DateTime.now().toUtc().toIso8601String()})
-        .eq('user_id', id)
+        .eq('user_id', id).eq('hospital_id','huim6')
         .isFilter('dismissed_at', null);
   }
 }
