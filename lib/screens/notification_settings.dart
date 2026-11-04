@@ -98,7 +98,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> wit
       final data = await Supabase.instance.client
         .from('viscera_notification_preferences')
         .select('program_updates,urgent_admissions,access_updates,discharge_review,discharge_confirmed')
-        .eq('user_id',id).maybeSingle();
+        .eq('user_id',id).eq('hospital_id','huim6').maybeSingle();
       if (data != null && mounted) setState(() {
         for (final kind in pushTypes.keys) {
           pushTypes[kind] = data[kind] == true;
@@ -117,7 +117,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> wit
     try {
       await Supabase.instance.client
         .from('viscera_notification_preferences')
-        .upsert({'user_id':id, ...pushTypes},onConflict:'user_id');
+        .upsert({'user_id':id, 'hospital_id':'huim6', ...pushTypes},onConflict:'user_id');
     } catch (_) {
       if (mounted) {
         setState(() => pushTypes[kind] = before);
