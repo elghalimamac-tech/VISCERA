@@ -605,6 +605,7 @@ class AppStore extends ChangeNotifier {
     if (!p.isActive && !p.isProgrammed) return;
     if (notApplicable == true && !requirement.optional) return;
     final check = p.check(requirement.key);
+    check.fromProgram = false; // Toute modification explicite remplace la présomption du programme.
     if (notApplicable != null) {
       check.notApplicable = notApplicable;
       if (notApplicable) { check.verified = false; check.stamped = null; }
