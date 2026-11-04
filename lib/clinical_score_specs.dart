@@ -17,15 +17,15 @@ const clinicalScoreSpecs = <ClinicalScoreSpec>[
   ClinicalScoreSpec('nrs2002','NRS-2002 · Nutrition','Préopératoire',[
     ClinicalQuestion('nutrition','Altération nutritionnelle',[
       ClinicalChoice('0','0 · Aucune'),
-      ClinicalChoice('1','1 · Légère : perte >5 % sur 3 mois ou apports 50–75 %'),
-      ClinicalChoice('2','2 · Modérée : perte >5 % sur 2 mois, IMC 18,5–20,5 avec altération ou apports 25–50 %'),
-      ClinicalChoice('3','3 · Sévère : perte >5 % sur 1 mois, IMC <18,5 avec altération ou apports <25 %'),
+      ClinicalChoice('1','1 · Légère : perte de poids > 5 % en 3 mois OU apports alimentaires inférieurs à 50–75 % des besoins pendant la semaine précédente'),
+      ClinicalChoice('2','2 · Modérée : perte de poids > 5 % en 2 mois OU IMC 18,5–20,5 avec altération de l’état général OU apports à 25–60 % des besoins pendant la semaine précédente'),
+      ClinicalChoice('3','3 · Sévère : perte de poids > 5 % en 1 mois (ou > 15 % en 3 mois) OU IMC < 18,5 avec altération de l’état général OU apports inférieurs à 25 % des besoins pendant la semaine précédente'),
     ]),
     ClinicalQuestion('disease','Gravité de la maladie (besoins métaboliques)',[
       ClinicalChoice('0','0 · Aucune'),
-      ClinicalChoice('1','1 · Légère : maladie chronique avec complication aiguë'),
-      ClinicalChoice('2','2 · Modérée : chirurgie abdominale majeure, AVC…'),
-      ClinicalChoice('3','3 · Sévère : maladie critique en réanimation…'),
+      ClinicalChoice('1','1 · Besoins augmentés légèrement : fracture de hanche, maladie chronique avec complication aiguë (cirrhose, BPCO), hémodialyse, diabète ou oncologie'),
+      ClinicalChoice('2','2 · Besoins augmentés modérément : chirurgie abdominale majeure, AVC, pneumonie sévère ou hémopathie maligne'),
+      ClinicalChoice('3','3 · Besoins fortement augmentés : traumatisme crânien sévère, transplantation de moelle osseuse ou patient critique en réanimation (APACHE > 10)'),
     ]),
   ]),
   ClinicalScoreSpec('caprini','Caprini · Risque thrombotique','Préopératoire',[]),
