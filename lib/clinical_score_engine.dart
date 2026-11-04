@@ -1,4 +1,5 @@
 import 'models.dart';
+import 'caprini_assessment.dart';
 
 /// Résultat clinique purement informatif, non prescriptif.
 class ScoreResult {
@@ -55,10 +56,19 @@ class ClinicalScoring {
         return ScoreResult(score.toString(), 'Facteurs de risque cardiaque : ' +
             score.toString() + ' sur 6');
       case 'caprini':
+        // Lecture rétrocompatible des anciens totaux saisis. Tout nouveau
+        // formulaire exige le détail des facteurs sans supposer de « non ».
+        if (data.keys.any((key) =>
+            capriniFactors.any((factor) => factor.id == key))) {
+          final detailed = CapriniAssessment.calculate(data, age: age);
+          return detailed == null ? null : ScoreResult(
+            detailed.toString(), CapriniAssessment.interpretation(detailed));
+        }
         if (!all(['total'])) return null;
-        final score = n('total');
-        if (score == null || score < 0 || score > 100) return null;
-        return ScoreResult(score.toString(), 'Total renseigné sur grille Caprini 2013 complète ; vérifier le protocole local');
+        final legacy = n('total');
+        if (legacy == null || legacy < 0 || legacy > 100) return null;
+        return ScoreResult(legacy.toString(),
+          'Ancien total saisi manuellement, sans détail des facteurs ; à réévaluer.');
       case 'clavien':
         const grades = <String,String>{
           'I':'Soins simples', 'II':'Traitement pharmacologique / transfusion',
