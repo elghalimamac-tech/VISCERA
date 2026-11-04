@@ -319,36 +319,40 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
               }
             },
           ),
-          const Divider(height: 28),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('3. Compléments et suivi',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
-          const SizedBox(height: 5),
-          const Text('Informations facultatives associées à cette évaluation.',
-            style: TextStyle(fontSize: 12, color: VColors.muted)),
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('cfs-comorbidities'),
-            controller: _comorbidities,
-            readOnly: widget.readOnly || _saving,
-            maxLength: 1500,
-            minLines: 1,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Comorbidités (synthèse)',
-              hintText: 'Ex. HTA, diabète, insuffisance cardiaque',
-              border: OutlineInputBorder()),
-          ),
-          _assessmentChoice(
-            title: 'Évaluation nutritionnelle',
-            value: _nutrition,
-            onChanged: (v) => setState(() => _nutrition = v ?? 'a_evaluer'),
-          ),
-          _assessmentChoice(
-            title: 'Évaluation gériatrique',
-            value: _geriatrics,
-            onChanged: (v) => setState(() => _geriatrics = v ?? 'a_evaluer'),
+          ExpansionTile(
+            key: const Key('cfs-associated-details'),
+            initiallyExpanded: attention,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+            title: const Text('3. Compléments et suivi',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            subtitle: const Text('Comorbidités · nutrition · gériatrie',
+              style: TextStyle(fontSize: 12, color: VColors.muted)),
+            children: [
+              TextField(
+                key: const Key('cfs-comorbidities'),
+                controller: _comorbidities,
+                readOnly: widget.readOnly || _saving,
+                maxLength: 1500,
+                minLines: 1, maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Comorbidités (synthèse)',
+                  hintText: 'Ex. HTA, diabète, insuffisance cardiaque',
+                  border: OutlineInputBorder()),
+              ),
+              _assessmentChoice(
+                title: 'Évaluation nutritionnelle',
+                value: _nutrition,
+                onChanged: (v) => setState(
+                  () => _nutrition = v ?? 'a_evaluer'),
+              ),
+              _assessmentChoice(
+                title: 'Évaluation gériatrique',
+                value: _geriatrics,
+                onChanged: (v) => setState(
+                  () => _geriatrics = v ?? 'a_evaluer'),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           if (!widget.readOnly)
