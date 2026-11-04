@@ -1,4 +1,5 @@
 import '../branding.dart';
+import '../biological_followup.dart';
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../store.dart';
@@ -32,6 +33,8 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
           'Une observation par jour. Dictée vocale disponible dans chaque champ clinique. Relisez le texte avant enregistrement. Les cases Magica/Sillage attestent uniquement d’une ressaisie MANUELLE dans ces logiciels.',
           style: TextStyle(fontSize: 12.5))),
         const SizedBox(height: 15),
+        CrpTrendCard(patient:p),
+        const SizedBox(height: 13),
         if (p.isActive || p.isProgrammed) ElevatedButton.icon(
           onPressed: () => showClinicalObservationEditor(context, p),
           icon: const Icon(Icons.add_circle_outline),
@@ -51,6 +54,18 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
             if (obs.vitals.trim().isNotEmpty) _line('Constantes', obs.vitals),
             if (obs.symptoms.trim().isNotEmpty) _line('Symptômes / évolution', obs.symptoms),
             if (obs.clinicalExam.trim().isNotEmpty) _line('Examen', obs.clinicalExam),
+            if (obs.biology.isNotEmpty) ...[
+              const Text('BIOLOGIE DU JOUR',style:TextStyle(
+                fontWeight:FontWeight.w800,fontSize:11,color:VColors.ink)),
+              const SizedBox(height:6),
+              Wrap(spacing:7,runSpacing:6,children:[
+                for(final field in biologyFields)
+                  if(obs.biology.containsKey(field.key))
+                    Chip(label:Text(field.label+' : '+
+                      obs.biology[field.key]!.toString()+' '+field.unit,
+                      style:const TextStyle(fontSize:11))),
+              ]),
+            ],
             if (obs.results.trim().isNotEmpty) _line('Bilans / imagerie', obs.results),
             if (obs.plan.trim().isNotEmpty) _line('CAT', obs.plan),
             const Divider(height: 21),
@@ -100,6 +115,11 @@ Future<void> showClinicalObservationEditor(
     final results = TextEditingController(text: existing?.results ?? '');
     final plan = TextEditingController(text: existing?.plan ?? '');
     final values = [vitals, symptoms, exam, results, plan];
+    final labs = <String,TextEditingController>{
+      for(final field in biologyFields) field.key:TextEditingController(
+        text:existing?.biology[field.key]?.toString() ?? ''),
+    };
+    final labControllers=labs.values.toList();
     try {
       await showModalBottomSheet<void>(
         context: context, isScrollControlled: true, showDragHandle: true,
@@ -126,6 +146,33 @@ Future<void> showClinicalObservationEditor(
                 ),
                 const SizedBox(height: 8),
                 Expanded(child: ListView(children: [
+                  const Text('Biologie quotidienne · CRP et globules blancs proposés',
+                    style:TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+                  const SizedBox(height:6),
+                  const Text('Tous les bilans sont facultatifs. Ne laisser que '
+                    'les résultats mesurés, sans indiquer 0 pour une valeur absente.',
+                    style:TextStyle(fontSize:11,color:VColors.muted)),
+                  const SizedBox(height:9),
+                  for(final field in biologyFields.take(2))
+                    Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
+                      key:ValueKey('daily-biology-'+field.key),
+                      controller:labs[field.key],
+                      keyboardType:const TextInputType.numberWithOptions(decimal:true),
+                      decoration:InputDecoration(labelText:field.label+' ('+field.unit+')',
+                        border:const OutlineInputBorder(),isDense:true))),
+                  ExpansionTile(
+                    tilePadding:EdgeInsets.zero,
+                    title:const Text('Autres bilans facultatifs',
+                      style:TextStyle(fontSize:12,fontWeight:FontWeight.w700)),
+                    children:[for(final field in biologyFields.skip(2))
+                      Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
+                        key:ValueKey('daily-biology-'+field.key),
+                        controller:labs[field.key],
+                        keyboardType:const TextInputType.numberWithOptions(decimal:true),
+                        decoration:InputDecoration(labelText:field.label+' ('+field.unit+')',
+                          border:const OutlineInputBorder(),isDense:true)))],
+                  ),
+                  const Divider(height:22),
                   VoiceClinicalField(label: 'Constantes : TA, FC, T°, SpO₂, diurèse…', controller: vitals, maxLines: 3),
                   const SizedBox(height: 12),
                   VoiceClinicalField(label: 'Évolution / plaintes / symptômes', controller: symptoms, maxLines: 4),
@@ -143,7 +190,18 @@ Future<void> showClinicalObservationEditor(
                 SizedBox(width: double.infinity, child: ElevatedButton.icon(
                   icon: const Icon(Icons.check), label: const Text('Enregistrer l’observation'),
                   onPressed: () {
-                    if (values.every((c) => c.text.trim().isEmpty)) {
+                    final biology=<String,double>{};
+                    try {
+                      for(final field in biologyFields){
+                        final entered=parseBiology(labs[field.key]!.text,field);
+                        if(entered!=null)biology[field.key]=entered;
+                      }
+                    } on FormatException catch(error){
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                        SnackBar(content:Text(error.message)));
+                      return;
+                    }
+                    if (biology.isEmpty && values.every((c) => c.text.trim().isEmpty)) {
                       ScaffoldMessenger.of(sheetContext).showSnackBar(const SnackBar(content: Text('Renseignez au moins un élément clinique.')));
                       return;
                     }
@@ -153,11 +211,14 @@ Future<void> showClinicalObservationEditor(
                       return;
                     }
                     final changed = initial != null &&
-                      [initial.vitals, initial.symptoms, initial.clinicalExam, initial.results, initial.plan]
-                        .asMap().entries.any((entry) => entry.value != values[entry.key].text.trim());
+                      ([initial.vitals, initial.symptoms, initial.clinicalExam, initial.results, initial.plan]
+                        .asMap().entries.any((entry) => entry.value != values[entry.key].text.trim()) ||
+                        initial.biology.length!=biology.length ||
+                        biology.entries.any((e)=>initial.biology[e.key]!=e.value));
                     appStore.saveDailyObservation(p, DailyObservation(
                       date: selected, vitals: vitals.text.trim(), symptoms: symptoms.text.trim(),
                       clinicalExam: exam.text.trim(), results: results.text.trim(), plan: plan.text.trim(),
+                      biology:biology,
                       reportedMagica: changed ? false : (initial?.reportedMagica ?? false),
                       reportedSillage: changed ? false : (initial?.reportedSillage ?? false),
                       reportedMagicaAt: changed ? null : initial?.reportedMagicaAt,
@@ -172,6 +233,6 @@ Future<void> showClinicalObservationEditor(
         ),
       );
     } finally {
-      for (final controller in values) { controller.dispose(); }
+      for (final controller in [...values,...labControllers]) { controller.dispose(); }
     }
   }
