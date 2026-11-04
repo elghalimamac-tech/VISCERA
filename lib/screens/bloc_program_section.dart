@@ -350,8 +350,7 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
           ]);
         },
       ),
-    ]),
-  );
+    ]);
 }
 
 class _BlocSnapshot {
