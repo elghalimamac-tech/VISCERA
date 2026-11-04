@@ -162,14 +162,16 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
   Widget build(BuildContext context) {
     final p = widget.patient;
     final attention = _score != null && _score! >= 5;
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      decoration: BoxDecoration(
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: VColors.line),
-      ),
-      child: ExpansionTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: VColors.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
         key: const Key('cfs-collapse-tile'),
         initiallyExpanded: false,
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -282,6 +284,7 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
             const Text('Évaluation conservée en lecture seule.',
               style: TextStyle(fontSize: 12, color: VColors.muted)),
         ],
+      ),
       ),
     );
   }
