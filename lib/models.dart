@@ -203,6 +203,8 @@ class PatientCase {
   String comorbiditySummary = '';
   String nutritionAssessmentStatus = 'a_evaluer';
   String geriatricAssessmentStatus = 'a_evaluer';
+  /// Évaluations cliniques supplémentaires, conservées dans clinical_data.
+  Map<String, dynamic> clinicalScores = {};
   bool get requiresFrailtyAttention => cfsScore != null && cfsScore! >= 5;
   /// Programme officiel source ; l'admission de suivi peut être déduite automatiquement.
   final bool fromBlocProgram;
