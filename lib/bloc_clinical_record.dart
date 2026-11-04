@@ -23,6 +23,14 @@ class BlocClinicalRecordService {
     'investigations': patient.investigations,
     'labs': patient.labs,
     'immediatePlan': patient.immediatePlan,
+    'cfsScore': patient.cfsScore,
+    'cfsBaselineDate': patient.cfsBaselineDate == null ? null :
+      '${patient.cfsBaselineDate!.year.toString().padLeft(4,'0')}-${patient.cfsBaselineDate!.month.toString().padLeft(2,'0')}-${patient.cfsBaselineDate!.day.toString().padLeft(2,'0')}',
+    'cfsAssessedAt': patient.cfsAssessedAt?.toIso8601String(),
+    'asaClass': patient.asaClass,
+    'comorbiditySummary': patient.comorbiditySummary,
+    'nutritionAssessmentStatus': patient.nutritionAssessmentStatus,
+    'geriatricAssessmentStatus': patient.geriatricAssessmentStatus,
     'cpaStatus': patient.cpaStatus,
     'preopLabStatus': patient.preopLabStatus,
     'admissionPrescriptionStatus': patient.admissionPrescriptionStatus,
@@ -89,6 +97,21 @@ class BlocClinicalRecordService {
     patient.investigations = _text(data['investigations']);
     patient.labs = _text(data['labs']);
     patient.immediatePlan = _text(data['immediatePlan']);
+    final score = data['cfsScore'];
+    patient.cfsScore = score is int && score >= 1 && score <= 9 ? score : null;
+    patient.cfsBaselineDate = _date(data['cfsBaselineDate']);
+    patient.cfsAssessedAt = _date(data['cfsAssessedAt']);
+    final asa = _text(data['asaClass']);
+    patient.asaClass = const {'I','II','III','IV','V','VI'}.contains(asa) ? asa : '';
+    patient.comorbiditySummary = _text(data['comorbiditySummary']);
+    final nutrition = _text(data['nutritionAssessmentStatus']);
+    patient.nutritionAssessmentStatus =
+      const {'a_evaluer','faite','non_indiquee'}.contains(nutrition)
+        ? nutrition : 'a_evaluer';
+    final geriatrics = _text(data['geriatricAssessmentStatus']);
+    patient.geriatricAssessmentStatus =
+      const {'a_evaluer','faite','non_indiquee'}.contains(geriatrics)
+        ? geriatrics : 'a_evaluer';
     patient.cpaStatus = _text(data['cpaStatus']).isEmpty ? 'a_verifier' : _text(data['cpaStatus']);
     patient.preopLabStatus = _text(data['preopLabStatus']).isEmpty ? 'a_verifier' : _text(data['preopLabStatus']);
     patient.admissionPrescriptionStatus = _text(data['admissionPrescriptionStatus']).isEmpty ? 'a_verifier' : _text(data['admissionPrescriptionStatus']);
