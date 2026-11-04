@@ -11,6 +11,10 @@ const normal = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .toUpperCase().replace(/\s+/g, " ").trim();
 const surgeons = (Deno.env.get("VISCERA_BLOC_SURGEONS") ||
   "GHADDOU,BENSAAD,LAABOULI,LAFKIH,FAHSI").split(",").map(normal).filter(Boolean);
+const escapeRegex = (name: string) => name.replace(/[.*+?^$()|[\]{}\\]/g, "\\  "GHADDOU,BENSAAD,LAABOULI,LAFKIH,FAHSI").split(",").map(normal).filter(Boolean);");
+const isVisceral = (name: string) => surgeons.some((surgeon) =>
+  new RegExp("(^|[^A-Z])" + escapeRegex(surgeon) + "($|[^A-Z])").test(normal(name)));
+
 
 function readXlsx(bytes: Uint8Array): Row[] {
   const zip = unzipSync(bytes);
@@ -68,16 +72,15 @@ function extractRows(sheet: Row[], isoDate: string) {
   if ([roomCol, surgeonCol, patientCol, procedureCol].some((v) => v < 0))
     throw Error("Missing required program columns");
   const col = (row: Row, index: number) => index < 0 ? "" : (row[index] ?? "").trim();
-  const wanted = (name: string) => surgeons.some((s) =>
-    new RegExp("(^|[^A-Z])" + s.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&") + "($|[^A-Z])").test(normal(name)));
-  const out: Record<string, string>[] = [];
+  const out: Record<string, string | boolean>[] = [];
   for (const row of sheet.slice(heading + 1)) {
     const surgeon = col(row, surgeonCol);
     const patient = col(row, patientCol);
     const procedure = col(row, procedureCol);
-    if (!wanted(surgeon) || !patient || patient === "*" || !procedure || procedure === "*") continue;
+    if (!surgeon || !patient || patient === "*" || !procedure || procedure === "*") continue;
     out.push({
       room: col(row, roomCol).slice(0, 30),
+      is_visceral: isVisceral(surgeon),
       scheduled_time: col(row, getCol("HEURE")).slice(0, 32),
       hospital_arrival: col(row, getCol("HEURE D'ARRIVEE DU PATIENT A L'HOPITAL")).slice(0, 32),
       theatre_arrival: col(row, getCol("HEURE D'ARRIVEE AU BLOC")).slice(0, 32),
