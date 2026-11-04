@@ -206,15 +206,15 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
     required ValueChanged<String?> onChanged,
   }) => Padding(
     padding: const EdgeInsets.only(top: 12),
-    child: DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: title,
-        border: const OutlineInputBorder()),
-      items: _statuses.map((v) => DropdownMenuItem<String>(
-        value: v.$1, child: Text(v.$2, overflow: TextOverflow.ellipsis),
-      )).toList(),
-      onChanged: widget.readOnly || _saving ? null : onChanged,
+    child: _selector(
+      title,
+      _statuses.firstWhere((entry) => entry.$1 == value,
+        orElse: () => _statuses.first).$2,
+      () async {
+        final selected = await _chooseDescription<String>(
+          title, _statuses, value);
+        if (selected != null) onChanged(selected);
+      },
     ),
   );
 
