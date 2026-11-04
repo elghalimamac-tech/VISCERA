@@ -25,7 +25,11 @@ import '../notification_center_service.dart';
 import '../notification_bell.dart';
 import 'bloc_program_section.dart';
 
-class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState(); }
+class MainShell extends StatefulWidget {
+  const MainShell({super.key, this.onChangeHospital});
+  final VoidCallback? onChangeHospital;
+  @override State<MainShell> createState() => _MainShellState();
+}
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int selected=0;String query='';String filter='Actifs';String unit='Tous';String patientServiceFilter='Tous';
   Timer? _programTimer;
@@ -267,6 +271,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       const SizedBox(height:24),const Overline('ESPACE ADMINISTRATEUR'),const SizedBox(height:10),
       _drawerItem(Icons.admin_panel_settings_outlined,'Administration VISCERA',(){Navigator.pop(context);openAdmin();}),
     ],
+    if(widget.onChangeHospital!=null)
+      _drawerItem(Icons.swap_horiz_rounded,'Changer d’établissement',() async {
+        Navigator.pop(context);
+        await unregisterCurrentPushDevice();
+        if(mounted) widget.onChangeHospital?.call();
+      }),
     _drawerItem(Icons.logout_outlined,'Se déconnecter',() async {Navigator.pop(context);await cancelAllDutyReminders();await unregisterCurrentPushDevice();await Supabase.instance.client.auth.signOut();}),
     const SizedBox(height:28),const Divider(color:VColors.line),
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'screens/hospital_selection.dart';
+import 'screens/auth_gate.dart';
 import 'theme.dart';
 import 'branding.dart';
 import 'boot_splash.dart';
@@ -123,7 +123,7 @@ class _VisceraAppState extends State<VisceraApp> {
                       VisceraBootSplash(message: label),
                 );
               }
-              return const HospitalSelectionGate();
+              return const AuthGate();
             },
           ),
   );

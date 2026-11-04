@@ -38,25 +38,25 @@ adaptés et les tests multi-utilisateurs réels terminés.
 - **HUICK Casablanca** est en travaux. L'écran de sélection est visible par tous ; seul l'administrateur principal approuvé peut voir l'espace de préparation. Aucun module de patient, lit, bloc, admission ni notification clinique n'est chargé dans HUICK tant que l'isolation serveur n'est pas opérationnelle.
 - **Le partage porte sur le code et le design, jamais sur les dossiers.** Il n'y a ni copie HUIM6 → HUICK, ni test sur les patients réels.
 - Un contrôle dans Flutter ne constitue **pas** une autorisation d'accès aux données. Les permissions doivent être appliquées côté PostgreSQL/RLS et aux fonctions RPC.
-- **Version courante** : écran de sélection + verrouillage HUICK côté client. L'ouverture clinique de HUICK n'est pas implémentée.
+- **Version courante** : authentification d'abord, puis écran de sélection + verrouillage HUICK côté client et RLS serveur. L'ouverture clinique de HUICK n'est pas implémentée.
 
 ## Parcours d'accès
 
 ### HUIM6
 
-1. Lancement : splash VISCERA, initialisation Supabase, choix « HUIM6 Bouskoura ».
-2. Connexion / inscription / récupération du mot de passe actuelles.
-3. Validation de l'email puis contrôle du profil approuvé (`doctor_profiles.approval_status`, `approved_role`, `is_admin`).
-4. Pour un médecin autorisé : `MainShell` existant (Accueil, Patients, Admission, Bloc, Lits ; menus Planning, Notifications, Archives, Administration si autorisé).
+1. Lancement : splash VISCERA et initialisation Supabase.
+2. Connexion / inscription / récupération du mot de passe (ou restauration d’une session authentifiée existante).
+3. Validation de l'e-mail puis contrôle du profil approuvé (`doctor_profiles.approval_status`, `approved_role`, `is_admin`).
+4. **Uniquement après authentification et approbation**, choix « HUIM6 Bouskoura » ou « HUICK Casablanca ». Pour HUIM6 : `MainShell` existant (Accueil, Patients, Admission, Bloc, Lits ; menus Planning, Notifications, Archives, Administration si autorisé).
 5. Les données existantes viennent des programmes de bloc et des dossiers d'admission manuelle, avec historique et documents cliniques conservés dans Supabase.
 
 ### HUICK (préparation)
 
-1. Choix « HUICK Casablanca » ; affichage explicite « En travaux — accès administrateur uniquement ».
-2. Seule la connexion existante est présentée (pas de création de compte HUICK).
-3. Après authentification, le profil non administrateur reste sur un écran d'indisponibilité.
+1. Authentification et approbation du compte depuis l'écran commun VISCERA.
+2. Choix de « HUICK Casablanca » **après connexion** : affichage explicite « En travaux — accès administrateur uniquement ».
+3. Le profil non administrateur reste sur un écran d'indisponibilité, sans données cliniques.
 4. L'administrateur principal voit l'espace de préparation, sans `MainShell` ni requêtes patients.
-5. Retour au choix d'établissement possible ; **aucun** patient HUIM6 n'est exposé via HUICK.
+5. Retour au choix d'établissement sans reconnexion ; **aucun** patient HUIM6 n'est exposé via HUICK.
 
 ## Modèle de données cible avant l'ouverture de HUICK
 

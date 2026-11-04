@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import '../auth_controller.dart';
 import '../doctor_registration_options.dart';
-import '../push_device_registration.dart';
 import '../theme.dart';
 import '../build_info.dart';
 import '../branding.dart';
-import '../hospital_site.dart';
-import '../store.dart';
-import 'shell.dart';
+import 'hospital_selection.dart';
 
 /// Rappel de délivrabilité affiché pour les deux parcours d'e-mail Auth.
 /// Indépendant de Supabase : testable avant l'envoi et sur écran étroit.
@@ -30,10 +27,7 @@ class AuthEmailSpamReminder extends StatelessWidget {
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, this.hospital = HospitalSite.huim6,
-    this.onChangeHospital});
-  final HospitalSite hospital;
-  final VoidCallback? onChangeHospital;
+  const AuthGate({super.key});
   @override State<AuthGate> createState() => _AuthGateState();
 }
 
@@ -69,11 +63,9 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: auth,
     builder: (context, _) {
+      // Les autorisations sont contrôlées AVANT la sélection d'hôpital.
       if (auth.screen == AuthScreen.approved) {
-        if (widget.hospital == HospitalSite.huick) {
-          return _huickMaintenance();
-        }
-        return const PushDeviceRegistration(child: MainShell());
+        return HospitalSelectionGate(onSignOut: () { auth.signOut(); });
       }
       return Scaffold(
         backgroundColor: const Color(0xFFF3F6F7),
@@ -99,18 +91,9 @@ class _AuthGateState extends State<AuthGate> {
                         child: _screen(),
                       ),
                       const SizedBox(height: 21),
-                      Text('VISCERA · ' + widget.hospital.name +
-                         ' · Accès réservé aux professionnels autorisés.\nVersion $visceraBuildShort',
+                      Text('VISCERA · Accès réservé aux professionnels autorisés.\nVersion $visceraBuildShort',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
-                      if(widget.onChangeHospital!=null)...[
-                        const SizedBox(height:10),
-                        TextButton.icon(
-                          key:const Key('change-hospital-auth'),
-                          onPressed:widget.onChangeHospital,
-                          icon:const Icon(Icons.swap_horiz_rounded,size:18),
-                          label:const Text('Changer d’établissement')),
-                      ],
                     ],
                   ),
                 ),
@@ -122,73 +105,6 @@ class _AuthGateState extends State<AuthGate> {
     },
   );
 
-
-  /// Dans cette phase, HUICK est volontairement isole de tous les services
-  /// cliniques existants. Ne jamais monter MainShell / BlocPatientSync ici
-  /// tant que les migrations hospital_id et les RLS ne sont pas verifiees.
-  Widget _huickMaintenance() {
-    final isAdmin = appStore.activeLocalProfile?.isVisceraOwner == true;
-    return Scaffold(
-      backgroundColor: VColors.background,
-      appBar: AppBar(
-        title:const Text('VISCERA · HUICK'),
-        backgroundColor:VColors.background,
-      ),
-      body:SafeArea(child:Center(child:ConstrainedBox(
-        constraints:const BoxConstraints(maxWidth:540),
-        child:SingleChildScrollView(
-          padding:const EdgeInsets.all(24),
-          child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-            const Center(child:VisceraBrandLockup(markSize:53,subtitle:null)),
-            const SizedBox(height:32),
-            const Icon(Icons.construction_rounded,size:52,color:Color(0xFFA45633)),
-            const SizedBox(height:14),
-            Text('HUICK Casablanca · En travaux',
-              textAlign:TextAlign.center,
-              style:Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height:12),
-            Text(isAdmin
-              ? 'Accès administrateur autorisé pour préparer le futur espace HUICK. '
-                'Les admissions, les données cliniques et le programme du bloc '
-                'ne sont pas encore ouverts : aucune donnée HUIM6 n’est affichée.'
-              : 'L’espace HUICK est actuellement en travaux et ne permet pas '
-                'encore l’accès aux utilisateurs. Accès réservé à '
-                'l’administrateur principal pendant sa préparation.',
-              textAlign:TextAlign.center,
-              style:const TextStyle(fontSize:14,color:VColors.muted,height:1.6)),
-            const SizedBox(height:25),
-            if(isAdmin)Container(
-              padding:const EdgeInsets.all(16),
-              decoration:BoxDecoration(
-                color:VColors.softMint,
-                borderRadius:BorderRadius.circular(16)),
-              child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text('Préparation de HUICK',style:TextStyle(
-                  fontWeight:FontWeight.w800,fontSize:15,color:VColors.ink)),
-                SizedBox(height:8),
-                Text('À configurer : unités et boxes, médecins, plannings, '
-                  'programmes opératoires et autorisations serveur. '
-                  'Aucun dossier HUIM6 ne peut être utilisé ici.',
-                  style:TextStyle(fontSize:12,color:VColors.ink,height:1.5)),
-              ]),
-            ),
-            const SizedBox(height:18),
-            if(widget.onChangeHospital!=null)
-              FilledButton.icon(
-                key:const Key('change-hospital-from-huick'),
-                onPressed:widget.onChangeHospital,
-                icon:const Icon(Icons.swap_horiz_rounded),
-                label:const Text('Changer d’établissement')),
-            const SizedBox(height:12),
-            OutlinedButton.icon(
-              onPressed:()=>auth.signOut(),
-              icon:const Icon(Icons.logout_outlined),
-              label:const Text('Se déconnecter')),
-          ]),
-        ),
-      ))),
-    );
-  }
 
   Widget _brand() => const VisceraBrandLockup(markSize: 49);
 
@@ -258,9 +174,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _valid() => formKey.currentState?.validate() ?? false;
 
   Widget _login() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    _title('Connexion', widget.hospital == HospitalSite.huick
-        ? 'Accès administrateur uniquement. L’espace clinique HUICK est en travaux.'
-        : 'Retrouvez votre planning personnel et vos outils de service.'),
+    _title('Connexion', 'Retrouvez votre planning personnel et vos outils de service.'),
     _input(email, 'Adresse email', type: TextInputType.emailAddress),
     _input(password, 'Mot de passe', obscure: true),
     Align(alignment: Alignment.centerRight, child: TextButton(
@@ -268,15 +182,14 @@ class _AuthGateState extends State<AuthGate> {
     _notice(),
     _action('Se connecter', () { if (_valid()) auth.signIn(email.text, password.text); }),
     const SizedBox(height: 18),
-    if(widget.hospital == HospitalSite.huim6)
-      Row(mainAxisAlignment: MainAxisAlignment.center,children: [
+    Row(mainAxisAlignment: MainAxisAlignment.center,children: [
         const Text('Pas encore de compte ? '),
         TextButton(onPressed: ()=>auth.go(AuthScreen.signup),child: const Text('S’inscrire')),
       ]),
   ]);
 
   Widget _signup() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    _title('Créer mon compte', 'Gestion des patients — Chirurgie viscérale, HUIM6 Bouskoura. Inscription réservée aux médecins du service.'),
+    _title('Créer mon compte', 'Gestion des patients — Chirurgie viscérale. Inscription réservée aux médecins autorisés de VISCERA.'),
     const Text('Statut médical', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
     const SizedBox(height: 9),
     SegmentedButton<String>(

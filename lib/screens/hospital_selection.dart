@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../branding.dart';
 import '../hospital_site.dart';
+import '../push_device_registration.dart';
+import '../store.dart';
 import '../theme.dart';
-import 'auth_gate.dart';
+import 'shell.dart';
 
-/// Le choix d'hopital est volontairement un ecran de demarrage.
-/// HUICK ne doit jamais monter MainShell avant la separation cote Supabase.
+/// Montée UNIQUEMENT après une session médecin confirmée et approuvée
+/// par AuthGate. Une simple sélection ne procure aucun droit supplémentaire.
 class HospitalSelectionGate extends StatefulWidget {
-  const HospitalSelectionGate({super.key});
+  const HospitalSelectionGate({super.key, required this.onSignOut});
+  final VoidCallback onSignOut;
 
   @override
   State<HospitalSelectionGate> createState() => _HospitalSelectionGateState();
@@ -16,24 +19,121 @@ class HospitalSelectionGate extends StatefulWidget {
 class _HospitalSelectionGateState extends State<HospitalSelectionGate> {
   HospitalSite? _site;
 
+  void _changeHospital() {
+    if (mounted) setState(() => _site = null);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_site != null) {
-      return AuthGate(
-        key: ValueKey(_site),
-        hospital: _site!,
-        onChangeHospital: () => setState(() => _site = null),
+    if (_site == HospitalSite.huim6) {
+      return PushDeviceRegistration(
+        child: MainShell(onChangeHospital: _changeHospital),
       );
     }
-    return HospitalSelectionPage(onSelected: (site) {
-      setState(() => _site = site);
-    });
+    if (_site == HospitalSite.huick) {
+      return HuickMaintenancePage(
+        onChangeHospital: _changeHospital,
+        onSignOut: widget.onSignOut,
+      );
+    }
+    return HospitalSelectionPage(
+      onSelected: (site) => setState(() => _site = site),
+      onSignOut: widget.onSignOut,
+    );
+  }
+}
+
+/// L'espace HUICK n'initialise aucun écran ni aucune requête clinique HUIM6.
+class HuickMaintenancePage extends StatelessWidget {
+  const HuickMaintenancePage({
+    super.key,
+    required this.onChangeHospital,
+    required this.onSignOut,
+  });
+  final VoidCallback onChangeHospital;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = appStore.activeLocalProfile?.isVisceraOwner == true;
+    return Scaffold(
+      backgroundColor: VColors.background,
+      appBar: AppBar(
+        title: const Text('VISCERA · HUICK'),
+        backgroundColor: VColors.background,
+      ),
+      body: SafeArea(child: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: VisceraBrandLockup(markSize: 53, subtitle: null)),
+              const SizedBox(height: 32),
+              const Icon(Icons.construction_rounded, size: 52,
+                color: Color(0xFFA45633)),
+              const SizedBox(height: 14),
+              Text('HUICK Casablanca · En travaux',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 12),
+              Text(isAdmin
+                ? 'Accès administrateur autorisé pour préparer le futur espace HUICK. '
+                  'Les admissions, les données cliniques et le programme du bloc '
+                  'ne sont pas encore ouverts : aucune donnée HUIM6 n’est affichée.'
+                : 'L’espace HUICK est actuellement en travaux et ne permet '
+                  'pas encore l’accès aux utilisateurs. Accès réservé à '
+                  'l’administrateur principal pendant sa préparation.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14,
+                  color: VColors.muted, height: 1.6)),
+              const SizedBox(height: 25),
+              if (isAdmin) Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: VColors.softMint,
+                  borderRadius: BorderRadius.circular(16)),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Préparation de HUICK',
+                      style: TextStyle(fontWeight: FontWeight.w800,
+                        fontSize: 15, color: VColors.ink)),
+                    SizedBox(height: 8),
+                    Text('À configurer : unités, boxes, plannings, '
+                      'programmes opératoires et autorisations serveur. '
+                      'L’équipe médicale est commune aux deux hôpitaux. '
+                      'Aucun dossier HUIM6 ne peut être utilisé ici.',
+                      style: TextStyle(fontSize: 12,
+                        color: VColors.ink, height: 1.5)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                key: const Key('change-hospital-from-huick'),
+                onPressed: onChangeHospital,
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: const Text('Changer d’établissement')),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onSignOut,
+                icon: const Icon(Icons.logout_outlined),
+                label: const Text('Se déconnecter')),
+            ],
+          ),
+        ),
+      ))),
+    );
   }
 }
 
 class HospitalSelectionPage extends StatelessWidget {
-  const HospitalSelectionPage({super.key, required this.onSelected});
+  const HospitalSelectionPage({super.key, required this.onSelected,
+    this.onSignOut});
   final ValueChanged<HospitalSite> onSelected;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -71,6 +171,14 @@ class HospitalSelectionPage extends StatelessWidget {
                 status: 'En travaux · accès administrateur uniquement',
                 statusColor: const Color(0xFFA45633),
                 onTap: () => onSelected(HospitalSite.huick)),
+              if (onSignOut != null) ...[
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  key: const Key('logout-from-hospital-selection'),
+                  onPressed: onSignOut,
+                  icon: const Icon(Icons.logout_outlined),
+                  label: const Text('Se déconnecter')),
+              ],
               const SizedBox(height: 23),
               const Row(children: [
                 Icon(Icons.shield_outlined, size: 17, color: VColors.muted),
