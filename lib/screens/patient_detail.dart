@@ -4,6 +4,7 @@ import '../models.dart';
 import '../program_admission.dart';
 import '../document_checklist.dart';
 import '../preoperative_readiness.dart';
+import '../cfs_assessment.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -150,6 +151,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 VTag(p.stage.label,highlight:true),
                 VTag(p.insurance),
                 if(p.blockTiming=='Immédiat')const VTag('Bloc immédiat',warn:true),
+                if(p.requiresFrailtyAttention)VTag('CFS ${p.cfsScore} · Fragilité',warn:true),
               ]),
             ])),
           if(p.fromBlocProgram || p.fromManualAdmission)...[
@@ -387,6 +389,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               PreoperativeReadinessCard(patient:p,
                 onChanged:()=>appStore.refresh(changed:p),
                 readOnly:p.stage==CaseStage.discharged),
+              const SizedBox(height:12),
+              CfsAssessmentCard(
+                key:const Key('cfs-preoperative-assessment'),
+                patient:p,
+                readOnly:p.stage==CaseStage.discharged || p.isOmitted),
             ],
           )),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
