@@ -15,6 +15,36 @@ PatientCase official(DateTime date, {String id='BLOC-123'})=>PatientCase(
 );
 
 void main(){
+  test('Les 3 pièces du programme sont pré-cochées avec provenance',(){
+    final p=official(DateTime(2026,11,5,8));
+    ProgramAdmission.apply(p,DateTime(2026,11,4));
+    expect(p.completedCount(ClinicalDocuments.admission),3);
+    expect(p.allChecked(ClinicalDocuments.admission),isTrue);
+    for(final requirement in ClinicalDocuments.admission){
+      expect(p.check(requirement.key).fromProgram,isTrue);
+    }
+    final encoded=BlocClinicalRecordService.encode(p);
+    final restored=official(DateTime(2026,11,5,8));
+    BlocClinicalRecordService.apply(restored,encoded,1);
+    ProgramAdmission.apply(restored,DateTime(2026,11,4));
+    expect(restored.completedCount(ClinicalDocuments.admission),3);
+  });
+  test('Une correction manuelle ne doit jamais être cochée de nouveau',(){
+    final p=official(DateTime(2026,11,5,8));
+    ProgramAdmission.apply(p,DateTime(2026,11,4));
+    final pli=p.check('pli');
+    pli.verified=false;
+    pli.stamped=null;
+    pli.fromProgram=false;
+    ProgramAdmission.apply(p,DateTime(2026,11,4));
+    expect(p.completedCount(ClinicalDocuments.admission),2);
+    final encoded=BlocClinicalRecordService.encode(p);
+    final restored=official(DateTime(2026,11,5,8));
+    BlocClinicalRecordService.apply(restored,encoded,2);
+    ProgramAdmission.apply(restored,DateTime(2026,11,4));
+    expect(restored.completedCount(ClinicalDocuments.admission),2);
+  });
+
   test('Programme importé : admission automatique en préop avant le jour du bloc',(){
     final p=official(DateTime(2026,11,5,8));
     ProgramAdmission.apply(p,DateTime(2026,11,2,10));
