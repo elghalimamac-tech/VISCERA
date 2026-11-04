@@ -1,5 +1,37 @@
 # VISCERA — architecture multi-hôpital (HUIM6 / HUICK)
 
+## Déploiement réel — 04/11/2026 (phase 1)
+
+La base Supabase VISCERA **qkupckqgczdqiwxozxko** a reçu les migrations
+`20261104194818_viscera_two_hospitals_boundary_phase_one` et
+`20261104195258_viscera_huim6_unread_notifications_scoped`.
+
+- Deux établissements ont été créés : `huim6` actif, `huick` en maintenance.
+- Les neuf tables principales (imports et interventions, dossiers et admissions,
+  liens, notifications, préférences, appareils push) possèdent désormais
+  `hospital_id`, initialisé à `huim6` pour **chaque ligne historique**.
+- Les nouvelles appartenances `doctor_hospital_memberships` limitent les droits
+  aux médecins approuvés. L'approbation classique des comptes HUIM6 continue
+  à créer automatiquement l'appartenance HUIM6. Seul l'administrateur principal
+  existant est initialement membre de HUICK.
+- RLS **RESTRICTIVE** en lecture/écriture, contrôle des écritures y compris
+  celles provenant de fonctions `SECURITY DEFINER`, et FK composites pour
+  empêcher les liens patient/programme entre deux hôpitaux.
+- Flutter **HUIM6** filtre explicitement `hospital_id='huim6'` pour les
+  dossiers, imports, consultations du programme, notifications et dispositifs.
+- Le compteur de notifications non lues est aussi restreint à HUIM6.
+- Vérifications SQL : 44 lignes d'interventions et 40 dossiers opératoires
+  sont restés HUIM6, aucun enregistré sous HUICK. Un utilisateur non approuvé
+  ne lit rien. Une simulation réversible d'un membre HUICK sans accès HUIM6
+  n'a révélé aucune ligne HUIM6 ; l'appartenance HUIM6 a été restaurée.
+
+**Restent hors périmètre de cette phase :** l'activation clinique de HUICK,
+les imports Gmail propres à HUICK, les plannings et services par hôpital,
+la segmentation future des paramètres de notifications et l'ajout d'un
+paramètre `hospital_id` explicite aux RPC de création/ingestion.
+Il est interdit de basculer HUICK en `active` avant que ces flux soient
+adaptés et les tests multi-utilisateurs réels terminés.
+
 ## État et contraintes de sécurité
 
 - **HUIM6 Bouskoura** est l'établissement actif. Toute donnée enregistrée **avant** la mise en place du multi-hôpital lui appartient et doit demeurer inchangée.

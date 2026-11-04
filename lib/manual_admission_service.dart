@@ -101,6 +101,7 @@ class ManualAdmissionService {
     while (true) {
       final rows = await Supabase.instance.client.from('manual_patient_records')
         .select('id,name,origin,procedure_name,block_at,block_date,block_timing,birth_date,surgery_type,clinical_data,version')
+        .eq('hospital_id','huim6')
         .order('created_at', ascending: false)
         .range(offset, offset + pageSize - 1);
       for (final row in rows) {
@@ -115,7 +116,7 @@ class ManualAdmissionService {
     final links = <Map<String,dynamic>>[];
     for(var page=0;;page+=500){
       final fetched = await Supabase.instance.client.from('manual_bloc_links')
-        .select('manual_id,entry_id').order('entry_id').range(page,page+499);
+        .select('manual_id,entry_id').eq('hospital_id','huim6').order('entry_id').range(page,page+499);
       links.addAll(fetched.map((row)=>Map<String,dynamic>.from(row)));
       if(fetched.length<500)break;
     }
@@ -127,7 +128,7 @@ class ManualAdmissionService {
         final subset=entryIds.skip(start).take(chunkSize).toList();
         final fetched=await Supabase.instance.client.from('bloc_program_entries')
           .select('id,room,scheduled_time,surgeon,procedure_name')
-          .inFilter('id',subset);
+          .eq('hospital_id','huim6').inFilter('id',subset);
         for(final row in fetched){
           if(row['id'] is int) entries[row['id'] as int]=Map<String,dynamic>.from(row);
         }
