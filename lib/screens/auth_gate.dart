@@ -103,6 +103,14 @@ class _AuthGateState extends State<AuthGate> {
                          ' · Accès réservé aux professionnels autorisés.\nVersion $visceraBuildShort',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
+                      if(widget.onChangeHospital!=null)...[
+                        const SizedBox(height:10),
+                        TextButton.icon(
+                          key:const Key('change-hospital-auth'),
+                          onPressed:widget.onChangeHospital,
+                          icon:const Icon(Icons.swap_horiz_rounded,size:18),
+                          label:const Text('Changer d’établissement')),
+                      ],
                     ],
                   ),
                 ),
