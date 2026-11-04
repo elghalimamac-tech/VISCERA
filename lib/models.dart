@@ -226,6 +226,9 @@ class PatientCase {
   bool confidentialEnvelopeDone;
   final Map<String, DocumentCheck> documents = {};
   final List<DailyObservation> dailyObservations = [];
+  /// Événements postopératoires : fistules, infections, reprises, etc.
+  /// Toujours documentés par un médecin, jamais déduits des marqueurs.
+  final List<Map<String, dynamic>> postoperativeEvents = [];
   /// Avis demandés aux autres spécialités, avec statut indépendant.
   final List<SpecialistOpinion> specialistOpinions = [];
   DocumentCheck check(String key) => documents.putIfAbsent(key, DocumentCheck.new);
