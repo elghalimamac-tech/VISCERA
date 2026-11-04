@@ -5,6 +5,7 @@ import '../program_admission.dart';
 import '../document_checklist.dart';
 import '../preoperative_readiness.dart';
 import '../cfs_assessment.dart';
+import '../clinical_scores.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -396,6 +397,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 readOnly:p.stage==CaseStage.discharged || p.isOmitted),
             ],
           )),
+          const SizedBox(height:12),
+          ClinicalScoresCard(
+            key:const Key('patient-clinical-scores'),
+            patient:p,
+            readOnly:p.stage==CaseStage.discharged || p.isOmitted),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
             p.stage==CaseStage.discharged)...[
             const SizedBox(height:12),
