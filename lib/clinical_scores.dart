@@ -11,29 +11,46 @@ class ClinicalScoresCard extends StatelessWidget {
   final PatientCase patient;
   final bool readOnly;
 
-  @override
-  Widget build(BuildContext context) => Card(
-    color: Colors.white, elevation: 0,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16),
-      side: BorderSide(color: Colors.grey.shade300)),
-    child: ExpansionTile(
-      key: const Key('clinical-scores-tile'),
-      initiallyExpanded: false,
-      title: const Text('Scores cliniques complémentaires',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-      subtitle: const Text('Nutrition · thrombose · respiration · cœur · surveillance',
-        style: TextStyle(fontSize: 12)),
-      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      children: [
-        const Text('Évaluations médicales facultatives. Les données absentes ne sont '
-          'pas considérées normales. Aucun score ne déclenche seul une décision '
-          'chirurgicale ou thérapeutique.', style: TextStyle(fontSize: 12)),
-        for (final spec in clinicalScoreSpecs)
-          ClinicalScoreForm(key: ValueKey('form-' + spec.id),
-            patient: patient, spec: spec, readOnly: readOnly),
-      ],
-    ),
-  );
+  @override Widget build(BuildContext context) {
+    final preop=patient.stage==CaseStage.scheduled ||
+      patient.stage==CaseStage.preoperative ||
+      patient.stage==CaseStage.inTheatre;
+    final postop=patient.stage==CaseStage.postoperative ||
+      patient.stage==CaseStage.dischargeReady ||
+      patient.stage==CaseStage.discharged;
+    bool visible(ClinicalScoreSpec score) =>
+      score.period=='Hospitalisation' ||
+      (score.period=='Préopératoire' && preop) ||
+      (score.period=='Postopératoire' && postop) ||
+      patient.clinicalScores.containsKey(score.id);
+    return Card(color:Colors.white,elevation:0,
+      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16),
+        side:BorderSide(color:Colors.grey.shade300)),
+      child:ExpansionTile(
+        key:const Key('clinical-scores-tile'),
+        initiallyExpanded:false,
+        title:Text('Scores adaptés · '+(preop?'Préopératoire':'Postopératoire'),
+          style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800)),
+        subtitle:Text(preop
+          ? 'Nutrition · thrombose · anesthésie · cœur'
+          : 'Complications · fistules · surveillance',
+          style:const TextStyle(fontSize:12)),
+        childrenPadding:const EdgeInsets.fromLTRB(12,0,12,12),
+        children:[
+          const Text('Évaluations facultatives, proposées selon la phase clinique. '
+            'Une donnée manquante ne vaut pas zéro. Aucun score ne déclenche '
+            'seul une décision médicale.',style:TextStyle(fontSize:12)),
+          for(final score in clinicalScoreSpecs)
+            if(visible(score))
+              ClinicalScoreForm(key:ValueKey('form-'+score.id),
+                patient:patient,spec:score,
+                readOnly:readOnly ||
+                  (score.period=='Préopératoire' && !preop) ||
+                  (score.period=='Postopératoire' && !postop)),
+        ],
+      ),
+    );
+  }
 }
 
 class ClinicalScoreForm extends StatefulWidget {
@@ -83,7 +100,8 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       'inputs': Map<String, String>.from(answers),
       'assessedAt': DateTime.now().toUtc().toIso8601String(),
       'assessedBy': appStore.activeLocalProfile?.id ?? '',
-      'schemaVersion': 1,
+      'assessedStage':p.stage.name,
+      'schemaVersion':2,
     };
     try {
       await appStore.saveClinical(p);
@@ -282,7 +300,19 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
   @override
   Widget build(BuildContext context) {
     final age = ClinicalScoring.age(widget.patient);
-    final result = ClinicalScoring.compute(widget.spec.id, answers, age: age);
+    final computedInputs=Map<String,String>.from(answers);
+    if(widget.spec.id=='mdulk') {
+      final notes=[...widget.patient.dailyObservations]
+        ..sort((a,b)=>b.date.compareTo(a.date));
+      for(final note in notes) {
+        final crp=note.biology['crp'];
+        if(crp!=null) {
+          computedInputs['crp']=crp.toString();
+          break;
+        }
+      }
+    }
+    final result=ClinicalScoring.compute(widget.spec.id,computedInputs,age:age);
     final stored = widget.patient.clinicalScores[widget.spec.id];
     final saved = stored is Map ? stored : null;
     final ageRequired = ['nrs2002', 'ariscat'].contains(widget.spec.id);
@@ -304,6 +334,22 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
                 : 'Âge du dossier pris en compte : ' + age.toString() + ' ans',
               style: const TextStyle(fontSize: 12))),
         if (widget.spec.id == 'caprini') _capriniForm(age),
+        if(widget.spec.id=='mdulk') ...[
+          const Text('mDULK : quatre critères de vigilance des fistules '
+            'colorectales. La CRP provient de la dernière observation '
+            'renseignée. Ce score ne confirme pas une fistule.',
+            style:TextStyle(fontSize:12)),
+          const SizedBox(height:8),
+          _number('rr','Fréquence respiratoire du jour (/min)'),
+          Text(computedInputs['crp']==null
+            ? 'CRP absente : aucun score calculé.'
+            : 'CRP retenue : '+computedInputs['crp']!+' mg/L',
+            style:const TextStyle(fontSize:12)),
+        ],
+        if(widget.spec.id=='isrec')
+          const Text('ISREC s’applique uniquement à une fistule '
+            'colorectale confirmée par un médecin.',
+            style:TextStyle(fontSize:12)),
         if (widget.spec.id == 'news2') ...[
           const Text('L’échelle SpO₂ 2 n’est utilisable que si la cible '
             '88–92 % a été prescrite par un clinicien compétent. '
