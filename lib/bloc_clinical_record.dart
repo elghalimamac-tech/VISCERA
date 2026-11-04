@@ -70,6 +70,7 @@ class BlocClinicalRecordService {
       'requestedAt': opinion.requestedAt.toIso8601String(),
       'doneAt': opinion.doneAt?.toIso8601String(),
     }).toList(),
+    'postoperativeEvents':patient.postoperativeEvents,
     'dailyObservations': patient.dailyObservations.map((note) => {
       'date': note.date.toIso8601String(),
       'vitals': note.vitals,
@@ -208,6 +209,17 @@ class BlocClinicalRecordService {
           requestedAt: _date(item['requestedAt']) ?? patient.blockAt,
           doneAt: done ? _date(item['doneAt']) : null,
         ));
+      }
+    }
+    patient.postoperativeEvents.clear();
+    if(data['postoperativeEvents'] is List) {
+      for(final raw in data['postoperativeEvents'] as List) {
+        if(raw is! Map)continue;
+        final event=Map<String,dynamic>.from(raw);
+        if(event['date'] is String && event['type'] is String &&
+            event['details'] is String) {
+          patient.postoperativeEvents.add(event);
+        }
       }
     }
     patient.dailyObservations.clear();
