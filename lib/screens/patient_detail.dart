@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../program_admission.dart';
 import '../document_checklist.dart';
+import '../biological_followup.dart';
+import '../postoperative_events.dart';
 import '../preoperative_readiness.dart';
 import '../cfs_assessment.dart';
 import '../clinical_scores.dart';
@@ -346,11 +348,15 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             SpecialistOpinionsCard(
               patient:p,readOnly:p.stage==CaseStage.discharged),
           ],
+          const SizedBox(height:14),
+          SectionHeading('Suivi biologique · CRP'),
+          CrpTrendCard(patient:p,compact:true),
+          const SizedBox(height:12),
           SectionHeading('Documents et vérifications'),
           VCard(child:ExpansionTile(
             key:const Key('patient-admission-documents'),
             initiallyExpanded:p.stage==CaseStage.preoperative ||
-              p.stage==CaseStage.scheduled || p.stage==CaseStage.inTheatre,
+              p.stage==CaseStage.scheduled,
             tilePadding:EdgeInsets.zero,
             title:const Text('Admission et préparation opératoire',
               style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
@@ -360,9 +366,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               DocumentChecklist(patient:p,title:'Documents à l’admission',
                 requirements:ClinicalDocuments.admission),
               const SizedBox(height:12),
-              PreoperativeReadinessCard(patient:p,
-                onChanged:()=>appStore.refresh(changed:p),
-                readOnly:p.stage==CaseStage.discharged),
+              if(p.stage==CaseStage.scheduled || p.stage==CaseStage.preoperative ||
+                 p.stage==CaseStage.inTheatre)
+                PreoperativeReadinessCard(patient:p,
+                  onChanged:()=>appStore.refresh(changed:p),
+                  readOnly:p.stage==CaseStage.discharged),
             ],
           )),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
@@ -384,16 +392,30 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             )),
           ],
-          SectionHeading('Scores et évaluations'),
-          CfsAssessmentCard(
-            key:const Key('cfs-preoperative-assessment'),
-            patient:p,
-            readOnly:p.stage==CaseStage.discharged || p.isOmitted),
-          const SizedBox(height:12),
+          SectionHeading((p.stage==CaseStage.preoperative ||
+             p.stage==CaseStage.scheduled || p.stage==CaseStage.inTheatre)
+             ? 'Évaluation avant chirurgie' : 'Suivi et complications postopératoires'),
+          if(p.stage==CaseStage.preoperative || p.stage==CaseStage.scheduled ||
+             p.stage==CaseStage.inTheatre || p.cfsScore!=null)...[
+            CfsAssessmentCard(
+              key:const Key('cfs-preoperative-assessment'),
+              patient:p,
+              readOnly:p.stage==CaseStage.discharged || p.isOmitted ||
+                (p.stage!=CaseStage.preoperative && p.stage!=CaseStage.scheduled)),
+            const SizedBox(height:12),
+          ],
           ClinicalScoresCard(
             key:const Key('patient-clinical-scores'),
             patient:p,
             readOnly:p.stage==CaseStage.discharged || p.isOmitted),
+          const SizedBox(height:12),
+          BiologicalIndicesCard(patient:p),
+          if(p.stage==CaseStage.inTheatre || p.isPostOp ||
+              p.stage==CaseStage.discharged) ...[
+            const SizedBox(height:12),
+            PostoperativeEventsCard(patient:p,
+              readOnly:p.stage==CaseStage.discharged),
+          ],
           if(p.fromBlocProgram && p.stage!=CaseStage.discharged)...[
             const SizedBox(height:18),
             const Divider(),

@@ -55,6 +55,8 @@ class DocumentCheck {
   bool? stamped;
   bool notApplicable = false;
   DateTime? checkedAt;
+  /// Déclaré disponible par le flux du programme officiel, sans signature électronique.
+  bool fromProgram = false;
   bool complete(DocumentRequirement requirement) => notApplicable && requirement.optional ||
       verified && (!requirement.needsStamp || stamped == true);
 }
@@ -92,14 +94,19 @@ class DailyObservation {
   DailyObservation({required this.date, this.vitals = '', this.symptoms = '',
     this.clinicalExam = '', this.results = '', this.plan = '',
     this.reportedMagica = false, this.reportedSillage = false,
-    this.reportedMagicaAt, this.reportedSillageAt, DateTime? updatedAt})
-      : updatedAt = updatedAt ?? DateTime.now();
+    this.reportedMagicaAt, this.reportedSillageAt,
+    Map<String, double>? biology, DateTime? updatedAt})
+      : biology = Map<String, double>.from(biology ?? const {}),
+        updatedAt = updatedAt ?? DateTime.now();
   final DateTime date;
   String vitals, symptoms, clinicalExam, results, plan;
+  /// Résultats structurés optionnels, unités documentées par BiologyFields.
+  final Map<String, double> biology;
   bool reportedMagica, reportedSillage;
   DateTime? reportedMagicaAt, reportedSillageAt;
   DateTime updatedAt;
-  bool get hasContent => [vitals, symptoms, clinicalExam, results, plan].any((s) => s.trim().isNotEmpty);
+  bool get hasContent => biology.isNotEmpty ||
+      [vitals, symptoms, clinicalExam, results, plan].any((s) => s.trim().isNotEmpty);
   bool get fullyReported => reportedMagica && reportedSillage;
 }
 
@@ -219,6 +226,9 @@ class PatientCase {
   bool confidentialEnvelopeDone;
   final Map<String, DocumentCheck> documents = {};
   final List<DailyObservation> dailyObservations = [];
+  /// Événements postopératoires : fistules, infections, reprises, etc.
+  /// Toujours documentés par un médecin, jamais déduits des marqueurs.
+  final List<Map<String, dynamic>> postoperativeEvents = [];
   /// Avis demandés aux autres spécialités, avec statut indépendant.
   final List<SpecialistOpinion> specialistOpinions = [];
   DocumentCheck check(String key) => documents.putIfAbsent(key, DocumentCheck.new);

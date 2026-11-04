@@ -61,6 +61,7 @@ class BlocClinicalRecordService {
       'stamped': value.stamped,
       'notApplicable': value.notApplicable,
       'checkedAt': value.checkedAt?.toIso8601String(),
+      'fromProgram': value.fromProgram,
     })),
     'specialistOpinions': patient.specialistOpinions.map((opinion) => {
       'id': opinion.id,
@@ -69,6 +70,7 @@ class BlocClinicalRecordService {
       'requestedAt': opinion.requestedAt.toIso8601String(),
       'doneAt': opinion.doneAt?.toIso8601String(),
     }).toList(),
+    'postoperativeEvents':patient.postoperativeEvents,
     'dailyObservations': patient.dailyObservations.map((note) => {
       'date': note.date.toIso8601String(),
       'vitals': note.vitals,
@@ -76,6 +78,7 @@ class BlocClinicalRecordService {
       'clinicalExam': note.clinicalExam,
       'results': note.results,
       'plan': note.plan,
+      'biology': note.biology,
       'reportedMagica': note.reportedMagica,
       'reportedSillage': note.reportedSillage,
       'reportedMagicaAt': note.reportedMagicaAt?.toIso8601String(),
@@ -183,7 +186,8 @@ class BlocClinicalRecordService {
           ..verified = _bool(state['verified'])
           ..stamped = state['stamped'] is bool ? state['stamped'] as bool : null
           ..notApplicable = _bool(state['notApplicable'])
-          ..checkedAt = _date(state['checkedAt']);
+          ..checkedAt = _date(state['checkedAt'])
+          ..fromProgram = _bool(state['fromProgram']);
         patient.documents[item.key as String] = doc;
       }
     }
@@ -207,6 +211,17 @@ class BlocClinicalRecordService {
         ));
       }
     }
+    patient.postoperativeEvents.clear();
+    if(data['postoperativeEvents'] is List) {
+      for(final raw in data['postoperativeEvents'] as List) {
+        if(raw is! Map)continue;
+        final event=Map<String,dynamic>.from(raw);
+        if(event['date'] is String && event['type'] is String &&
+            event['details'] is String) {
+          patient.postoperativeEvents.add(event);
+        }
+      }
+    }
     patient.dailyObservations.clear();
     if (data['dailyObservations'] is List) {
       for (final raw in data['dailyObservations'] as List) {
@@ -221,6 +236,12 @@ class BlocClinicalRecordService {
           clinicalExam: _text(item['clinicalExam']),
           results: _text(item['results']),
           plan: _text(item['plan']),
+          biology: item['biology'] is Map
+            ? Map<String, double>.fromEntries(
+                (item['biology'] as Map).entries.where(
+                  (e) => e.key is String && e.value is num).map(
+                    (e) => MapEntry(e.key as String,(e.value as num).toDouble())))
+            : const {},
           reportedMagica: _bool(item['reportedMagica']),
           reportedSillage: _bool(item['reportedSillage']),
           reportedMagicaAt: _date(item['reportedMagicaAt']),
