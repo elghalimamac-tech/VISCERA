@@ -32,7 +32,7 @@ class BlocPatientSync {
     const pageSize = 500;
     final linkedIds = <int>{};
     for(var page=0;;page+=500){
-      final links = await api.from('manual_bloc_links').select('entry_id')
+      final links = await api.from('manual_bloc_links').select('entry_id').eq('hospital_id','huim6')
         .order('entry_id').range(page,page+499);
       linkedIds.addAll(links.map((r)=>r['entry_id']).whereType<int>());
       if(links.length<500)break;
@@ -45,14 +45,14 @@ class BlocPatientSync {
       final response = await api.from('bloc_program_entries').select(
         'id,room,scheduled_time,source_service,patient_name,procedure_name,surgeon,'
         'bloc_program_imports!inner(program_date,is_current)',
-      ).eq('bloc_program_imports.is_current', true)
+      ).eq('hospital_id','huim6').eq('bloc_program_imports.is_current', true)
         .order('id', ascending: false).range(offset, offset + pageSize - 1);
       if (response.isEmpty) break;
       final ids = response.map((r) => r['id']).whereType<int>().toList();
       final clinical = <int, Map<String, dynamic>>{};
       if (ids.isNotEmpty) {
         final records = await api.from('bloc_patient_records')
-          .select('entry_id,version,clinical_data').inFilter('entry_id', ids);
+          .select('entry_id,version,clinical_data').eq('hospital_id','huim6').inFilter('entry_id', ids);
         for (final record in records) {
           final id = record['entry_id'];
           if (id is int) clinical[id] = Map<String, dynamic>.from(record);
@@ -133,7 +133,7 @@ class BlocPatientSync {
     for (var page = 0;; page += archivePageSize) {
       final rows = await api.from('bloc_patient_records')
           .select('entry_id,version,clinical_data')
-          .eq('clinical_data->>stage', CaseStage.discharged.name)
+          .eq('hospital_id','huim6').eq('clinical_data->>stage', CaseStage.discharged.name)
           .order('entry_id').range(page, page + archivePageSize - 1);
       for (final row in rows) {
         final entryId = row['entry_id'];
@@ -152,7 +152,7 @@ class BlocPatientSync {
       final entries = await api.from('bloc_program_entries').select(
         'id,room,scheduled_time,source_service,patient_name,procedure_name,'
         'surgeon,bloc_program_imports!inner(program_date)',
-      ).inFilter('id', ids);
+      ).eq('hospital_id','huim6').inFilter('id', ids);
       for (final raw in entries) {
         final row = Map<String, dynamic>.from(raw);
         final entryId = row['id'];
