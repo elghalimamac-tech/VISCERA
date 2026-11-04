@@ -77,7 +77,7 @@ function extractRows(sheet: Row[], isoDate: string) {
     const surgeon = col(row, surgeonCol);
     const patient = col(row, patientCol);
     const procedure = col(row, procedureCol);
-    if (!surgeon || !patient || patient === "*" || !procedure || procedure === "*") continue;
+    if (!isVisceral(surgeon) || !patient || patient === "*" || !procedure || procedure === "*") continue;
     out.push({
       room: col(row, roomCol).slice(0, 30),
       is_visceral: isVisceral(surgeon),
@@ -139,6 +139,10 @@ Deno.serve(async (req: Request) => {
     const sha = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
       .map((x) => x.toString(16).padStart(2, "0")).join("");
     const extracted = extractRows(readXlsx(bytes), programDate);
+    // L'application est dédiée à la chirurgie viscérale : aucune autre
+    // spécialité ne doit être transmise à la base clinique.
+    if (extracted.some((row) => row.is_visceral !== true))
+      return json(422, { error: "Non-visceral entry rejected" });
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY");
     if (!url || !key) return json(503, { error: "Database is not configured" });
@@ -152,7 +156,10 @@ Deno.serve(async (req: Request) => {
       p_rows: extracted,
     });
     if (error) { console.error("Bloc import failed", error.code); return json(500, { error: "Database write failed" }); }
-    return json(200, { status: data?.status || "unknown", count: data?.count ?? 0, date: programDate });
+    if (data?.status === "imported" && Number(data?.count) !== extracted.length)
+      return json(500, { error: "Imported row count mismatch" });
+    return json(200, { status: data?.status || "unknown", count: data?.count ?? 0,
+      extracted_count: extracted.length, date: programDate });
   } catch (_error) {
     return json(422, { error: "The operating program could not be read" });
   }

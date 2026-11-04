@@ -15,7 +15,6 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
   late DateTime day;
   late Future<_BlocSnapshot?> pending;
   Timer? timer;
-  bool visceralOnly = false;
 
   @override
   void initState() {
@@ -56,25 +55,13 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
       .limit(1);
     if (imports.isEmpty) return null;
     final importId = imports.first['id'];
-    final all = await api.from('bloc_program_all_entries')
-      .select('sequence_no,room,scheduled_time,source_service,patient_name,'
-        'procedure_name,surgeon,assistant,nurse,anaesthetist,iar,'
-        'source_status,is_visceral')
-      .eq('import_id', importId)
-      .order('sequence_no');
-    if (all.isNotEmpty) {
-      return _BlocSnapshot(
-        all.map((r) => Map<String, dynamic>.from(r)).toList(), true);
-    }
-    // Versions antérieures : seules les opérations viscérales étaient stockées.
-    final old = await api.from('bloc_program_entries')
+    final rows = await api.from('bloc_program_entries')
       .select('sequence_no,room,scheduled_time,source_service,patient_name,'
         'procedure_name,surgeon,assistant,nurse,anaesthetist,iar,source_status')
       .eq('import_id', importId)
       .order('sequence_no');
-    return _BlocSnapshot(old.map((r) => <String, dynamic>{
-      ...Map<String, dynamic>.from(r), 'is_visceral': true,
-    }).toList(), false);
+    return _BlocSnapshot(
+      rows.map((r) => Map<String, dynamic>.from(r)).toList(), true);
   }
 
   void refresh() => setState(() => pending = load(day));
@@ -92,17 +79,86 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
     if (picked != null && mounted) selectDay(picked);
   }
 
-  Widget cell(String text, {double width = 140, bool bold = false}) =>
-      SizedBox(width: width, child: Text(text.isEmpty ? '—' : text,
-        softWrap: true, style: TextStyle(fontSize: 12,
-          fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-          color: bold ? VColors.ink : VColors.muted)));
+  Widget _caseRow(Map<String, dynamic> entry, int index) {
+    final time = value(entry, 'scheduled_time');
+    final service = value(entry, 'source_service');
+    final surgeon = value(entry, 'surgeon');
+    final assistant = value(entry, 'assistant');
+    final iar = value(entry, 'iar');
+    final anaesthetist = value(entry, 'anaesthetist');
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(11, 7, 11, 2),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4EDE9))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: VColors.softMint,
+              borderRadius: BorderRadius.circular(8)),
+            child: Text(time.isEmpty ? 'Horaire à préciser' : time,
+              style: const TextStyle(color: VColors.ink,
+                fontSize: 12, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Intervention ' + (index + 1).toString(),
+            style: const TextStyle(fontSize: 12, color: VColors.muted))),
+        ]),
+        const SizedBox(height: 9),
+        Text(value(entry, 'patient_name'),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+            color: VColors.ink)),
+        const SizedBox(height: 5),
+        Text(value(entry, 'procedure_name'),
+          style: const TextStyle(fontSize: 13, height: 1.4)),
+        const SizedBox(height: 8),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.medical_services_outlined,
+            size: 16, color: VColors.muted),
+          const SizedBox(width: 7),
+          Expanded(child: Text(surgeon,
+            style: const TextStyle(fontSize: 12, color: VColors.muted))),
+        ]),
+        if (service.isNotEmpty && service != '*')
+          Padding(padding: const EdgeInsets.only(top: 5),
+            child: Text('Service : ' + service,
+              style: const TextStyle(fontSize: 12, color: VColors.muted))),
+        if ((assistant.isNotEmpty && assistant != '*') ||
+            (iar.isNotEmpty && iar != '*') ||
+            (anaesthetist.isNotEmpty && anaesthetist != '*'))
+          Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              dense: true,
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text('Voir l’équipe opératoire',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              children: [
+                if (assistant.isNotEmpty && assistant != '*')
+                  Align(alignment: Alignment.centerLeft,
+                    child: Text('Aide : ' + assistant)),
+                if (anaesthetist.isNotEmpty && anaesthetist != '*')
+                  Align(alignment: Alignment.centerLeft,
+                    child: Text('Anesthésie : ' + anaesthetist)),
+                if (iar.isNotEmpty && iar != '*')
+                  Align(alignment: Alignment.centerLeft,
+                    child: Text('IAR : ' + iar)),
+              ],
+            )),
+      ]),
+    );
+  }
 
   Widget roomTable(String room, List<Map<String, dynamic>> cases) {
     return Card(
-      margin: const EdgeInsets.only(top: 11),
       key: ValueKey(dateKey(day) + '-' + room),
-      color: const Color(0xFFF7FAF9),
+      margin: const EdgeInsets.only(top: 11),
+      color: const Color(0xFFF4F8F6),
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -115,48 +171,9 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
           style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(cases.length.toString() + ' intervention(s)'),
         children: [
-          const Divider(height: 1),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-            child: DataTable(
-              headingRowHeight: 45,
-              dataRowMinHeight: 56,
-              dataRowMaxHeight: 125,
-              horizontalMargin: 12,
-              columnSpacing: 16,
-              columns: const [
-                DataColumn(label: Text('Ordre / heure')),
-                DataColumn(label: Text('Patient')),
-                DataColumn(label: Text('Intervention')),
-                DataColumn(label: Text('Chirurgien')),
-                DataColumn(label: Text('Service')),
-                DataColumn(label: Text('Équipe / statut')),
-              ],
-              rows: [
-                for (var i = 0; i < cases.length; i++)
-                  DataRow(cells: [
-                    DataCell(cell((i + 1).toString() + ' · ' +
-                      value(cases[i], 'scheduled_time'), width: 115, bold: true)),
-                    DataCell(cell(value(cases[i], 'patient_name'),
-                      width: 160, bold: true)),
-                    DataCell(cell(value(cases[i], 'procedure_name'), width: 220)),
-                    DataCell(cell(value(cases[i], 'surgeon'), width: 160)),
-                    DataCell(cell(value(cases[i], 'source_service'), width: 105)),
-                    DataCell(cell([
-                      if (value(cases[i], 'assistant').isNotEmpty)
-                        'Aide : ' + value(cases[i], 'assistant'),
-                      if (value(cases[i], 'anaesthetist').isNotEmpty)
-                        'Anesth. : ' + value(cases[i], 'anaesthetist'),
-                      if (value(cases[i], 'iar').isNotEmpty)
-                        'IAR : ' + value(cases[i], 'iar'),
-                      if (value(cases[i], 'source_status').isNotEmpty)
-                        value(cases[i], 'source_status'),
-                    ].join('\n'), width: 200)),
-                  ]),
-              ],
-            ),
-          ),
+          for (var i = 0; i < cases.length; i++)
+            _caseRow(cases[i], i),
+          const SizedBox(height: 10),
         ],
       ),
     );
@@ -174,7 +191,7 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
       Row(children: [
         const Icon(Icons.table_chart_outlined, color: VColors.ink),
         const SizedBox(width: 8),
-        const Expanded(child: Text('Programme opératoire officiel · HUIM6',
+        const Expanded(child: Text('Programme du bloc · Viscérale',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
         IconButton(onPressed: refresh, tooltip: 'Actualiser',
           icon: const Icon(Icons.refresh_rounded)),
@@ -213,8 +230,7 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
                 'Un programme antérieur ne lui est pas substitué.',
                 style: TextStyle(fontSize: 12, color: VColors.muted)));
           }
-          final rows = data.entries.where((r) =>
-            !visceralOnly || r['is_visceral'] == true).toList();
+          final rows = data.entries;
           final rooms = <String, List<Map<String, dynamic>>>{};
           for (final row in rows) {
             final room = value(row, 'room').isEmpty
@@ -235,19 +251,12 @@ class _BlocProgramSectionState extends State<BlocProgramSection> {
                 names.length.toString() + ' salle(s)',
                 style: const TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: VColors.ink)),
-              FilterChip(label: const Text('Viscérale uniquement'),
-                selected: visceralOnly,
-                onSelected: (v) => setState(() => visceralOnly = v)),
+
             ]),
-            const Text('Tableau prévisionnel retranscrit. Défiler '
-              'horizontalement pour voir les colonnes ; vérifier toute '
+            const Text('Tableau prévisionnel retranscrit. chaque intervention est organisée par salle. Vérifier toute '
               'modification auprès de la coordination du bloc.',
               style: TextStyle(fontSize: 11, color: VColors.muted)),
-            if (!data.complete)
-              const Padding(padding: EdgeInsets.only(top: 6),
-                child: Text('Ancien import : seules les interventions '
-                  'de chirurgie viscérale sont disponibles.',
-                  style: TextStyle(fontSize: 11, color: VColors.muted))),
+
             if (names.isEmpty) const Text('Aucune intervention dans ce filtre.'),
             for (final name in names) roomTable(name, rooms[name]!),
           ]);

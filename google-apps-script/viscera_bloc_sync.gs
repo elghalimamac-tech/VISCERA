@@ -61,6 +61,13 @@ function syncBlocPrograms() {
             return;
           }
           const result = JSON.parse(response.getContentText());
+          if (result.status === 'imported' &&
+              (!Number.isInteger(result.count) ||
+               !Number.isInteger(result.extracted_count) ||
+               result.count !== result.extracted_count)) {
+            console.error('Import VISCERA incomplet : décompte source/base incohérent.');
+            return; // Ne pas marquer cet e-mail comme traité.
+          }
           if (['imported', 'duplicate', 'stale'].indexOf(result.status) !== -1) {
             properties.setProperty(doneKey, '1');
             console.log('Programme synchronisé : ' + result.date + ' (' + result.status + ')');
