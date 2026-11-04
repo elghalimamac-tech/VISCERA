@@ -95,7 +95,6 @@ class _AuthGateState extends State<AuthGate> {
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 11, height: 1.5, color: VColors.muted)),
                     ],
-                    ],
                   ),
                 ),
               ),
