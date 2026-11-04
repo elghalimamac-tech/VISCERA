@@ -245,7 +245,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               childrenPadding:const EdgeInsets.only(top:10),
               title:const Text('Informations complémentaires du séjour',
                 style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
-              subtitle:const Text('Admission, médecins responsables et suivi prévu',
+              subtitle:const Text('Admission, programme, chirurgie et sortie prévue',
                 style:TextStyle(fontSize:12,color:VColors.muted)),
               children:[
                 _line(Icons.login_rounded,'Admission',p.admissionTiming),
@@ -253,27 +253,24 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   const Divider(height:22),
                   _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
                 ],
-                const Divider(height:22),
-                _line(Icons.medical_services_outlined,'Responsable admission',
-                  appStore.responsibleById(p.professorId)?.name??'À attribuer'),
-                const SizedBox(height:5),
-                Text('${p.assignmentMode} · ${p.assignmentExplanation}',
-                  style:const TextStyle(fontSize:11,color:VColors.muted)),
-                if(p.stage!=CaseStage.discharged)...[
-                  const SizedBox(height:8),
-                  OutlinedButton.icon(onPressed:_changeProfessor,
-                    icon:const Icon(Icons.manage_accounts_outlined,size:17),
-                    label:const Text('Modifier responsable admission')),
-                ],
-                const Divider(height:22),
-                _line(Icons.medical_services_outlined,'Responsable bloc',
-                  appStore.responsibleById(p.blockResponsibleId)?.name??
-                    (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer')),
-                if(p.stage!=CaseStage.discharged)...[
-                  const SizedBox(height:8),
-                  OutlinedButton.icon(onPressed:_changeBlockDoctor,
-                    icon:const Icon(Icons.manage_accounts_outlined,size:17),
-                    label:const Text('Modifier responsable du bloc')),
+                if(p.fromManualAdmission && p.origin=='Consultation')...[
+                  const Divider(height:22),
+                  _line(Icons.link_outlined,'Programme',
+                    p.linkedProgramEntryId==null
+                      ? 'À rapprocher du programme opératoire'
+                      : 'Associé au dossier de consultation'),
+                  if(p.linkedProgramEntryId!=null && p.programRoom.isNotEmpty)...[
+                    const SizedBox(height:6),
+                    Text('Salle ' + p.programRoom + ' · ' + p.programScheduledTime + ' · ' + p.programSurgeon,
+                      style:const TextStyle(fontSize:12,color:VColors.muted)),
+                  ],
+                  if(p.linkedProgramEntryId==null &&
+                      p.stage!=CaseStage.discharged && !p.isOmitted)...[
+                    const SizedBox(height:8),
+                    OutlinedButton.icon(onPressed:_reconcileBloc,
+                      icon:const Icon(Icons.link),
+                      label:const Text('Rapprocher avec le programme du bloc')),
+                  ],
                 ],
                 const Divider(height:22),
                 _line(Icons.category_outlined,'Type de chirurgie',p.standardizedSurgeryType),
