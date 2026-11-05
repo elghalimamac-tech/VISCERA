@@ -17,7 +17,7 @@ void main() {
     );
     await tester.pumpWidget(MaterialApp(home: PatientDetailPage(patient: patient)));
     expect(find.byType(FloatingActionButton), findsOneWidget);
-    expect(find.text('Observation clinique'), findsOneWidget);
+    expect(find.text('Observation quotidienne'), findsOneWidget);
 
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
