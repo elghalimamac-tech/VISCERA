@@ -307,7 +307,7 @@ Deno.serve(async (request: Request) => {
     return reply({ error: "unauthorized" }, 401);
   const { data: profile, error: profileError } = await supabase
     .from("doctor_profiles")
-    .select("approval_status,approved_role")
+    .select("approval_status,approved_role,display_name")
     .eq("user_id", identity.user.id).maybeSingle();
   if (profileError || !profile || profile.approval_status !== "approved" ||
       !["junior", "senior"].includes(profile.approved_role)) {
@@ -315,6 +315,45 @@ Deno.serve(async (request: Request) => {
   }
 
   const data = await request.json().catch(() => ({}));
+  // La référence du patient circule uniquement entre VISCERA et
+  // Supabase ; elle ne fait JAMAIS partie du texte envoyé à GROQ.
+  const patientRef = data?.patient_record;
+  const source = patientRef?.kind;
+  const rawPatientId = patientRef?.id;
+  const validBloc = source === "bloc" && typeof rawPatientId === "string" &&
+    /^\d{1,15}$/.test(rawPatientId) &&
+    Number.isSafeInteger(Number(rawPatientId)) && Number(rawPatientId) > 0;
+  const validManual = source === "manual" &&
+    typeof rawPatientId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(rawPatientId);
+  if (!validBloc && !validManual)
+    return reply({error:"persisted_patient_required"}, 400);
+  const sourceTable = validBloc
+    ? "bloc_program_entries" : "manual_patient_records";
+  const patientId = validBloc ? Number(rawPatientId) : rawPatientId;
+  const {data:patientRow,error:patientError} = await supabase
+    .from(sourceTable).select("hospital_id").eq("id",patientId).maybeSingle();
+  if (patientError || !patientRow?.hospital_id)
+    return reply({error:"patient_not_found"}, 404);
+  const hospitalId: string = patientRow.hospital_id;
+  const {data:membership,error:membershipError} = await supabase
+    .from("doctor_hospital_memberships")
+    .select("status,member_role")
+    .eq("user_id",identity.user.id).eq("hospital_id",hospitalId)
+    .maybeSingle();
+  const {data:hospital,error:hospitalError} = await supabase
+    .from("viscera_hospitals").select("status").eq("id",hospitalId)
+    .maybeSingle();
+  // Vérification serveur, indépendante de tout hospital_id fourni
+  // par le client. Une simple session connectée ne suffit pas.
+  if(membershipError || !membership ||
+     membership.status !== "approved" ||
+     membership.member_role !== profile.approved_role ||
+     hospitalError || hospital?.status !== "active") {
+    return reply({error:"patient_access_denied"},403);
+  }
+
   const summary = data?.clinical_summary;
   if (data?.reviewed_deidentified !== true ||
       typeof summary !== "string" ||
@@ -550,7 +589,39 @@ Deno.serve(async (request: Request) => {
     // Même si toutes les suggestions sont écartées, retourner la
     // bibliographie et indiquer que rien n'a pu être étayé.
     const references = guidelineCatalog.filter((item) => cited.has(item.id));
+    // Sauvegarde côté serveur après contrôle des sources, en append-only.
+    // Les textes soumis ne sont pas conservés, uniquement le résultat
+    // structuré généré et ses références.
+    const insertData = {
+      hospital_id:hospitalId,
+      bloc_entry_id:validBloc?patientId:null,
+      manual_patient_id:validManual?patientId:null,
+      created_by:identity.user.id,
+      created_by_name:typeof profile.display_name==="string" &&
+        profile.display_name.trim().length>0
+        ? profile.display_name.trim().slice(0,160) : "Médecin",
+      model:"openai/gpt-oss-120b",
+      result,
+      reference_catalog:guidelineCatalog,
+      bibliography_reviewed_at:bibliographyReviewedAt,
+      sources_live_verified:false,
+    };
+    const {data:saved,error:saveError} = await supabase
+      .from("viscera_clinical_ai_reports")
+      .insert(insertData)
+      .select("id,created_at,created_by_name")
+      .single();
+    if(saveError || !saved?.id) {
+      // Ne jamais renvoyer un succès si l'analyse n'a pas été persistée.
+      console.warn("viscera-clinical-assist: clinical_report_save_failed");
+      return reply({error:"clinical_report_save_failed"},503);
+    }
     return reply({
+      saved_report: {
+        id:saved.id,
+        created_at:saved.created_at,
+        created_by_name:saved.created_by_name,
+      },
       result,
       references,
       reference_catalog: guidelineCatalog,
