@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../branding.dart';
 import '../cfs_assessment.dart';
 import '../clinical_scores.dart';
+import '../biological_followup.dart';
+import 'lab_results_page.dart';
 import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -57,6 +59,37 @@ class ClinicalScoresPage extends StatelessWidget {
                       'calcul automatique sans informations complètes. '
                       'Chaque formulaire peut être enregistré séparément.',
                       style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation:0,
+              child:Padding(
+                padding:const EdgeInsets.all(14),
+                child:Column(
+                  crossAxisAlignment:CrossAxisAlignment.stretch,
+                  children:[
+                    const Text('Bilans nécessaires aux scores',
+                      style:TextStyle(fontWeight:FontWeight.w800,
+                        fontSize:15)),
+                    const SizedBox(height:5),
+                    Text('CRP : ' +
+                      (labSeries(patient,'crp').isEmpty ? 'non renseignée'
+                        : labSeries(patient,'crp').last.value.toString()+' mg/L') +
+                      ' · Hémoglobine : ' +
+                      (labSeries(patient,'hb').isEmpty ? 'non renseignée'
+                        : labSeries(patient,'hb').last.value.toString()+' g/dL'),
+                      style:const TextStyle(fontSize:12)),
+                    const SizedBox(height:10),
+                    FilledButton.icon(
+                      key:const Key('open-labs-from-scores'),
+                      onPressed:()=>Navigator.push(context,MaterialPageRoute(
+                        builder:(_)=>LabResultsPage(patient:patient))),
+                      icon:const Icon(Icons.science_outlined),
+                      label:const Text('Saisir CRP et tous les bilans'),
+                    ),
                   ],
                 ),
               ),
