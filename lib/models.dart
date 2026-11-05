@@ -231,6 +231,9 @@ class PatientCase {
   final List<Map<String, dynamic>> postoperativeEvents = [];
   /// Avis demandés aux autres spécialités, avec statut indépendant.
   final List<SpecialistOpinion> specialistOpinions = [];
+  /// Journal horodaté des transferts interservices pendant le même séjour.
+  /// Le dossier reste unique et le jour d'hospitalisation ne redémarre pas.
+  final List<Map<String, dynamic>> serviceTransfers = [];
   DocumentCheck check(String key) => documents.putIfAbsent(key, DocumentCheck.new);
   int completedCount(List<DocumentRequirement> requirements) =>
       requirements.where((r) => check(r.key).complete(r)).length;
