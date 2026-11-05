@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../biological_followup.dart';
 import '../clinical_score_specs.dart';
+import 'clinical_scores_page.dart';
+import 'lab_results_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../branding.dart';
 import '../clinical_ai_summary.dart';
@@ -450,6 +452,24 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
         ])));
   }
 
+  Future<void> _openForms({required bool lab}) async {
+    await Navigator.push(context,MaterialPageRoute<void>(
+      builder:(_)=>lab
+        ? LabResultsPage(patient:widget.patient)
+        : ClinicalScoresPage(patient:widget.patient)));
+    if(!mounted)return;
+    // Renseigner un formulaire modifie potentiellement le dossier.
+    // Actualiser l'aperçu, et exiger une nouvelle validation avant GROQ.
+    setState(() {
+      summary.text=buildClinicalAiSummary(widget.patient);
+      reviewed=false;
+      response=null;
+      references=[];
+      bibliographyDate=null;
+      sourceWarning=null;
+    });
+  }
+
   Widget _suggestedScores() {
     final list=_clinicalItems('scores_to_consider');
     return Card(
@@ -494,6 +514,12 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
                 item['possible_management_impact'],
                 color:VColors.ink),
               _citations(item['source_ids']),
+              const SizedBox(height:9),
+              OutlinedButton.icon(
+                onPressed:()=>_openForms(lab:false),
+                icon:const Icon(Icons.edit_note_outlined,size:18),
+                label:const Text('Ouvrir les formulaires de scores'),
+              ),
             ]),
           ),
         ])));
@@ -539,6 +565,12 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
               _point('Comment ce bilan pourrait modifier la prise en charge',
                 item['effect_on_management'],color:VColors.ink),
               _citations(item['source_ids']),
+              const SizedBox(height:9),
+              OutlinedButton.icon(
+                onPressed:()=>_openForms(lab:true),
+                icon:const Icon(Icons.science_outlined,size:18),
+                label:const Text('Ouvrir la saisie des bilans'),
+              ),
             ]),
           ),
         ])));
