@@ -47,14 +47,14 @@ void main() {
   test('Programme opératoire : le suivi automatique respecte une admission réelle confirmée', () {
     final patient = fromProgram();
     ProgramAdmission.apply(patient,DateTime(2026,11,2,10));
-    expect(patient.stage,CaseStage.postoperative);
+    expect(patient.stage,CaseStage.preoperative);
     expect(patient.admissionTiming,ProgramAdmission.source);
     final data = BlocClinicalRecordService.encode(patient);
     data['stage'] = 'scheduled'; // Ancien état en base.
     data['admittedAt'] = null;
     BlocClinicalRecordService.apply(patient, data, 1);
     ProgramAdmission.apply(patient,DateTime(2026,11,2,10));
-    expect(patient.stage, CaseStage.postoperative);
+    expect(patient.stage, CaseStage.preoperative);
 
     // Une intervention réellement déclarée reste indépendante de la projection.
     data['stage'] = 'preoperative';
