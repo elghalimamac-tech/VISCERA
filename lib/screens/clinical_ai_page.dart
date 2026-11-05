@@ -386,35 +386,48 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const VisceraPageTitle('Assistant clinique GROQ'),
+      title: const VisceraPageTitle('Analyse clinique sourcée'),
       backgroundColor:VColors.background,
       surfaceTintColor:Colors.transparent,
     ),
-    body: ListView(
+    body: Align(alignment:Alignment.topCenter,
+      child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:1040),
+        child:ListView(
       key:const Key('clinical-ai-page'),
       padding:const EdgeInsets.fromLTRB(16,12,16,44),
       children:[
-        Card(color:VColors.softMint,elevation:0,
-          child:Padding(padding:const EdgeInsets.all(14),
-            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              const Text('Aide à la décision : médecin uniquement',
-                style:TextStyle(fontWeight:FontWeight.w800,fontSize:16)),
-              const SizedBox(height:6),
-              const Text('GROQ peut suggérer des hypothèses, examens à discuter '
-                'et options de conduite à tenir. Ses réponses peuvent être '
-                'inexactes : les recouper avec le dossier, l’examen et '
-                'les protocoles du service. Aucune prescription, action '
-                'ou décision médicale n’est automatisée.',
-                style:TextStyle(fontSize:12)),
-            ]))),
-        const SizedBox(height:12),
+        Container(
+          padding:const EdgeInsets.all(20),
+          decoration:BoxDecoration(borderRadius:BorderRadius.circular(19),
+            gradient:const LinearGradient(
+              colors:[Color(0xFF073944),Color(0xFF176875)])),
+          child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[
+              Icon(Icons.psychology_alt_rounded,color:Colors.white,size:30),
+              SizedBox(width:12),
+              Expanded(child:Text('Assistant clinique VISCERA',
+                style:TextStyle(color:Colors.white,
+                  fontWeight:FontWeight.w900,fontSize:20))),
+            ]),
+            SizedBox(height:9),
+            Text('Hypothèses · Scores · Recommandations sourcées',
+              style:TextStyle(color:Color(0xFFD7F3F2),fontSize:13)),
+            SizedBox(height:9),
+            Text('Propositions à confronter à l’examen clinique et aux '
+              'références originales. Aucune prescription automatique.',
+              style:TextStyle(color:Colors.white,fontSize:12.5)),
+          ]),
+        ),
+        const SizedBox(height:13),
+        _scoreDashboard(),
+        const SizedBox(height:16),
         const Text('1. Vérifier la synthèse à transmettre',
           style:TextStyle(fontWeight:FontWeight.w800,fontSize:15)),
         const SizedBox(height:7),
         TextField(
           key:const Key('clinical-ai-preview'),
           controller:summary,
-          minLines:10,maxLines:18,maxLength:9000,
+          minLines:7,maxLines:11,maxLength:9000,
           enabled:!loading,
           decoration:const InputDecoration(
             border:OutlineInputBorder(),
@@ -443,13 +456,20 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
         const SizedBox(height:6),
         FilledButton.icon(
           key:const Key('clinical-ai-generate'),
+          style:FilledButton.styleFrom(
+            backgroundColor:VColors.ink,
+            foregroundColor:Colors.white,
+            padding:const EdgeInsets.symmetric(vertical:20,horizontal:15),
+            shape:RoundedRectangleBorder(
+              borderRadius:BorderRadius.circular(15))),
           onPressed:loading||!reviewed||summary.text.trim().length<40
             ? null : requestAnalysis,
           icon:loading?const SizedBox(width:17,height:17,
             child:CircularProgressIndicator(strokeWidth:2))
-            :const Icon(Icons.psychology_alt_outlined),
-          label:Text(loading?'Analyse en cours…'
-            :'Proposer hypothèses et conduites à tenir'),
+            :const Icon(Icons.auto_awesome_outlined,size:23),
+          label:Text(loading?'Analyse GROQ en cours…'
+            :'Générer l’analyse clinique sourcée',
+            style:const TextStyle(fontWeight:FontWeight.w800,fontSize:14)),
         ),
         if(errorMessage!=null) Padding(
           padding:const EdgeInsets.only(top:12),
@@ -469,6 +489,8 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
             'warning_signs',Icons.warning_amber_outlined),
           section('Limites et informations manquantes',
             'limits',Icons.info_outline),
+          const SizedBox(height:10),
+          _bibliographyCard(),
           const Padding(padding:EdgeInsets.symmetric(vertical:8),
             child:Text('Résultat non enregistré dans le dossier. '
               'Vérifier chaque suggestion avant tout acte, '
@@ -476,6 +498,8 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
               style:TextStyle(fontSize:12,color:VColors.muted))),
         ],
       ],
+    ),
+      ),
     ),
   );
 }
