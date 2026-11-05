@@ -98,10 +98,29 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     }
     final backup = Map<String, dynamic>.from(p.clinicalScores);
     setState(() => saving = true);
+    final snapshot=Map<String,String>.from(answers);
+    DateTime? biologicalDate;
+    if(widget.spec.id=='mdulk') {
+      final today=DateTime.now();
+      for(final note in widget.patient.dailyObservations){
+        if(note.date.year==today.year && note.date.month==today.month &&
+           note.date.day==today.day && note.biology['crp']!=null) {
+          snapshot['crp']=note.biology['crp']!.toString();
+          biologicalDate=note.date;
+          break;
+        }
+      }
+      if(!snapshot.containsKey('crp')){
+        if(mounted)setState(()=>saving=false);
+        _message('CRP du jour absente : score mDULK non enregistré.');
+        return;
+      }
+    }
     p.clinicalScores[widget.spec.id] = {
       'value': result.value,
       'interpretation': result.interpretation,
-      'inputs': Map<String, String>.from(answers),
+      'inputs': snapshot,
+      'biologicalDate':biologicalDate?.toIso8601String(),
       'assessedAt': DateTime.now().toUtc().toIso8601String(),
       'assessedBy': appStore.activeLocalProfile?.id ?? '',
       'assessedStage':p.stage.name,
@@ -306,12 +325,13 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     final age = ClinicalScoring.age(widget.patient);
     final computedInputs=Map<String,String>.from(answers);
     if(widget.spec.id=='mdulk') {
-      final notes=[...widget.patient.dailyObservations]
-        ..sort((a,b)=>b.date.compareTo(a.date));
-      for(final note in notes) {
-        final crp=note.biology['crp'];
-        if(crp!=null) {
-          computedInputs['crp']=crp.toString();
+      computedInputs.remove('crp');
+      final now=DateTime.now();
+      for(final note in widget.patient.dailyObservations) {
+        final sameDay=note.date.year==now.year &&
+          note.date.month==now.month && note.date.day==now.day;
+        if(sameDay && note.biology['crp']!=null) {
+          computedInputs['crp']=note.biology['crp']!.toString();
           break;
         }
       }
@@ -340,8 +360,8 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
         if (widget.spec.id == 'caprini') _capriniForm(age),
         if(widget.spec.id=='mdulk') ...[
           const Text('mDULK : quatre critères de vigilance des fistules '
-            'colorectales. La CRP provient de la dernière observation '
-            'renseignée. Ce score ne confirme pas une fistule.',
+            'colorectales. La CRP provient de l’observation du jour uniquement. '
+            'Ce score ne confirme pas une fistule.',
             style:TextStyle(fontSize:12)),
           const SizedBox(height:8),
           _number('rr','Fréquence respiratoire du jour (/min)'),
