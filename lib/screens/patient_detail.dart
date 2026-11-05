@@ -9,6 +9,7 @@ import '../preoperative_readiness.dart';
 import '../cfs_assessment.dart';
 import '../clinical_scores.dart';
 import 'clinical_scores_page.dart';
+import 'lab_results_page.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -222,6 +223,14 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               builder:(_)=>ClinicalScoresPage(patient:p))),
             icon:const Icon(Icons.assignment_outlined),
             label:const Text('Remplir les formulaires de scores cliniques'),
+          )),
+          const SizedBox(height:8),
+          SizedBox(width:double.infinity,child:OutlinedButton.icon(
+            key:const Key('open-lab-results-from-patient'),
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>LabResultsPage(patient:p))),
+            icon:const Icon(Icons.science_outlined),
+            label:const Text('Saisir les bilans (CRP, GB, Hb…)'),
           )),
           if(p.physicallyAdmitted && p.stage!=CaseStage.inTheatre &&
               !p.isOmitted)...[
