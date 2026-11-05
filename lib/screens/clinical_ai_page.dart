@@ -8,13 +8,16 @@ import 'lab_results_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../branding.dart';
 import '../clinical_ai_summary.dart';
+import '../clinical_ai_reports.dart';
 import '../models.dart';
 import '../theme.dart';
 
 /// Aide à la discussion médicale. Jamais de prescription automatique.
 class ClinicalAiPage extends StatefulWidget {
-  const ClinicalAiPage({super.key, required this.patient});
+  const ClinicalAiPage({super.key, required this.patient, this.savedReport});
   final PatientCase patient;
+  /// If non-null, show the immutable analysis as it was saved.
+  final ClinicalAiSavedReport? savedReport;
 
   @override
   State<ClinicalAiPage> createState() => _ClinicalAiPageState();
@@ -29,12 +32,25 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
   List<Map<String,dynamic>> references = [];
   String? bibliographyDate;
   String? sourceWarning;
+  DateTime? savedAt;
+  String? savedBy;
+  bool get isArchive => widget.savedReport != null;
 
   @override
   void initState() {
     super.initState();
     summary = TextEditingController(
-      text: buildClinicalAiSummary(widget.patient));
+      text: isArchive ? '' : buildClinicalAiSummary(widget.patient));
+    if(isArchive) {
+      final report=widget.savedReport!;
+      response=Map<String,dynamic>.from(report.result);
+      references=report.references;
+      bibliographyDate=report.bibliographyReviewedAt;
+      sourceWarning='Analyse archivée : les recommandations et le dossier '
+        'peuvent avoir évolué depuis sa création.';
+      savedAt=report.createdAt;
+      savedBy=report.createdByName;
+    }
     summary.addListener(() {
       if (reviewed || response != null) {
         setState(() {
@@ -53,6 +69,14 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
   }
 
   Future<void> requestAnalysis() async {
+    if (isArchive) return;
+    final patientRef=ClinicalAiReports.patientReference(widget.patient);
+    if(patientRef==null){
+      setState(()=>errorMessage=
+        'Enregistrez d’abord un dossier patient partagé dans VISCERA '
+        'pour conserver les analyses.');
+      return;
+    }
     if (loading || !reviewed ||
         summary.text.trim().length < 40 ||
         summary.text.trim().length > 9000) return;
@@ -68,11 +92,13 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
         body: {
           'clinical_summary': summary.text.trim(),
           'reviewed_deidentified': true,
+          'patient_record':patientRef,
         },
       );
       final body = result.data;
-      if (body is! Map || body['result'] is! Map) {
-        throw const FormatException('invalid_result');
+      if (body is! Map || body['result'] is! Map ||
+          body['saved_report'] is! Map) {
+        throw const FormatException('report_not_saved');
       }
       if (mounted) {
         setState(() {
@@ -84,6 +110,9 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
             : [];
           bibliographyDate=body['bibliography_reviewed_at']?.toString();
           sourceWarning=body['warning']?.toString();
+          final meta=body['saved_report'] as Map;
+          savedAt=DateTime.tryParse((meta['created_at']??'').toString());
+          savedBy=meta['created_by_name']?.toString()??'Médecin';
         });
       }
     } catch (error) {
@@ -127,6 +156,15 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
               'Utilisez une tranche d’âge et non l’âge exact.',
             'doctor_approval_required' =>
               'Seuls les médecins approuvés peuvent utiliser cet outil.',
+            'patient_access_denied' =>
+              'Accès non autorisé au dossier de cet établissement.',
+            'patient_not_found' =>
+              'Le dossier partagé n’existe plus dans Supabase.',
+            'persisted_patient_required' =>
+              'Enregistrez d’abord le patient dans un dossier partagé.',
+            'clinical_report_save_failed' =>
+              'L’analyse a été générée mais son enregistrement a échoué. '
+              'Elle ne peut pas être présentée comme sauvegardée.',
             'unauthorized' =>
               'Session non valide. Reconnectez-vous.',
             _ => 'Analyse indisponible : consultez les logs de la fonction '
@@ -137,6 +175,14 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
     } finally {
       if (mounted) setState(() => loading = false);
     }
+  }
+
+  String _formatSavedDate(DateTime? date) {
+    if(date==null)return 'date inconnue';
+    final d=date.toLocal();
+    String pad(int n)=>n.toString().padLeft(2,'0');
+    return '${pad(d.day)}/${pad(d.month)}/${d.year} '
+      '${pad(d.hour)}:${pad(d.minute)}';
   }
 
   List<dynamic> items(String key) {
@@ -515,7 +561,8 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
                 color:VColors.ink),
               _citations(item['source_ids']),
               const SizedBox(height:9),
-              OutlinedButton.icon(
+              if(!isArchive)
+                OutlinedButton.icon(
                 onPressed:()=>_openForms(lab:false),
                 icon:const Icon(Icons.edit_note_outlined,size:18),
                 label:const Text('Ouvrir les formulaires de scores'),
@@ -566,7 +613,8 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
                 item['effect_on_management'],color:VColors.ink),
               _citations(item['source_ids']),
               const SizedBox(height:9),
-              OutlinedButton.icon(
+              if(!isArchive)
+                OutlinedButton.icon(
                 onPressed:()=>_openForms(lab:true),
                 icon:const Icon(Icons.science_outlined,size:18),
                 label:const Text('Ouvrir la saisie des bilans'),
@@ -657,6 +705,7 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
           ]),
         ),
         const SizedBox(height:13),
+        if(!isArchive)...[
         _scoreDashboard(),
         const SizedBox(height:16),
         const Text('1. Vérifier la synthèse à transmettre',
@@ -709,12 +758,52 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
             :'Générer l’analyse clinique sourcée',
             style:const TextStyle(fontWeight:FontWeight.w800,fontSize:14)),
         ),
+        ],
+        if(isArchive)
+          Card(
+            color:VColors.softMint,elevation:0,
+            child:Padding(
+              padding:const EdgeInsets.all(15),
+              child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  const Text('Analyse archivée du dossier patient',
+                    style:TextStyle(fontWeight:FontWeight.w900,
+                      color:VColors.ink,fontSize:16)),
+                  const SizedBox(height:6),
+                  Text('Enregistrée le '+_formatSavedDate(savedAt)+
+                    ' · '+(savedBy??'Médecin'),
+                    style:const TextStyle(fontSize:12.5,
+                      color:VColors.ink)),
+                  const SizedBox(height:6),
+                  const Text('Cette réponse est conservée telle quelle. '
+                    'Elle n’est pas mise à jour automatiquement lorsque '
+                    'les données cliniques ou recommandations changent.',
+                    style:TextStyle(fontSize:12,color:VColors.muted)),
+                ]),
+            ),
+          ),
         if(errorMessage!=null) Padding(
           padding:const EdgeInsets.only(top:12),
           child:Text(errorMessage!,
             style:const TextStyle(color:Color(0xFFA45633),fontSize:12))),
         if(response!=null) ...[
           const SizedBox(height:18),
+          if(!isArchive && savedAt!=null)
+            Card(color:VColors.softMint,elevation:0,child:Padding(
+              padding:const EdgeInsets.all(12),
+              child:Row(children:[
+                const Icon(Icons.cloud_done_outlined,color:VColors.ink),
+                const SizedBox(width:9),
+                Expanded(child:Text(
+                  'Analyse enregistrée dans le dossier le '
+                  +_formatSavedDate(savedAt)+'. Retrouvable dans '
+                  'l’historique du patient.',
+                  style:const TextStyle(fontSize:12.5,
+                    fontWeight:FontWeight.w700,color:VColors.ink))),
+              ]),
+            )),
+          if(!isArchive && savedAt!=null)
+            const SizedBox(height:9),
           const Text('2. Propositions GROQ — non validées',
             style:TextStyle(fontWeight:FontWeight.w800,fontSize:16)),
           const SizedBox(height:9),
