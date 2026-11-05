@@ -153,7 +153,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
       await appStore.saveClinical(p);
       if (!mounted) return;
       appStore.refresh();
-      notifyUser('Bilans enregistrés : scores et courbe CRP actualisés.');
+      notifyUser('Bilans enregistrés : scores, courbes CRP et PCT actualisés.');
     } catch (_) {
       p.dailyObservations.remove(updated);
       if (old != null) p.dailyObservations.add(old);
