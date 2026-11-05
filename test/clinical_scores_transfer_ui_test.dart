@@ -44,6 +44,8 @@ void main() {
     final transfer=find.byKey(const Key('transfer-patient-service'));
     expect(transfer,findsOneWidget);
     await tester.ensureVisible(transfer);
+    await tester.drag(find.byType(ListView).first, const Offset(0,-260));
+    await tester.pumpAndSettle();
     await tester.tap(transfer);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('transfer-destination-service')),findsOneWidget);
