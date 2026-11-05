@@ -9,8 +9,9 @@ import '../theme.dart';
 /// Enregistre un résultat daté par paramètre dans l'observation du jour,
 /// sans modifier les éléments cliniques rédigés par l'équipe.
 class LabResultsPage extends StatefulWidget {
-  const LabResultsPage({super.key, required this.patient});
+  const LabResultsPage({super.key, required this.patient, this.initialDate});
   final PatientCase patient;
+  final DateTime? initialDate;
   @override
   State<LabResultsPage> createState() => _LabResultsPageState();
 }
@@ -38,7 +39,9 @@ class _LabResultsPageState extends State<LabResultsPage> {
   @override
   void initState() {
     super.initState();
-    selectedDate = DateTime.now();
+    final now = DateTime.now();
+    final requested = widget.initialDate ?? now;
+    selectedDate = requested.isAfter(now) ? now : requested;
     controllers = {
       for (final field in biologyFields)
         field.key: TextEditingController(),
@@ -254,12 +257,11 @@ class _LabResultsPageState extends State<LabResultsPage> {
                 label: Text(saving ? 'Enregistrement…' : 'Enregistrer les bilans'),
               ),
               const SizedBox(height: 12),
-              const Text('Saisie clinique exclusivement à partir de résultats vérifiés. '
+              const Text('Saisie exclusivement à partir de résultats vérifiés. 
                 'Une modification des bilans réinitialise les cases de report '
                 'Magica/Sillage de cette observation.',
                 style: TextStyle(fontSize: 11, color: VColors.muted)),
               const SizedBox(height: 14),
-              CrpTrendCard(patient: p, compact: true),
               BiologicalIndicesCard(patient: p),
             ],
           ),
