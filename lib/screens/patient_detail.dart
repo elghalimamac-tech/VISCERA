@@ -543,7 +543,35 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   );
 
   Widget _line(IconData icon,String label,String value)=>Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:VColors.muted,size:18),const SizedBox(width:11),SizedBox(width:90,child:Text(label,style:const TextStyle(fontSize:12,color:VColors.muted))),Expanded(child:Text(value,style:const TextStyle(fontSize:12.8,fontWeight:FontWeight.w700)))]);
-  Widget _clinical(String label,String value)=>Padding(padding:const EdgeInsets.only(bottom:17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Overline(label),const SizedBox(height:5),Text(value.trim().isEmpty?'Non renseigné':value,style:TextStyle(fontSize:13,color:value.trim().isEmpty?VColors.muted:VColors.ink))]));
+  /// Même alignement que les observations quotidiennes : lecture verticale,
+  /// texte sur toute la largeur, sans colonne vide sur les écrans Web.
+  Widget _clinical(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(13, 11, 12, 12),
+      decoration: BoxDecoration(
+        color: VColors.background,
+        borderRadius: BorderRadius.circular(11),
+        border: const Border(
+          left: BorderSide(color: VColors.mint, width: 3),
+          top: BorderSide(color: VColors.line),
+          right: BorderSide(color: VColors.line),
+          bottom: BorderSide(color: VColors.line),
+        ),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label.toUpperCase(), style: const TextStyle(
+          fontSize: 10, letterSpacing: .7,
+          fontWeight: FontWeight.w800, color: VColors.muted)),
+        const SizedBox(height: 5),
+        Text(value.trim().isEmpty ? 'Non renseigné' : value.trim(),
+          softWrap: true,
+          style: TextStyle(fontSize: 13.5, height: 1.4,
+            color: value.trim().isEmpty ? VColors.muted : VColors.ink)),
+      ]),
+    ),
+  );
   Widget _envelope()=>VCard(color:p.confidentialEnvelopeDone?VColors.softMint:VColors.orangeSoft,child:Row(children:[Icon(p.confidentialEnvelopeDone?Icons.check_circle_outline_rounded:Icons.mark_email_unread_outlined,color:VColors.ink),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.isFar?'Pli confidentiel — FAR':'Pli confidentiel',style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text(p.confidentialEnvelopeDone?'Marqué comme effectué':'À créer / à demander',style:const TextStyle(fontSize:12,color:VColors.muted))])),Switch(value:p.confidentialEnvelopeDone,onChanged:(_)=>appStore.toggleEnvelope(p))]));
   Widget _actions()=>Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
     if(!p.fromBlocProgram && p.isPostopReviewDay(DateTime.now()))ElevatedButton.icon(
