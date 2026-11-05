@@ -364,6 +364,186 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
     );
   }
 
+  List<Map<String,dynamic>> _clinicalItems(String key) {
+    final data=response?[key];
+    if(data is! List)return [];
+    return data.whereType<Map>()
+      .map((entry)=>Map<String,dynamic>.from(entry)).toList();
+  }
+
+  Widget _point(String caption, dynamic value,
+      {Color color=VColors.muted}) => Padding(
+    padding:const EdgeInsets.only(top:7),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(caption,style:const TextStyle(
+        fontSize:11,fontWeight:FontWeight.w800,color:VColors.ink)),
+      const SizedBox(height:2),
+      Text((value??'Non précisé').toString(),
+        style:TextStyle(fontSize:12.5,height:1.35,color:color)),
+    ]));
+
+  Widget _bulletInputs(String title, dynamic value) {
+    final items=value is List
+      ? value.map((v)=>v.toString().trim())
+          .where((v)=>v.isNotEmpty).toList()
+      : <String>[];
+    return Padding(padding:const EdgeInsets.only(top:7),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(title,style:const TextStyle(
+          fontSize:11,fontWeight:FontWeight.w800,color:VColors.ink)),
+        const SizedBox(height:3),
+        Text(items.isEmpty?'Aucun élément demandé.'
+          :items.map((v)=>'• '+v).join('\n'),
+          style:const TextStyle(fontSize:12.5,
+            height:1.4,color:VColors.muted)),
+      ]));
+  }
+
+  Widget _assessedScores() {
+    final list=_clinicalItems('assessed_scores');
+    final savedIds=<String>{
+      ...widget.patient.clinicalScores.keys.map((k)=>k.toLowerCase()),
+      if(widget.patient.cfsScore!=null)'cfs',
+      if(widget.patient.asaClass.trim().isNotEmpty)'asa',
+      ...BioIndices.compute(widget.patient).map((e)=>e.name.toLowerCase()),
+    };
+    return Card(
+      key:const Key('ai-assessed-score-analysis'),
+      color:Colors.white,elevation:0,
+      child:Padding(padding:const EdgeInsets.all(15),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Row(children:[
+            Icon(Icons.analytics_outlined,color:VColors.ink),
+            SizedBox(width:9),
+            Expanded(child:Text('Scores retrouvés : interprétation et impact',
+              style:TextStyle(fontWeight:FontWeight.w800,fontSize:16))),
+          ]),
+          const SizedBox(height:8),
+          if(list.isEmpty)
+            Text(savedIds.isEmpty
+              ? 'Aucun score enregistré : consulter les suggestions '
+                'adaptées à la situation clinique ci-dessous.'
+              : 'Pas d’interprétation documentée par GROQ. '
+                'Consulter les valeurs saisies ci-dessus et vérifier '
+                'les références avant toute décision.',
+              style:const TextStyle(fontSize:12,color:VColors.muted)),
+          for(final item in list)Container(
+            margin:const EdgeInsets.only(top:11),
+            padding:const EdgeInsets.all(13),
+            decoration:BoxDecoration(
+              color:VColors.blueSoft,
+              borderRadius:BorderRadius.circular(12),
+              border:Border.all(color:VColors.line)),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text((item['score_id']??'').toString().toUpperCase()+
+                ' · '+(item['value']??'').toString(),
+                style:const TextStyle(fontWeight:FontWeight.w900,
+                  fontSize:15,color:VColors.ink)),
+              _point('Interprétation clinique',item['interpretation']),
+              _point('Conséquences possibles pour la prise en charge',
+                item['management_impact'],color:VColors.ink),
+              _point('Limites, données et phase à vérifier',
+                item['uncertainty_and_verification']),
+              _citations(item['source_ids']),
+            ]),
+          ),
+        ])));
+  }
+
+  Widget _suggestedScores() {
+    final list=_clinicalItems('scores_to_consider');
+    return Card(
+      key:const Key('ai-suggested-scores'),
+      color:Colors.white,elevation:0,
+      child:Padding(padding:const EdgeInsets.all(15),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Row(children:[
+            Icon(Icons.playlist_add_check_circle_outlined,
+              color:VColors.ink),
+            SizedBox(width:9),
+            Expanded(child:Text('Scores utiles à envisager',
+              style:TextStyle(fontWeight:FontWeight.w800,fontSize:16))),
+          ]),
+          const SizedBox(height:6),
+          const Text('Selon la phase préopératoire ou postopératoire. '
+            'Ce sont des évaluations proposées, non calculées.',
+            style:TextStyle(fontSize:12,color:VColors.muted)),
+          if(list.isEmpty)
+            const Padding(padding:EdgeInsets.only(top:12),
+              child:Text('Aucun autre score pertinent et suffisamment '
+                'sourcé n’a été identifié pour ce dossier.',
+                style:TextStyle(fontSize:12))),
+          for(final item in list)Container(
+            margin:const EdgeInsets.only(top:11),
+            padding:const EdgeInsets.all(13),
+            decoration:BoxDecoration(
+              color:VColors.background,
+              borderRadius:BorderRadius.circular(12),
+              border:Border.all(color:VColors.line)),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text((item['score_id']??'').toString().toUpperCase(),
+                style:const TextStyle(fontSize:14,
+                  fontWeight:FontWeight.w900,color:VColors.ink)),
+              _point('Pourquoi envisager ce score maintenant',
+                item['why_now']),
+              _bulletInputs('Critères cliniques manquants',
+                item['clinical_data_to_collect']),
+              _bulletInputs('Biologie réellement nécessaire au calcul',
+                item['laboratory_data_to_collect']),
+              _point('Ce que le résultat pourrait changer',
+                item['possible_management_impact'],
+                color:VColors.ink),
+              _citations(item['source_ids']),
+            ]),
+          ),
+        ])));
+  }
+
+  Widget _suggestedLabs() {
+    final list=_clinicalItems('labs_to_consider');
+    return Card(
+      key:const Key('ai-suggested-labs'),
+      color:Colors.white,elevation:0,
+      child:Padding(padding:const EdgeInsets.all(15),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Row(children:[
+            Icon(Icons.biotech_outlined,color:VColors.ink),
+            SizedBox(width:9),
+            Expanded(child:Text('Bilans complémentaires à discuter',
+              style:TextStyle(fontWeight:FontWeight.w800,fontSize:16))),
+          ]),
+          const SizedBox(height:6),
+          const Text('Jamais automatiques : justification clinique, '
+            'temporalité et utilité attendue doivent être vérifiées.',
+            style:TextStyle(fontSize:12,color:VColors.muted)),
+          if(list.isEmpty)
+            const Padding(padding:EdgeInsets.only(top:12),
+              child:Text('Aucun bilan supplémentaire justifié avec '
+                'les informations disponibles.',
+                style:TextStyle(fontSize:12))),
+          for(final item in list)Container(
+            margin:const EdgeInsets.only(top:11),
+            padding:const EdgeInsets.all(13),
+            decoration:BoxDecoration(
+              color:VColors.background,
+              borderRadius:BorderRadius.circular(12),
+              border:Border.all(color:VColors.line)),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text((item['test']??'').toString(),
+                style:const TextStyle(fontSize:14,
+                  fontWeight:FontWeight.w800,color:VColors.ink)),
+              _point('Motif clinique de la demande',item['clinical_indication']),
+              _bulletInputs('Scores concernés',item['relevant_scores']),
+              _point('Moment / condition de prélèvement à discuter',
+                item['timing_to_discuss']),
+              _point('Comment ce bilan pourrait modifier la prise en charge',
+                item['effect_on_management'],color:VColors.ink),
+              _citations(item['source_ids']),
+            ]),
+          ),
+        ])));
+  }
+
   Widget _bibliographyCard() => Card(
     key:const Key('clinical-ai-sources'),
     color:Colors.white,elevation:0,
