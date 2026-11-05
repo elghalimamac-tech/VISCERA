@@ -333,6 +333,28 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
                 ]),
               ),
           ]),
+          if(p.clinicalScores.isEmpty &&
+              p.cfsScore==null && p.asaClass.trim().isEmpty) ...[
+            const SizedBox(height:9),
+            const Text('Aucun score clinique formel enregistré. '
+              'L’assistant peut suggérer des scores pertinents et '
+              'préciser les données à recueillir, sans les calculer.',
+              style:TextStyle(fontSize:12,fontWeight:FontWeight.w600,
+                color:VColors.ink)),
+          ],
+          for(final entry in p.clinicalScores.entries)
+            if(entry.value is Map &&
+                (entry.value['interpretation']??'').toString().trim().isNotEmpty)
+              Padding(padding:const EdgeInsets.only(top:9),
+                child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[
+                    Text(entry.key.toUpperCase()+' · Interprétation enregistrée',
+                      style:const TextStyle(fontWeight:FontWeight.w800,
+                        fontSize:11.5,color:VColors.ink)),
+                    Text(entry.value['interpretation'].toString(),
+                      style:const TextStyle(fontSize:11.5,
+                        color:VColors.muted)),
+                  ])),
           const SizedBox(height:8),
           const Text('Vérifier la date, les critères et la phase '
             'clinique avant d’interpréter un score.',
