@@ -41,6 +41,9 @@ void main() {
     final p=sample();
     await tester.pumpWidget(MaterialApp(home:ClinicalAiPage(patient:p)));
     expect(find.byKey(const Key('clinical-ai-preview')),findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('clinical-ai-generate')),280,
+      scrollable:find.byType(Scrollable).first);
     final button=tester.widget<FilledButton>(
       find.byKey(const Key('clinical-ai-generate')));
     expect(button.onPressed,isNull);
