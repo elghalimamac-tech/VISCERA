@@ -58,14 +58,14 @@ void main(){
     expect(store.occupiedBoxes,0);
   });
 
-  test('Jour du bloc : postopératoire automatique sans validation préalable',(){
+  test('Jour du bloc : statut préop tant que la fin du bloc n’est pas confirmée',(){
     final p=official(DateTime(2026,11,2,14));
     ProgramAdmission.apply(p,DateTime(2026,11,2,7));
-    expect(p.stage,CaseStage.postoperative);
+    expect(p.stage,CaseStage.preoperative);
     expect(p.admissionTiming,ProgramAdmission.source);
     expect(p.beforeBox,isEmpty);
     expect(p.afterBox,isEmpty);
-    expect(p.stage,CaseStage.postoperative);
+    expect(p.stage,CaseStage.preoperative);
   });
 
   test('Exclusion persistée : non admis ne revient pas au prochain import',(){
@@ -96,7 +96,7 @@ void main(){
     expect(p.isOmitted,isFalse);
     expect(p.motive,'Note fictive avant exclusion');
     expect(p.admittedAt,DateTime(2026,11,2));
-    expect(p.stage,CaseStage.postoperative);
+    expect(p.stage,CaseStage.preoperative);
   });
 
   test('Ancien dossier programmé devient automatiquement actif après rechargement',(){
@@ -106,7 +106,7 @@ void main(){
     ProgramAdmission.apply(next,DateTime(2026,11,2,13));
     BlocClinicalRecordService.apply(next,data,1);
     ProgramAdmission.apply(next,DateTime(2026,11,2,13));
-    expect(next.stage,CaseStage.postoperative);
+    expect(next.stage,CaseStage.preoperative);
     expect(next.isAutoAdmitted,isTrue);
   });
 
