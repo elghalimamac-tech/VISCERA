@@ -48,7 +48,7 @@ void main() {
     expect(text,contains('Score caprini : 6'));
     expect(text,contains('Interprétation enregistrée pour caprini'));
     expect(text,contains('Phase de saisie du score caprini : preoperative'));
-    expect(text,contains('Aucun score clinique formel enregistré.'),isFalse);
+    expect(text.contains('Aucun score clinique formel enregistré.'),isFalse);
   });
   test('Si aucun score clinique, signaler explicitement les données manquantes',(){
     final p=sample();
