@@ -17,7 +17,12 @@ class ProgramAdmission {
     // pour les patients du programme. Ne jamais remplacer une correction
     // manuelle ou une pièce explicitement décochée après import.
     for (final requirement in ClinicalDocuments.admission) {
-      if (patient.documents.containsKey(requirement.key)) continue;
+      final existing = patient.documents[requirement.key];
+      // Corrige également les anciennes checklists laissées à leur état
+      // initial, mais respecte toute vérification/dévalidation manuelle datée.
+      if(existing != null && (existing.checkedAt != null ||
+         existing.fromProgram || existing.verified ||
+         existing.stamped != null || existing.notApplicable))continue;
       patient.documents[requirement.key] = DocumentCheck()
         ..verified = true
         ..stamped = requirement.needsStamp ? true : null
