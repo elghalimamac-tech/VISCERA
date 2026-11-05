@@ -200,7 +200,7 @@ Future<void> showClinicalObservationEditor(
           Padding(padding: EdgeInsets.fromLTRB(18, 5, 18, MediaQuery.of(sheetContext).viewInsets.bottom + 12),
             child: SizedBox(height: MediaQuery.of(sheetContext).size.height * .78,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Observation clinique du jour', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800))
+                const Text('Observation clinique du jour', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.event_outlined),
