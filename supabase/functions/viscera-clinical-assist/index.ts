@@ -361,9 +361,11 @@ Deno.serve(async (request: Request) => {
   }
   const phaseFromNote=(summary.match(/^Phase\s*:\s*(.+)$/im)?.[1]??"")
     .toLowerCase();
-  const isPostop=/post|opér[ée]|sortie/.test(phaseFromNote);
-  const isPreop=/pr[eé]op|avant|programmé|admission/.test(phaseFromNote);
-  const colorectalContext=/colorect|col[oô]n|rectum|sigmo[iï]d|anastomos/.test(
+  // "Préopératoire" contient aussi "opératoire" : tester la phase
+  // préopératoire en priorité pour éviter une exclusion erronée des scores.
+  const isPreop=/pr[eé]op|avant|programm[eé]|admission/.test(phaseFromNote);
+  const isPostop=!isPreop && /postop|sortie|sorti/.test(phaseFromNote);
+  const colorectalContext=/colorect|col[oô]n|rectum|sigmo[iï]d/.test(
     summary.toLowerCase());
   const eligibleToRecommend=(id:string)=>{
     const item=scoreCatalog.find((s)=>s.id===id);
@@ -371,7 +373,8 @@ Deno.serve(async (request: Request) => {
     if(isPostop && item.period==="preop") return false;
     if(isPreop && item.period==="postop") return false;
     if(id==="mdulk" && !colorectalContext) return false;
-    if(id==="isrec" && !/rect|bas rectum|rectosigmo/i.test(summary))
+    if(id==="isrec" &&
+      !/\brectum\b|\brectal\b|rectosigmo|r[eé]section ant[eé]rieure|anastomose colo-rectale/i.test(summary))
       return false;
     return true;
   };
