@@ -67,6 +67,31 @@ void main() {
     expect(patient.admittedAt?.hour, 6);
   });
 
+  test('Les transferts interservices restent tracés dans le dossier partagé', () {
+    final patient=fromProgram();
+    patient.beforeUnit='TC1';
+    patient.beforeBox='B2';
+    patient.afterUnit='REA ADULTE';
+    patient.afterBox='';
+    patient.serviceTransfers.add({
+      'fromUnit':'TC1', 'fromBox':'B2',
+      'toUnit':'REA ADULTE', 'toBox':'',
+      'reason':'Surveillance rapprochée',
+      'at':'2026-11-05T08:30:00Z',
+      'by':'Médecin de garde', 'byId':'test',
+      'stage':'postoperative',
+    });
+    final data=BlocClinicalRecordService.encode(patient);
+    final reloaded=fromProgram();
+    BlocClinicalRecordService.apply(reloaded,data,4);
+    expect(reloaded.serviceTransfers,hasLength(1));
+    expect(reloaded.serviceTransfers.first['reason'],'Surveillance rapprochée');
+    expect(reloaded.afterUnit,'REA ADULTE');
+    expect(reloaded.afterBox,isEmpty);
+    expect(reloaded.hospitalizationStartDate,
+      DateTime(2026,11,2));
+  });
+
   test('Les observations et vérifications survivent au rechargement', () {
     final patient = fromProgram();
     patient.dailyObservations.add(DailyObservation(
