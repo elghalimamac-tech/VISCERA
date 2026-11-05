@@ -124,6 +124,25 @@ void main() {
       'confirmed':'yes','grade':'C'
     })?.value,'C');
   });
+  test('PCT suivie aux dates saisies, sans seuil diagnostic automatique',(){
+    final p=testPatient();
+    p.dailyObservations.addAll([
+      DailyObservation(date:DateTime(2026,11,4),biology:{'pct':0.35}),
+      DailyObservation(date:DateTime(2026,11,2),biology:{'pct':2.10}),
+      DailyObservation(date:DateTime(2026,11,3),biology:{'pct':0.90}),
+    ]);
+    final points=labSeries(p,'pct');
+    expect(points.map((x)=>x.value),[2.10,0.90,0.35]);
+    expect(CrpKinetics(points).delta,closeTo(-0.55,0.00001));
+    expect(biologyFields.singleWhere((x)=>x.key=='pct').unit,'ng/mL');
+  });
+  testWidgets('La courbe PCT ne fabrique pas des valeurs', (tester) async {
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:PctTrendCard(patient:testPatient())))));
+    expect(find.byKey(const Key('patient-pct-chart')),findsOneWidget);
+    expect(find.textContaining('Aucune procalcitonine saisie'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
   testWidgets('Graphique CRP vide affiche état clair sans valeurs inventées',
       (tester)async{
     await tester.pumpWidget(MaterialApp(home:Scaffold(
