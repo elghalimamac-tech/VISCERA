@@ -42,6 +42,10 @@ void main() {
     final patient=examplePatient();
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
     final transfer=find.byKey(const Key('transfer-patient-service'));
+    // L'accès à l'assistant clinique prend maintenant plus de place.
+    // Faire défiler la liste avant de chercher le transfert hors écran.
+    await tester.drag(find.byType(ListView).first,const Offset(0,-450));
+    await tester.pumpAndSettle();
     expect(transfer,findsOneWidget);
     await Scrollable.ensureVisible(tester.element(transfer),
       alignment: 0.3, duration: Duration.zero);
