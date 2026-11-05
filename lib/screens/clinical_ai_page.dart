@@ -142,55 +142,99 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
     return value is List ? value : const [];
   }
 
+  /// Les propositions d'examens et de prise en charge sont sourcées
+  /// individuellement ; les notes d'alerte restent des éléments cliniques.
   Widget section(String title, String key, IconData icon) {
-    final content = items(key);
+    final content=items(key);
+    final sourced=key=='assessments_to_discuss' ||
+      key=='management_options_to_discuss';
     return Card(
       color:Colors.white,elevation:0,
-      child:Padding(padding:const EdgeInsets.all(14),
+      child:Padding(padding:const EdgeInsets.all(15),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[
-            Icon(icon,color:VColors.ink,size:20),
-            const SizedBox(width:8),
+            Icon(icon,color:VColors.ink,size:21),
+            const SizedBox(width:9),
             Expanded(child:Text(title,style:const TextStyle(
-              fontWeight:FontWeight.w800,fontSize:15))),
+              fontWeight:FontWeight.w800,fontSize:16))),
           ]),
-          const SizedBox(height:8),
+          const SizedBox(height:10),
           if(content.isEmpty)
-            const Text('Aucun élément proposé.',
-              style:TextStyle(fontSize:12,color:VColors.muted)),
-          for (final item in content)
-            Padding(padding:const EdgeInsets.only(bottom:9),
-              child:Text('• '+item.toString(),
-                style:const TextStyle(fontSize:13))),
+            Text(sourced
+              ? 'Aucune proposition suffisamment appuyée par une '
+                'référence du catalogue. Évaluer selon les protocoles du service.'
+              : 'Aucun élément supplémentaire signalé.',
+              style:const TextStyle(fontSize:12,color:VColors.muted)),
+          for(final item in content) ...[
+            if(sourced && item is Map)
+              Container(
+                margin:const EdgeInsets.only(bottom:11),
+                padding:const EdgeInsets.all(12),
+                decoration:BoxDecoration(
+                  color:VColors.background,
+                  border:Border.all(color:VColors.line),
+                  borderRadius:BorderRadius.circular(12)),
+                child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[
+                    Text('• '+(item['text']??'').toString(),
+                      style:const TextStyle(fontSize:13,
+                        fontWeight:FontWeight.w700)),
+                    if((item['rationale']??'').toString().isNotEmpty)
+                      Padding(padding:const EdgeInsets.only(top:5),
+                        child:Text((item['rationale']??'').toString(),
+                          style:const TextStyle(fontSize:12,
+                            color:VColors.muted))),
+                    _citations(item['source_ids']),
+                  ]),
+              )
+            else if(!sourced)
+              Padding(padding:const EdgeInsets.only(bottom:9),
+                child:Text('• '+item.toString(),
+                  style:const TextStyle(fontSize:13))),
+          ],
         ])));
   }
 
   Widget hypothesesCard() => Card(
     color:Colors.white,elevation:0,
-    child:Padding(padding:const EdgeInsets.all(14),
+    child:Padding(padding:const EdgeInsets.all(15),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Hypothèses diagnostiques différentielles',
-          style:TextStyle(fontWeight:FontWeight.w800,fontSize:15)),
-        const SizedBox(height:9),
+        const Row(children:[
+          Icon(Icons.medical_information_outlined,color:VColors.ink),
+          SizedBox(width:9),
+          Expanded(child:Text('Hypothèses diagnostiques différentielles',
+            style:TextStyle(fontWeight:FontWeight.w800,fontSize:16))),
+        ]),
+        const SizedBox(height:10),
         if(items('hypotheses').isEmpty)
-          const Text('Données insuffisantes pour proposer des hypothèses.'),
+          const Text('Aucune hypothèse accompagnée d’une référence '
+            'autorisée. Une évaluation clinique reste nécessaire.'),
         for(final hypothesis in items('hypotheses'))
-          if(hypothesis is Map) Padding(
-            padding:const EdgeInsets.only(bottom:12),
-            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text((hypothesis['possibility'] ?? '').toString(),
-                style:const TextStyle(fontWeight:FontWeight.w700)),
-              Text('Éléments disponibles : '
-                +(hypothesis['supporting_data'] ?? '').toString(),
-                style:const TextStyle(fontSize:12)),
-              Text('À confirmer / rechercher : '
-                +(hypothesis['data_to_verify'] ?? '').toString(),
-                style:const TextStyle(fontSize:12,color:VColors.muted)),
-              const Divider(),
-            ]),
-          ),
+          if(hypothesis is Map)
+            Container(
+              margin:const EdgeInsets.only(bottom:11),
+              padding:const EdgeInsets.all(12),
+              decoration:BoxDecoration(
+                color:VColors.background,
+                border:Border.all(color:VColors.line),
+                borderRadius:BorderRadius.circular(12)),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text((hypothesis['possibility']??'').toString(),
+                  style:const TextStyle(fontWeight:FontWeight.w800,
+                    fontSize:14,color:VColors.ink)),
+                const SizedBox(height:7),
+                Text('Données disponibles : '
+                  +(hypothesis['supporting_data']??'').toString(),
+                  style:const TextStyle(fontSize:12.5)),
+                const SizedBox(height:5),
+                Text('À rechercher : '
+                  +(hypothesis['data_to_verify']??'').toString(),
+                  style:const TextStyle(fontSize:12,
+                    color:VColors.muted)),
+                _citations(hypothesis['source_ids']),
+              ]),
+            ),
       ])));
-
 
   Map<String,dynamic>? _reference(String id) {
     for(final ref in references) {
