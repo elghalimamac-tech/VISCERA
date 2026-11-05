@@ -42,6 +42,18 @@ const guidelineCatalog = [
     title: "Guideline on Clinical Nutrition in Surgery — Update 2025",
     year: 2025, url: "https://doi.org/10.1016/j.clnu.2025.08.029",
     scope: "Évaluation et prise en charge nutritionnelle périopératoire" },
+  { id: "AHRQ_CAPRINI", organization: "AHRQ",
+    title: "Preventing Hospital-Associated VTE — Caprini risk assessment",
+    year: 2024, url: "https://www.ahrq.gov/patient-safety/settings/hospital/vtguide/guide4.html",
+    scope: "Stratification du risque thromboembolique en chirurgie" },
+  { id: "ESC_NCS2022", organization: "ESC",
+    title: "Cardiovascular Assessment and Management in Non-Cardiac Surgery",
+    year: 2022, url: "https://www.escardio.org/guidelines/clinical-practice-guidelines/all-esc-practice-guidelines/non-cardiac-surgery/",
+    scope: "RCRI, fragilité, sélection raisonnée des examens cardiovasculaires" },
+  { id: "ESAIC_PREOP2024", organization: "ESAIC",
+    title: "Preoperative Assessment of Adults Undergoing Elective Noncardiac Surgery",
+    year: 2024, url: "https://esaic.org/guideline/pre-operative-evaluation-of-adults-undergoing-elective-noncardiac-surgery-1st-update/",
+    scope: "Évaluation préopératoire adaptée aux risques, sans bilan systématique" },
   { id: "NEWS2_RCP", organization: "Royal College of Physicians",
     title: "National Early Warning Score 2 (NEWS2)",
     year: 2017, url: "https://rcp.ac.uk/resources/national-early-warning-score-news-2/",
@@ -64,6 +76,83 @@ const discussionItem = {
   required: ["text", "rationale", "source_ids"],
 };
 
+
+const scoreCatalog = [
+  {id:"asa",name:"ASA",period:"preop",sources:["ASA2026"],
+    inputs:"Comorbidités, limitations fonctionnelles, gravité systémique",
+    labs:"Pas de bilan biologique requis pour attribuer la classe" },
+  {id:"cfs",name:"Clinical Frailty Scale",period:"preop",
+    sources:["ESC_NCS2022"],
+    inputs:"Autonomie habituelle avant maladie aiguë et chirurgie",
+    labs:"Aucun bilan ne remplace l'évaluation fonctionnelle" },
+  {id:"nrs2002",name:"NRS-2002",period:"preop",sources:["ESPEN2025"],
+    inputs:"IMC, perte pondérale, apport alimentaire, gravité de la maladie et âge",
+    labs:"Poids et taille ; albumine non requise pour calculer NRS-2002" },
+  {id:"caprini",name:"Caprini",period:"preop",sources:["AHRQ_CAPRINI"],
+    inputs:"Âge, antécédents TEV, chirurgie, cancer, immobilité et facteurs de risque",
+    labs:"Évaluer séparément plaquettes, hémostase et fonction rénale selon le risque hémorragique" },
+  {id:"rcri",name:"RCRI (Lee)",period:"preop",sources:["ESC_NCS2022"],
+    inputs:"Six critères : type d'intervention, coronaropathie, insuffisance cardiaque, AVC/AIT, insulinothérapie, créatinine",
+    labs:"Créatinine mg/L si inconnue et évaluation rénale selon contexte" },
+  {id:"ariscat",name:"ARISCAT",period:"preop",sources:["ESAIC_PREOP2024"],
+    inputs:"Âge, SpO2, infection respiratoire récente, anémie, site et durée opératoires, urgence",
+    labs:"Hémoglobine g/dL si inconnue ; mesure de SpO2 et données de chirurgie" },
+  {id:"news2",name:"NEWS2",period:"hospitalisation",sources:["NEWS2_RCP"],
+    inputs:"FR, SpO2 et échelle O2 adaptée, oxygénothérapie, PAS, pouls, température, conscience",
+    labs:"Aucun bilan sanguin requis pour calculer NEWS2" },
+  {id:"mdulk",name:"mDULK",period:"postop",
+    sources:["IDSA2024","WSES_PCT2026"],
+    inputs:"Signes évocateurs de complication anastomotique, examen clinique, paramètres hémodynamiques",
+    labs:"CRP postopératoire datée selon la version du score utilisée ; vérifier la validation clinique" },
+  {id:"isrec",name:"ISREC",period:"postop",sources:["SIS2024"],
+    inputs:"Fuite anastomotique documentée et conséquences thérapeutiques",
+    labs:"Examens et imagerie seulement si indication clinique ; ce n'est pas un score de dépistage" },
+  {id:"clavien",name:"Clavien-Dindo",period:"postop",sources:["SIS2024"],
+    inputs:"Complication documentée, traitements nécessaires et retentissement",
+    labs:"Aucun panel obligatoire ; classement rétrospectif de la gravité des complications" },
+] as const;
+const scoreIds = scoreCatalog.map((score)=>score.id);
+const textArray={type:"array",items:{type:"string"}};
+const scoreItem={
+  type:"object",additionalProperties:false,
+  properties:{
+    score_id:{type:"string",enum:scoreIds},
+    value:{type:"string"},
+    interpretation:{type:"string"},
+    management_impact:{type:"string"},
+    uncertainty_and_verification:{type:"string"},
+    source_ids:citationsSchema,
+  },
+  required:["score_id","value","interpretation","management_impact",
+    "uncertainty_and_verification","source_ids"],
+};
+const scoreRecommendation={
+  type:"object",additionalProperties:false,
+  properties:{
+    score_id:{type:"string",enum:scoreIds},
+    why_now:{type:"string"},
+    clinical_data_to_collect:textArray,
+    laboratory_data_to_collect:textArray,
+    possible_management_impact:{type:"string"},
+    source_ids:citationsSchema,
+  },
+  required:["score_id","why_now","clinical_data_to_collect",
+    "laboratory_data_to_collect","possible_management_impact","source_ids"],
+};
+const suggestedLab={
+  type:"object",additionalProperties:false,
+  properties:{
+    test:{type:"string"},
+    clinical_indication:{type:"string"},
+    relevant_scores:textArray,
+    timing_to_discuss:{type:"string"},
+    effect_on_management:{type:"string"},
+    source_ids:citationsSchema,
+  },
+  required:["test","clinical_indication","relevant_scores",
+    "timing_to_discuss","effect_on_management","source_ids"],
+};
+
 const outputSchema = {
   type: "object",
   additionalProperties: false,
@@ -81,13 +170,17 @@ const outputSchema = {
           "source_ids"],
       },
     },
+    assessed_scores: { type: "array", items: scoreItem },
+    scores_to_consider: { type: "array", items: scoreRecommendation },
+    labs_to_consider: { type: "array", items: suggestedLab },
     assessments_to_discuss: { type: "array", items: discussionItem },
     management_options_to_discuss: { type: "array", items: discussionItem },
     warning_signs: { type: "array", items: { type: "string" } },
     limits: { type: "array", items: { type: "string" } },
   },
   required: [
-    "hypotheses", "assessments_to_discuss",
+    "hypotheses", "assessed_scores", "scores_to_consider",
+    "labs_to_consider", "assessments_to_discuss",
     "management_options_to_discuss", "warning_signs", "limits",
   ],
 };
@@ -128,6 +221,31 @@ indiquer "niveau de preuve non vérifié". Les biomarqueurs ne déterminent
 pas seuls une antibiothérapie, une imagerie ou une réintervention.
 Les scores doivent être repris uniquement s'ils sont déjà renseignés dans
 la synthèse, sans inventer les données nécessaires pour les calculer.
+Expliquer pour CHAQUE score réellement enregistré : valeur exacte,
+signification clinique selon le contexte et la phase, date/ancienneté
+si renseignée, limites, ce que le résultat pourrait changer pour la
+surveillance, les examens ou la coordination de soins (sans ordonnance).
+Ne JAMAIS attribuer de valeur à un score absent ou inventer une variable.
+S'il n'existe aucun score : proposer, sans obligation systématique,
+les scores les plus pertinents pour la phase et la situation ; dire
+pourquoi ils sont utiles, quels critères cliniques manquent et quels
+bilans seraient réellement nécessaires pour les calculer. Si certains
+scores sont déjà renseignés, éviter les doublons et suggérer uniquement
+les autres scores utiles. Distinguer SCORES de diagnostic, de risque
+préopératoire, de surveillance et de classement de complication.
+Proposer les éventuels examens biologiques dans labs_to_consider :
+indication clinique, moment souhaitable, score concerné et impact attendu ;
+pas de bilan systématique pour un score qui ne l'exige pas. Ne jamais
+suggestionner en routine PCT, lactate, hémocultures, troponine, coagulation
+ou TDM sans justification clinique. Les résultats biologiques déjà
+disponibles, la cinétique CRP/PCT et les unités sont à prendre en compte.
+Les évaluations NEWS2 sont fondées sur des constantes, pas sur un bilan
+sanguin. Le score ISREC classe une fuite établie, il ne la diagnostique pas.
+Les propositions ne constituent pas une ordonnance.
+Les scores autorisés et leurs domaines sont fournis en catalogue.
+Chaque recommandation doit comporter des références pertinentes
+du catalogue source, sans fabriquer de recommandations spécifiquement
+étayées par des documents traitant d'autres sujets.
 Réponds STRICTEMENT selon le JSON Schema demandé.`;
 
 Deno.serve(async (request: Request) => {
@@ -187,7 +305,7 @@ Deno.serve(async (request: Request) => {
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(38000),
       headers: {
         "Authorization": "Bearer " + apiKey,
         "Content-Type": "application/json",
@@ -195,7 +313,7 @@ Deno.serve(async (request: Request) => {
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
         temperature: 0.2,
-        max_completion_tokens: 4200,
+        max_completion_tokens: 6200,
         reasoning_effort: "medium",
         include_reasoning: false,
         stream: false,
@@ -204,6 +322,8 @@ Deno.serve(async (request: Request) => {
           { role: "user", content:
             "Catalogue de références avec identifiants et périmètres :\n" +
             JSON.stringify(guidelineCatalog) +
+            "\nCatalogue de scores disponibles dans VISCERA :\n" +
+            JSON.stringify(scoreCatalog) +
             "\nSynthèse clinique désidentifiée :\n" + summary },
         ],
         response_format: {
