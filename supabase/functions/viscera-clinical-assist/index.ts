@@ -202,9 +202,9 @@ Deno.serve(async (request: Request) => {
         messages: [
           { role: "system", content: system },
           { role: "user", content:
-            "Catalogue de références avec identifiants et périmètres :\\n" +
+            "Catalogue de références avec identifiants et périmètres :\n" +
             JSON.stringify(guidelineCatalog) +
-            "\\nSynthèse clinique désidentifiée :\\n" + summary },
+            "\nSynthèse clinique désidentifiée :\n" + summary },
         ],
         response_format: {
           type: "json_schema",
