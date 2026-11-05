@@ -145,8 +145,7 @@ class DoctorAuthController extends ChangeNotifier {
             name: profile['display_name'] as String? ?? 'Médecin',
             email: user.email ?? '',
             role: approvedRole!,
-            isAdmin: profile['is_admin'] == true &&
-                user.id == '4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
+            isAdmin: profile['is_admin'] == true,
           );
           screen = AuthScreen.approved;
         } else {
