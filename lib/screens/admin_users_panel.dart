@@ -392,37 +392,89 @@ class _AdminUsersPanelState extends State<AdminUsersPanel> {
     if (!_isOwner || doctor['is_owner'] == true || _busy) return;
     final granted = doctor['is_admin'] == true;
     if (!granted && doctor['approval_status'] != 'approved') {
-      _notice('Approuvez d’abord le compte médecin avant de lui '
-        'accorder le rôle ADMIN.', error: true);
+      _notice('Approuvez d’abord le médecin avant de lui donner ADMIN.',
+        error: true);
       return;
     }
+    // La confirmation écrite est nécessaire seulement pour ACCORDER ADMIN.
+    final controller = TextEditingController();
+    bool phraseValide = false;
     final accepted = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(granted ? 'Retirer la permission ADMIN ?'
-            : 'Accorder la permission ADMIN ?'),
-        content: Text(granted
-          ? 'Ce médecin perdra son accès à la page Administration. '
-            'Son accès médical normal reste inchangé.'
-          : 'Ce médecin pourra consulter les comptes VISCERA et '
-            'approuver ou désactiver des inscriptions. '
-            'La suppression de comptes, les mots de passe et la gestion '
-            'des permissions ADMIN resteront réservés au propriétaire.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, updateDialog) => AlertDialog(
+          title: Text(granted
+              ? 'Retirer la permission ADMIN ?'
+              : 'Confirmer la permission ADMIN'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(doctor['display_name'] as String? ?? 'Médecin VISCERA',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(doctor['email'] as String? ?? '',
+                  style: const TextStyle(color: VColors.muted)),
+                const SizedBox(height: 15),
+                Text(granted
+                    ? 'Ce médecin perdra ses droits administrateur. '
+                      'Son accès médical restera inchangé.'
+                    : 'Ce médecin pourra consulter les comptes VISCERA '
+                      'et approuver ou bloquer des inscriptions. '
+                      'La suppression des comptes et les autorisations '
+                      'sensibles restent réservées au propriétaire.'),
+                if (!granted) ...[
+                  const SizedBox(height: 17),
+                  const Text('Pour accorder ces droits, écrivez exactement :',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 7),
+                  const SelectableText('DONNER ADMIN',
+                    style: TextStyle(fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2, color: VColors.ink)),
+                  const SizedBox(height: 9),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirmation',
+                      hintText: 'DONNER ADMIN',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) =>
+                      updateDialog(() => phraseValide = value == 'DONNER ADMIN'),
+                  ),
+                ],
+              ],
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(granted ? 'Retirer ADMIN' : 'Accorder ADMIN'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: granted || phraseValide
+                  ? () => Navigator.pop(dialogContext, true)
+                  : null,
+              icon: Icon(granted
+                  ? Icons.remove_moderator_outlined
+                  : Icons.admin_panel_settings_outlined),
+              label: Text(granted ? 'Retirer ADMIN' : 'Donner ADMIN'),
+            ),
+          ],
+        ),
       ),
     );
+    controller.dispose();
     if (accepted == true && mounted) {
-      await _perform(doctor, 'set_admin',
-        extra: {'is_admin': !granted});
+      await _perform(doctor, 'set_admin', extra: {
+        'is_admin': !granted,
+        if (!granted) 'confirmation': 'DONNER ADMIN',
+      });
     }
   }
 
@@ -439,168 +491,185 @@ class _AdminUsersPanelState extends State<AdminUsersPanel> {
 
   Widget _account(Map<String, dynamic> user) {
     final ownerAccount = user['is_owner'] == true;
-    final isAdmin = user['is_admin'] == true;
-    return Container(
+    final admin = user['is_admin'] == true;
+    final isJunior = user['requested_role'] == 'junior';
+    final grade = isJunior
+        ? gradeLabel(user['junior_category'] as String?,
+            (user['internship_passage'] as num?)?.toInt())
+        : user['requested_role'] == 'senior'
+            ? 'Senior · ${user['senior_title'] ?? 'Dr'}'
+            : 'Profil médical non renseigné';
+    return Card(
+      color: Colors.white,
+      elevation: 0,
       margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFFE1E9E5)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE1E9E5)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          CircleAvatar(
-            backgroundColor: VColors.softMint,
-            child: Icon(isAdmin ? Icons.admin_panel_settings_outlined
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+        leading: CircleAvatar(
+          backgroundColor: VColors.softMint,
+          child: Icon(admin ? Icons.admin_panel_settings_outlined
               : Icons.person_outline, color: VColors.ink),
+        ),
+        title: Text((user['display_name'] as String?) ?? 'Utilisateur',
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800,
+            color: VColors.ink, fontSize: 14)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 3),
+            Text(user['email'] as String? ?? 'E-mail non renseigné',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: VColors.muted)),
+            const SizedBox(height: 3),
+            Text(_status(user), style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700,
+              color: user['approval_status'] == 'approved'
+                  ? const Color(0xFF117C57) : VColors.muted)),
+          ],
+        ),
+        children: [
+          const Divider(height: 15),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(grade.isNotEmpty ? grade : 'Grade non renseigné',
+              style: const TextStyle(fontSize: 13,
+                fontWeight: FontWeight.w600, color: VColors.ink)),
           ),
-          const SizedBox(width: 10),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text((user['display_name'] as String?) ?? 'Utilisateur',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800, color: VColors.ink)),
-              const SizedBox(height: 3),
-              Text(user['email'] as String? ?? 'E-mail non renseigné',
-                style: const TextStyle(fontSize: 12, color: VColors.muted)),
-              const SizedBox(height: 3),
-              Text(_status(user), style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600)),
-              if (user['requested_role'] == 'junior') ...[
-                const SizedBox(height: 3),
-                Text('Grade : ${gradeLabel(
-                  user['junior_category'] as String?,
-                  (user['internship_passage'] as num?)?.toInt())
-                  .isEmpty ? 'Non renseigné' : gradeLabel(
-                  user['junior_category'] as String?,
-                  (user['internship_passage'] as num?)?.toInt())}',
-                  style: const TextStyle(
-                    color: VColors.muted, fontSize: 12)),
-              ],
+          if (ownerAccount)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Align(alignment: Alignment.centerLeft,
+                child: Text('Compte principal protégé',
+                  style: TextStyle(fontSize: 12, color: VColors.muted))),
+            ),
+          if (!ownerAccount) ...[
+            if (_isAdmin && isJunior && (!admin || _isOwner)) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _editGrade(user),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Modifier le grade'),
+                ),
+              ),
             ],
-          )),
-        ]),
-        if (_isAdmin && !ownerAccount &&
-            user['requested_role'] == 'junior' &&
-            (!isAdmin || _isOwner)) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : () => _editGrade(user),
-            icon: const Icon(Icons.edit_outlined, size: 17),
-            label: const Text('Modifier le grade'),
-          ),
+            if (_isOwner) ...[
+              const SizedBox(height: 9),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Sécurité du compte',
+                  style: TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w800, color: VColors.muted)),
+              ),
+              const SizedBox(height: 7),
+              Wrap(spacing: 7, runSpacing: 7, children: [
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _changePassword(user),
+                  icon: const Icon(Icons.lock_reset, size: 17),
+                  label: const Text('Mot de passe'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _setAdmin(user),
+                  icon: Icon(admin ? Icons.remove_moderator_outlined
+                    : Icons.admin_panel_settings_outlined, size: 17),
+                  label: Text(admin ? 'Retirer ADMIN' : 'Donner ADMIN'),
+                ),
+              ]),
+              const Divider(height: 24),
+              Align(alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : () => _deleteUser(user),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFB42332)),
+                  icon: const Icon(Icons.delete_forever, size: 18),
+                  label: const Text('Supprimer définitivement'),
+                ),
+              ),
+            ],
+          ],
         ],
-        if (_isOwner && !ownerAccount) ...[
-          const SizedBox(height: 11),
-          Wrap(spacing: 7, runSpacing: 7, children: [
-            OutlinedButton.icon(
-              onPressed: _busy ? null : () => _changePassword(user),
-              icon: const Icon(Icons.lock_reset, size: 17),
-              label: const Text('Mot de passe'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : () => _setAdmin(user),
-              icon: Icon(isAdmin ? Icons.remove_moderator_outlined
-                : Icons.admin_panel_settings_outlined, size: 17),
-              label: Text(isAdmin ? 'Retirer ADMIN' : 'Donner ADMIN'),
-            ),
-            TextButton.icon(
-              onPressed: _busy ? null : () => _deleteUser(user),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFB42332)),
-              icon: const Icon(Icons.delete_forever, size: 18),
-              label: const Text('Supprimer'),
-            ),
-          ]),
-        ] else if (ownerAccount)
-          const Padding(
-            padding: EdgeInsets.only(top: 9),
-            child: Text('Compte principal protégé',
-              style: TextStyle(color: VColors.muted, fontSize: 11)),
-          ),
-      ]),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: const Color(0xFFF0F5F2),
-      border: Border.all(color: const Color(0xFFDDE9E2)),
-      borderRadius: BorderRadius.circular(17),
-    ),
-    child: ExpansionTile(
-      initiallyExpanded: true,
-      leading: const Icon(Icons.manage_accounts_outlined, color: VColors.ink),
-      title: const Text('Tous les utilisateurs VISCERA',
-        style: TextStyle(fontWeight: FontWeight.w800, color: VColors.ink)),
-      subtitle: const Text('Comptes Auth · rôles · sécurité',
-        style: TextStyle(color: VColors.muted, fontSize: 12)),
-      childrenPadding: const EdgeInsets.fromLTRB(13, 0, 13, 13),
-      children: [
-        const Divider(),
-        if (!_isOwner) const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: Text('Consultation des comptes. Les modifications sensibles '
-            'sont réservées au propriétaire principal.',
-            style: TextStyle(color: VColors.muted, fontSize: 12)),
-        ),
-        TextField(
-          decoration: const InputDecoration(
-            hintText: 'Nom ou adresse e-mail',
-            prefixIcon: Icon(Icons.search),
-            filled: true, fillColor: Colors.white,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      TextField(
+        decoration: InputDecoration(
+          hintText: 'Rechercher par nom ou e-mail',
+          prefixIcon: const Icon(Icons.search),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFDCE6E0)),
           ),
-          onChanged: (value) => setState(() => _search = value.toLowerCase()),
         ),
-        const SizedBox(height: 12),
-        FutureBuilder<List<Map<String, dynamic>>>(
-          future: _users,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Padding(padding: EdgeInsets.all(22),
-                child: Center(child: CircularProgressIndicator()));
-            }
-            if (snapshot.hasError) {
-              return Column(children: [
-                const Text('Impossible de charger les comptes.'),
-                TextButton.icon(onPressed: _refresh,
+        onChanged: (value) => setState(() => _search = value.toLowerCase()),
+      ),
+      const SizedBox(height: 13),
+      if (!_isOwner)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text('Les modifications de sécurité des comptes sont '
+            'réservées au propriétaire principal.',
+            style: TextStyle(fontSize: 12, color: VColors.muted)),
+        ),
+      FutureBuilder<List<Map<String, dynamic>>>(
+        future: _users,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Padding(padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()));
+          }
+          if (snapshot.hasError) {
+            return Column(children: [
+              const Text('Impossible de charger les utilisateurs.'),
+              TextButton.icon(
+                onPressed: _refresh, icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ]);
+          }
+          final all = snapshot.data ?? [];
+          final users = all.where((entry) {
+            final haystack =
+              '${entry['display_name'] ?? ''} ${entry['email'] ?? ''}'.toLowerCase();
+            return haystack.contains(_search.trim());
+          }).toList();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Expanded(child: Text(
+                  '${users.length} compte(s) · Touchez un compte pour les actions',
+                  style: const TextStyle(color: VColors.muted, fontSize: 12),
+                )),
+                IconButton(
+                  tooltip: 'Actualiser les comptes',
+                  onPressed: _busy ? null : _refresh,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Réessayer')),
-              ]);
-            }
-            final users = (snapshot.data ?? []).where((entry) {
-              final text =
-                  '${entry['display_name'] ?? ''} ${entry['email'] ?? ''}'
-                    .toLowerCase();
-              return text.contains(_search.trim());
-            }).toList();
-            return Column(crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(children: [
-                    Text('${users.length} utilisateur(s)',
-                      style: const TextStyle(color: VColors.muted)),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Actualiser les utilisateurs',
-                      onPressed: _busy ? null : _refresh,
-                      icon: const Icon(Icons.refresh),
-                    ),
-                  ]),
                 ),
-                if (users.isEmpty)
-                  const Padding(padding: EdgeInsets.all(18),
-                    child: Center(child: Text('Aucun utilisateur trouvé.')))
-                else ...users.map(_account),
-              ],
-            );
-          },
-        ),
-      ],
-    ),
+              ]),
+              const SizedBox(height: 6),
+              if (users.isEmpty)
+                const Padding(padding: EdgeInsets.all(28),
+                  child: Center(child: Text('Aucun compte trouvé.')))
+              else ...users.map(_account),
+            ],
+          );
+        },
+      ),
+    ],
   );
 }
