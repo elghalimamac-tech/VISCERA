@@ -78,6 +78,19 @@ Deno.serve(async (req: Request) => {
       return reply({ sent: false, already_sent: !hasActive, processing: hasActive });
     }
 
+    // Une approbation par l'admin suffit : lever aussi la confirmation
+    // Supabase sur les anciens comptes, même si Brevo n'est pas configuré.
+    const { data: userResult, error: userError } =
+      await admin.auth.admin.getUserById(targetId as string);
+    if (userError || !userResult.user?.email) {
+      return reply({ error: "target_email_unavailable" }, 404);
+    }
+    if (!userResult.user.email_confirmed_at) {
+      const { error: confirmError } = await admin.auth.admin
+        .updateUserById(targetId as string, { email_confirm: true });
+      if (confirmError) return reply({ error: "admin_email_activation_failed" }, 503);
+    }
+
     const brevoKey = Deno.env.get("BREVO_API_KEY");
     const senderEmail = Deno.env.get("BREVO_SENDER_EMAIL");
     const senderName = Deno.env.get("BREVO_SENDER_NAME") || "VISCERA";
@@ -94,16 +107,6 @@ Deno.serve(async (req: Request) => {
     if (!claim) return reply({ sent:false, processing:true }, 200);
 
     try {
-      // Utile pour les comptes créés avant la désactivation de
-      // Confirm Email : une approbation admin remplace le clic mail.
-      const { data: userResult, error: userError } =
-        await admin.auth.admin.getUserById(targetId as string);
-      if (userError || !userResult.user?.email) throw Error("target_email_unavailable");
-      if (!userResult.user.email_confirmed_at) {
-        const { error: confirmError } = await admin.auth.admin
-          .updateUserById(targetId as string, { email_confirm: true });
-        if (confirmError) throw Error("admin_email_activation_failed");
-      }
       const recipient = userResult.user.email;
       const doctorName = (target.display_name as string) || "Docteur";
       const safeName = escapeHtml(doctorName);
