@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../doctor_registration_options.dart';
 import '../store.dart';
 import '../theme.dart';
 
@@ -20,6 +21,7 @@ class _AdminUsersPanelState extends State<AdminUsersPanel> {
   bool _busy = false;
   String _search = '';
   bool get _isOwner => appStore.activeLocalProfile?.isVisceraOwner == true;
+  bool get _isAdmin => appStore.activeLocalProfile?.isAdmin == true;
 
   @override
   void initState() {
@@ -243,6 +245,149 @@ class _AdminUsersPanelState extends State<AdminUsersPanel> {
     }
   }
 
+  /// Même liste de grades et de passages que lors de l'inscription.
+  /// L'autorisation réelle est contrôlée dans la fonction SQL côté serveur.
+  Future<void> _editGrade(Map<String, dynamic> doctor) async {
+    if (_busy || !_isAdmin || doctor['is_owner'] == true ||
+        doctor['requested_role'] != 'junior' ||
+        (doctor['is_admin'] == true && !_isOwner)) return;
+
+    final previousCategory = doctor['junior_category'] as String?;
+    final previousPassage =
+        (doctor['internship_passage'] as num?)?.toInt();
+    String? category = juniorCategories.containsKey(previousCategory)
+        ? previousCategory : null;
+    int? passage = passagesForCategory(category).contains(previousPassage)
+        ? previousPassage : null;
+    final formKey = GlobalKey<FormState>();
+
+    final selection = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Modifier le grade du médecin'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(doctor['display_name'] as String? ?? 'Médecin VISCERA',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(doctor['email'] as String? ?? '',
+                    style: const TextStyle(
+                      fontSize: 12, color: VColors.muted)),
+                  const SizedBox(height: 15),
+                  const Text('Sélectionnez le grade réel du médecin. '
+                    'Les choix sont identiques à ceux de l’inscription.',
+                    style: TextStyle(fontSize: 12, color: VColors.muted)),
+                  const SizedBox(height: 15),
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Grade médical',
+                      border: OutlineInputBorder(),
+                    ),
+                    hint: const Text('Interne ou résident'),
+                    items: juniorCategories.entries.map((entry) =>
+                      DropdownMenuItem<String>(
+                        value: entry.key,
+                        child: Text(entry.value,
+                          overflow: TextOverflow.ellipsis),
+                      ),
+                    ).toList(),
+                    validator: (value) => value == null
+                        ? 'Choisissez le grade du médecin.' : null,
+                    onChanged: (value) => setDialogState(() {
+                      category = value;
+                      passage = null;
+                    }),
+                  ),
+                  if (passagesForCategory(category).isNotEmpty) ...[
+                    const SizedBox(height: 13),
+                    DropdownButtonFormField<int>(
+                      key: ValueKey(category),
+                      value: passage,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Passage d’internat',
+                        border: OutlineInputBorder(),
+                      ),
+                      hint: const Text('Choisir le passage'),
+                      items: passagesForCategory(category).map((number) =>
+                        DropdownMenuItem<int>(
+                          value: number,
+                          child: Text(gradeLabel(category, number)
+                            .split('— ').last),
+                        ),
+                      ).toList(),
+                      validator: (value) => value == null
+                          ? 'Choisissez le passage.' : null,
+                      onChanged: (value) => setDialogState(() {
+                        passage = value;
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                if (validateMedicalGrade(
+                  role: 'junior',
+                  juniorCategory: category,
+                  internshipPassage: passage,
+                ) != null) return;
+                Navigator.pop(dialogContext,
+                  {'category': category, 'passage': passage});
+              },
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selection == null || !mounted) return;
+    if (selection['category'] == previousCategory &&
+        selection['passage'] == previousPassage) return;
+
+    setState(() => _busy = true);
+    try {
+      await Supabase.instance.client.rpc(
+        'viscera_admin_update_junior_grade',
+        params: {
+          'p_target': doctor['user_id'],
+          'p_category': selection['category'],
+          'p_passage': selection['passage'],
+        },
+      );
+      _notice('Grade médical mis à jour : '
+        '${gradeLabel(selection['category'] as String?,
+          selection['passage'] as int?)}');
+      _refresh();
+      widget.onChanged();
+    } on PostgrestException {
+      _notice('Modification refusée : vérifiez vos autorisations '
+        'ou la catégorie sélectionnée.', error: true);
+    } catch (_) {
+      _notice('Impossible d’enregistrer le grade. '
+        'Vérifiez la connexion.', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _setAdmin(Map<String, dynamic> doctor) async {
     if (!_isOwner || doctor['is_owner'] == true || _busy) return;
     final granted = doctor['is_admin'] == true;
@@ -323,9 +468,30 @@ class _AdminUsersPanelState extends State<AdminUsersPanel> {
               const SizedBox(height: 3),
               Text(_status(user), style: const TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600)),
+              if (user['requested_role'] == 'junior') ...[
+                const SizedBox(height: 3),
+                Text('Grade : ${gradeLabel(
+                  user['junior_category'] as String?,
+                  (user['internship_passage'] as num?)?.toInt())
+                  .isEmpty ? 'Non renseigné' : gradeLabel(
+                  user['junior_category'] as String?,
+                  (user['internship_passage'] as num?)?.toInt())}',
+                  style: const TextStyle(
+                    color: VColors.muted, fontSize: 12)),
+              ],
             ],
           )),
         ]),
+        if (_isAdmin && !ownerAccount &&
+            user['requested_role'] == 'junior' &&
+            (!isAdmin || _isOwner)) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _editGrade(user),
+            icon: const Icon(Icons.edit_outlined, size: 17),
+            label: const Text('Modifier le grade'),
+          ),
+        ],
         if (_isOwner && !ownerAccount) ...[
           const SizedBox(height: 11),
           Wrap(spacing: 7, runSpacing: 7, children: [
