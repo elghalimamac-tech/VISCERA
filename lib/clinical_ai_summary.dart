@@ -32,6 +32,12 @@ String buildClinicalAiSummary(PatientCase patient, {DateTime? referenceDate}) {
       buffer.writeln('Score $key : ${_redact(value, patient)}');
     }
   }
+  // Indices calculés à partir de prélèvements réellement disponibles.
+  // Ne pas compléter les critères absents par une estimation.
+  for (final index in BioIndices.compute(patient)) {
+    buffer.writeln('Indice biologique indicatif '+index.name+
+      ' : '+index.value+' ('+index.detail+')');
+  }
   void section(String label, String value) {
     final cleaned = _redact(value, patient);
     if (cleaned.trim().isNotEmpty) buffer.writeln('$label : $cleaned');
