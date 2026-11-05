@@ -89,6 +89,14 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final patient = dischargePatient(fromBlocProgram: true);
     await tester.pumpWidget(MaterialApp(home: PatientDetailPage(patient: patient)));
+    await tester.pumpAndSettle();
+    // La fenêtre de réévaluation de sortie est indépendante du défilement
+    // du dossier ; la fermer avant de vérifier l'accessibilité des actions.
+    final later = find.text('Plus tard');
+    if (later.evaluate().isNotEmpty) {
+      await tester.tap(later);
+      await tester.pumpAndSettle();
+    }
 
     final omission = find.byKey(const Key('omit-program-admission'));
     final dischargeFab = find.byKey(const Key('declare-discharge-fab'));
