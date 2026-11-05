@@ -23,17 +23,17 @@ void main() {
     expect(patient.dailyObservations.single.clinicalExam, 'Douleur provoquée');
   });
 
-  test('Magica et Sillage sont des validations indépendantes et manuelles', () {
+  test('Magica/Sillage est une seule validation de report manuel', () {
     final store = AppStore();
     final patient = demoPatient();
     final note = DailyObservation(date: DateTime(2026, 10, 30), plan: 'Surveillance clinique');
     store.saveDailyObservation(patient, note);
-    store.setObservationReported(patient, note, magica: true);
+    store.setObservationReported(patient, note, reported: true);
     expect(note.reportedMagica, true);
-    expect(note.reportedSillage, false);
-    expect(note.fullyReported, false);
-    store.setObservationReported(patient, note, sillage: true);
+    expect(note.reportedSillage, true);
     expect(note.fullyReported, true);
+    store.setObservationReported(patient, note, reported: false);
+    expect(note.fullyReported, false);
   });
 
   test('certificat médical facultatif mais cachet à vérifier s’il est demandé', () {
