@@ -416,6 +416,10 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
             Text('Propositions à confronter à l’examen clinique et aux '
               'références originales. Aucune prescription automatique.',
               style:TextStyle(color:Colors.white,fontSize:12.5)),
+            SizedBox(height:10),
+            Text('Références vérifiées le 05/11/2026 · '
+              'sans actualisation médicale en temps réel',
+              style:TextStyle(color:Color(0xFFD7F3F2),fontSize:11)),
           ]),
         ),
         const SizedBox(height:13),
