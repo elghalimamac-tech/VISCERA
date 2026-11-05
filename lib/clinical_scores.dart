@@ -13,13 +13,16 @@ class ClinicalScoresCard extends StatelessWidget {
 
   @override Widget build(BuildContext context) {
     final preop=patient.stage==CaseStage.scheduled ||
-      patient.stage==CaseStage.preoperative ||
-      patient.stage==CaseStage.inTheatre;
+      patient.stage==CaseStage.preoperative;
     final postop=patient.stage==CaseStage.postoperative ||
       patient.stage==CaseStage.dischargeReady ||
       patient.stage==CaseStage.discharged;
+    final colorectal=RegExp(r'colo|rect|sigmo|anastomos',
+      caseSensitive:false).hasMatch(patient.effectiveProcedure);
     bool visible(ClinicalScoreSpec score) =>
-      score.period=='Hospitalisation' ||
+      (score.id=='mdulk'||score.id=='isrec') &&
+         !colorectal && !patient.clinicalScores.containsKey(score.id)
+       ? false : (score.period=='Hospitalisation' && (preop||postop)) ||
       (score.period=='Préopératoire' && preop) ||
       (score.period=='Postopératoire' && postop) ||
       patient.clinicalScores.containsKey(score.id);
@@ -29,11 +32,12 @@ class ClinicalScoresCard extends StatelessWidget {
       child:ExpansionTile(
         key:const Key('clinical-scores-tile'),
         initiallyExpanded:false,
-        title:Text('Scores adaptés · '+(preop?'Préopératoire':'Postopératoire'),
+        title:Text('Scores adaptés · '+(preop?'Préopératoire':postop?'Postopératoire':'Au bloc'),
           style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800)),
         subtitle:Text(preop
           ? 'Nutrition · thrombose · anesthésie · cœur'
-          : 'Complications · fistules · surveillance',
+          : postop ? 'Complications · fistules · surveillance'
+          : 'En attente de confirmation de fin du bloc',
           style:const TextStyle(fontSize:12)),
         childrenPadding:const EdgeInsets.fromLTRB(12,0,12,12),
         children:[
@@ -94,10 +98,29 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     }
     final backup = Map<String, dynamic>.from(p.clinicalScores);
     setState(() => saving = true);
+    final snapshot=Map<String,String>.from(answers);
+    DateTime? biologicalDate;
+    if(widget.spec.id=='mdulk') {
+      final today=DateTime.now();
+      for(final note in widget.patient.dailyObservations){
+        if(note.date.year==today.year && note.date.month==today.month &&
+           note.date.day==today.day && note.biology['crp']!=null) {
+          snapshot['crp']=note.biology['crp']!.toString();
+          biologicalDate=note.date;
+          break;
+        }
+      }
+      if(!snapshot.containsKey('crp')){
+        if(mounted)setState(()=>saving=false);
+        _message('CRP du jour absente : score mDULK non enregistré.');
+        return;
+      }
+    }
     p.clinicalScores[widget.spec.id] = {
       'value': result.value,
       'interpretation': result.interpretation,
-      'inputs': Map<String, String>.from(answers),
+      'inputs': snapshot,
+      'biologicalDate':biologicalDate?.toIso8601String(),
       'assessedAt': DateTime.now().toUtc().toIso8601String(),
       'assessedBy': appStore.activeLocalProfile?.id ?? '',
       'assessedStage':p.stage.name,
@@ -302,12 +325,13 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     final age = ClinicalScoring.age(widget.patient);
     final computedInputs=Map<String,String>.from(answers);
     if(widget.spec.id=='mdulk') {
-      final notes=[...widget.patient.dailyObservations]
-        ..sort((a,b)=>b.date.compareTo(a.date));
-      for(final note in notes) {
-        final crp=note.biology['crp'];
-        if(crp!=null) {
-          computedInputs['crp']=crp.toString();
+      computedInputs.remove('crp');
+      final now=DateTime.now();
+      for(final note in widget.patient.dailyObservations) {
+        final sameDay=note.date.year==now.year &&
+          note.date.month==now.month && note.date.day==now.day;
+        if(sameDay && note.biology['crp']!=null) {
+          computedInputs['crp']=note.biology['crp']!.toString();
           break;
         }
       }
@@ -336,8 +360,8 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
         if (widget.spec.id == 'caprini') _capriniForm(age),
         if(widget.spec.id=='mdulk') ...[
           const Text('mDULK : quatre critères de vigilance des fistules '
-            'colorectales. La CRP provient de la dernière observation '
-            'renseignée. Ce score ne confirme pas une fistule.',
+            'colorectales. La CRP provient de l’observation du jour uniquement. '
+            'Ce score ne confirme pas une fistule.',
             style:TextStyle(fontSize:12)),
           const SizedBox(height:8),
           _number('rr','Fréquence respiratoire du jour (/min)'),
