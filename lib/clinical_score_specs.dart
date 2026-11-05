@@ -61,7 +61,7 @@ const clinicalScoreSpecs = <ClinicalScoreSpec>[
     ClinicalQuestion('heartFailure','Insuffisance cardiaque',_yesNo),
     ClinicalQuestion('stroke','AVC ou AIT',_yesNo),
     ClinicalQuestion('insulin','Diabète traité par insuline',_yesNo),
-    ClinicalQuestion('creatinine','Créatininémie >2 mg/dL (177 µmol/L)',_yesNo),
+    ClinicalQuestion('creatinine','Créatininémie >20 mg/L (>2 mg/dL ≈177 µmol/L)',_yesNo),
   ]),
   ClinicalScoreSpec('news2','NEWS2 · Surveillance','Hospitalisation',[
     ClinicalQuestion('scale','Échelle SpO₂ (2 sur décision clinique uniquement)',[
