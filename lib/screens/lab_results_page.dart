@@ -207,7 +207,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('CRP et globules blancs', style: TextStyle(
+              const Text('CRP (mDULK) et globules blancs', style: TextStyle(
                 fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 7),
               const Text('À proposer à chaque observation quotidienne. '
