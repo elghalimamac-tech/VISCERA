@@ -210,6 +210,8 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
         const SizedBox(height: 15),
         CrpTrendCard(patient:p),
         const SizedBox(height: 13),
+        PctTrendCard(patient:p),
+        const SizedBox(height: 13),
         if (p.isActive || p.isProgrammed) ...[
           FilledButton.tonalIcon(
             key:const Key('open-daily-labs-form'),
