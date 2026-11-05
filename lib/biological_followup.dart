@@ -188,9 +188,54 @@ class CrpTrendCard extends StatelessWidget {
         ])));
   }
 }
+/// Évolution de la PCT mesurée, sans diagnostic automatique d'infection.
+class PctTrendCard extends StatelessWidget {
+  const PctTrendCard({super.key,required this.patient,this.compact=false});
+  final PatientCase patient;
+  final bool compact;
+  @override Widget build(BuildContext context) {
+    final points = labSeries(patient,'pct');
+    final trend = CrpKinetics(points);
+    return Card(
+      key:const Key('patient-pct-chart'),color:Colors.white,elevation:0,
+      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16),
+        side:BorderSide(color:Colors.grey.shade300)),
+      child:Padding(padding:const EdgeInsets.all(16),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Row(children:[Icon(Icons.multiline_chart,color:Color(0xFF087B71)),
+            SizedBox(width:9),Expanded(child:Text('Courbe de procalcitonine (PCT)',
+              style:TextStyle(fontWeight:FontWeight.w800,fontSize:15)))]),
+          const SizedBox(height:8),
+          const Text('PCT (ng/mL) · prélèvements datés · suivi par patient',
+            style:TextStyle(fontSize:11,color:Colors.black54)),
+          const SizedBox(height:10),
+          if(points.isEmpty)
+            const Padding(padding:EdgeInsets.symmetric(vertical:12),
+              child:Text('Aucune procalcitonine saisie : courbe indisponible.',
+                style:TextStyle(fontSize:12,color:Colors.black54)))
+          else ...[
+            SizedBox(height:compact?125:185,
+              child:CustomPaint(
+                painter:_CrpPainter(points,axisDigits:2),
+                child:const SizedBox.expand())),
+            Text('Dernière PCT : ${trend.last!.toStringAsFixed(2)} ng/mL'
+              '${trend.delta==null?'': ' · variation : '
+                + (trend.delta!>0?'+':'')
+                + trend.delta!.toStringAsFixed(2)+' ng/mL'}',
+              style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12)),
+          ],
+          const SizedBox(height:8),
+          const Text('La PCT peut être influencée par le contexte postopératoire, '
+            'la fonction rénale et la cinétique. Ne pas conclure à une infection '
+            'ni décider d’une antibiothérapie sur ce marqueur seul.',
+            style:TextStyle(fontSize:11,color:Colors.black54)),
+        ])));
+  }
+}
 class _CrpPainter extends CustomPainter {
-  const _CrpPainter(this.values);
+  const _CrpPainter(this.values,{this.axisDigits=0});
   final List<LabPoint> values;
+  final int axisDigits;
   @override void paint(Canvas canvas,Size size){
     final left=42.0,top=10.0,right=math.max(left+2,size.width-12);
     final bottom=math.max(top+3,size.height-30);
@@ -203,7 +248,7 @@ class _CrpPainter extends CustomPainter {
       final y=bottom-j*height/4;
       canvas.drawLine(Offset(left,y),Offset(right,y),
         Paint()..color=const Color(0xFFE4E9E8)..strokeWidth=1);
-      _label(canvas,(maximum*j/4).toStringAsFixed(0),Offset(0,y-6));
+      _label(canvas,(maximum*j/4).toStringAsFixed(axisDigits),Offset(0,y-6));
     }
     Offset pt(LabPoint point) =>Offset(
       left+(last==first?0.5:
