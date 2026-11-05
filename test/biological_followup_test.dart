@@ -5,10 +5,10 @@ import 'package:viscera/models.dart';
 import 'package:viscera/bloc_clinical_record.dart';
 import 'package:viscera/clinical_score_engine.dart';
 
-PatientCase testPatient()=>PatientCase(
+PatientCase testPatient({String procedure='Colectomie gauche'})=>PatientCase(
   id:'BLOC-22',name:'FICTIF',age:'74',origin:'Consultation',
   insurance:'',motive:'',history:'',exam:'',investigations:'',
-  labs:'',immediatePlan:'',procedure:'Colectomie gauche',
+  labs:'',immediatePlan:'',procedure:procedure,
   blockTiming:'Différé',admissionTiming:'Programmée',
   beforeUnit:'TC1',beforeBox:'',afterUnit:'TC2',afterBox:'',
   expectedDays:4,blockAt:DateTime(2026,11,3),
@@ -16,6 +16,37 @@ PatientCase testPatient()=>PatientCase(
   stage:CaseStage.postoperative,
 );
 void main() {
+  test('Unités du laboratoire et conversion sans migration de données',(){
+    final fields={for (final field in biologyFields)field.key:field};
+    for (final key in ['lymphocytes','neutrophils','platelets']) {
+      expect(fields[key]!.unit,'×10³/mm³');
+      expect(fields[key]!.canonicalFactor,1.0); // 1 G/L = 1 ×10³/mm³.
+    }
+    expect(fields['bilirubin']!.unit,'mg/L');
+    expect(fields['lipase']!.unit,'UI/L');
+    expect(fields['urea']!.unit,'g/L');
+    expect(fields['creatinine']!.unit,'mg/L');
+    expect(parseBiology('1,2',fields['lymphocytes']!),1.2);
+    expect(parseBiology('350',fields['platelets']!),350);
+    expect(parseBiology('3,5',fields['urea']!),3.5);
+    expect(parseBiology('400',fields['lipase']!),400);
+    expect(parseBiology('20',fields['creatinine']!),closeTo(176.8,0.00001));
+    expect(fields['creatinine']!.displayStored(176.8),'20');
+    expect(parseBiology('10',fields['bilirubin']!),closeTo(17.104,0.00001));
+    expect(fields['bilirubin']!.displayStored(17.104),'10');
+    expect(rcriCreatinineRisk(176.8),false);
+    expect(rcriCreatinineRisk(176.8 + 0.001),true);
+    expect(rcriCreatinineRisk(190),true);
+  });
+  test('ALBI : bilirubine mg/L convertie en µmol/L avant le calcul',(){
+    final p=testPatient(procedure:'Hépatectomie droite');
+    final field=biologyFields.firstWhere((e)=>e.key=='bilirubin');
+    p.dailyObservations.add(DailyObservation(date:DateTime(2026,11,3),
+      biology:{'albumin':35,'bilirubin':parseBiology('10',field)!}));
+    final index=BioIndices.compute(p).singleWhere((i)=>i.name=='ALBI');
+    expect(index.value,'-2.16');
+    expect(index.detail,contains('convertie en µmol/L'));
+  });
   test('Sans biologie, aucun indice ni CRP calculé',(){
     final p=testPatient();
     expect(BioIndices.compute(p),isEmpty);
