@@ -32,7 +32,7 @@ void main() {
     expect(text,contains('Observation J-1'));
     expect(text,contains('Sensibilité abdominale'));
     expect(text,contains('[e-mail masqué]'));
-    expect(text,contains('62'),isFalse); // seulement tranche d'âge
+    expect(text.contains('62'),isFalse); // seulement tranche d'âge
     expect(text.contains(p.name),isFalse);
     expect(text.contains(p.id),isFalse);
     expect(text.contains('2026-11-04'),isFalse);
