@@ -32,6 +32,37 @@ class _AdminPageState extends State<AdminPage> {
   String _status(String? s) => switch(s) {
     'approved'=>'Actif','disabled'=>'Désactivé',_=>'En attente'
   };
+  /// L'API Brevo n'est jamais appelée depuis Flutter : seule l'Edge
+  /// Function vérifie l'admin puis lit la file d'emails à envoyer.
+  Future<String> _notifyApproval(String targetId) async {
+    try {
+      final response = await Supabase.instance.client.functions
+        .invoke('viscera-send-approval-email',
+          body:{'target_id':targetId});
+      final data=response.data;
+      if(data is Map && data['sent']==true) {
+        return 'E-mail « Votre compte a été validé » envoyé.';
+      }
+      if(data is Map && data['already_sent']==true) {
+        return 'La notification de validation a déjà été envoyée.';
+      }
+      return 'Compte approuvé. La notification par e-mail reste en attente.';
+    } catch (_) {
+      return 'Compte approuvé, mais e-mail non envoyé. '
+        'Vérifiez la configuration Brevo puis utilisez « Réessayer le mail ».';
+    }
+  }
+
+  Future<void> _retryApprovalEmail(Map<String,dynamic> doctor) async {
+    if (_saving || doctor['approval_status'] != 'approved') return;
+    setState(() => _saving=true);
+    final result=await _notifyApproval(doctor['user_id'] as String);
+    if(mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(result)));
+      setState(()=>_saving=false);
+    }
+  }
+
   Future<void> _change(Map<String,dynamic> doctor,String action) async {
     if(_saving||doctor['is_admin']==true)return;
     final name=doctor['display_name'] as String? ?? 'ce compte';
@@ -55,15 +86,16 @@ class _AdminPageState extends State<AdminPage> {
       await Supabase.instance.client.rpc('viscera_admin_review_doctor',params:{
         'p_target':doctor['user_id'],'p_action':action
       });
+      final notice = action == 'approve'
+        ? await _notifyApproval(doctor['user_id'] as String)
+        : 'Action « $label » enregistrée.';
       if(!mounted)return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content:Text('Action « $label » enregistrée.')));
+        SnackBar(content:Text(notice),duration:const Duration(seconds:7)));
       _refresh();
     } on PostgrestException catch(e) {
       if(!mounted)return;
-      final msg=e.message.contains('e-mail non confirmée')
-        ? 'Ce médecin doit confirmer son adresse e-mail avant validation.'
-        : 'Action impossible : droits insuffisants ou compte protégé.';
+      const msg='Action impossible : droits insuffisants ou compte protégé.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(msg)));
     } catch(_) {
       if(mounted)ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +152,10 @@ class _AdminPageState extends State<AdminPage> {
             if(state=='disabled')TextButton(
               onPressed:_saving?null:()=>_change(d,'pending'),
               child:const Text('Remettre en attente')),
+            if(state=='approved')TextButton.icon(
+              onPressed:_saving?null:()=>_retryApprovalEmail(d),
+              icon:const Icon(Icons.mark_email_read_outlined,size:17),
+              label:const Text('Réessayer le mail')),
           ]),
         ],
       ]),
@@ -171,7 +207,7 @@ class _AdminPageState extends State<AdminPage> {
               const Text('Mon espace administrateur',
                 style:TextStyle(fontSize:25,fontWeight:FontWeight.w900,color:VColors.ink)),
               const SizedBox(height:5),
-              const Text('Chirurgie viscérale · HUIM6 Bouskoura',
+              const Text('Chirurgie viscérale · Deux hôpitaux',
                 style:TextStyle(color:VColors.muted,fontSize:13)),
               const SizedBox(height:19),
               Row(children:[
