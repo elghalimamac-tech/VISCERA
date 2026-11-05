@@ -7,6 +7,7 @@ import '../patient_service_groups.dart';
 import '../bloc_patient_sync.dart';
 import '../manual_admission_service.dart';
 import '../store.dart';
+import '../session_identity.dart';
 import '../theme.dart';
 import '../build_info.dart';
 import '../branding.dart';
@@ -248,13 +249,90 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       NavigationDestination(icon:Icon(Icons.bed_outlined),selectedIcon:Icon(Icons.bed_rounded),label:'Lits'),
     ],
   );
+  /// Identité de la session active, jamais celle d'un ancien profil local.
+  Widget _sessionAccountCard() {
+    final auth = Supabase.instance.client.auth;
+    final user = auth.currentUser;
+    final doctor = appStore.activeLocalProfile;
+    final active = auth.currentSession != null &&
+      visceraSessionMatchesProfile(
+        authenticatedUserId: user?.id,
+        profileUserId: doctor?.id,
+      );
+    final greeting = active
+      ? visceraSessionGreeting(doctor!.name)
+      : 'Session indisponible';
+    final email = active
+      ? (user?.email?.trim().isNotEmpty == true ? user!.email! : doctor!.email)
+      : 'Reconnectez-vous pour identifier le compte';
+    final accountType = !active
+      ? 'IDENTITÉ NON VÉRIFIÉE'
+      : doctor!.isVisceraOwner
+        ? 'ADMINISTRATEUR PRINCIPAL'
+        : doctor.isAdmin
+          ? 'ADMINISTRATEUR'
+          : 'COMPTE MÉDECIN';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
+      decoration: BoxDecoration(
+        color: VColors.softMint,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD9E7E5)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          CircleAvatar(
+            radius: 20, backgroundColor: Colors.white,
+            child: Icon(active ? Icons.account_circle_outlined
+                : Icons.person_off_outlined,
+              color: VColors.ink, size: 24),
+          ),
+          const SizedBox(width: 11),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(greeting, maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: VColors.ink, fontSize: 15,
+                  fontWeight: FontWeight.w800, height: 1.18)),
+              const SizedBox(height: 4),
+              Text(accountType, maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: VColors.muted,
+                  fontSize: 10, letterSpacing: 0.5,
+                  fontWeight: FontWeight.w700)),
+            ],
+          )),
+        ]),
+        const SizedBox(height: 12),
+        const Divider(height: 1, color: Color(0xFFD5E3E1)),
+        const SizedBox(height: 10),
+        Row(children: [
+          Icon(active ? Icons.alternate_email : Icons.lock_outline,
+            size: 15, color: VColors.muted),
+          const SizedBox(width: 8),
+          Expanded(child: Tooltip(
+            message: email,
+            child: Text(email, maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: VColors.ink,
+                fontSize: 12, fontWeight: FontWeight.w600)),
+          )),
+        ]),
+      ]),
+    );
+  }
+
   Widget _drawer()=>Drawer(backgroundColor:Colors.white,child:SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(17,20,17,18),children:[
     Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:VColors.ink,borderRadius:BorderRadius.circular(20)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       VisceraMark(size:39,onDark:true),SizedBox(height:13),
       Text('VISCERA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:23,letterSpacing:1)),
       Text('Chirurgie viscérale · Deux hôpitaux',style:TextStyle(color:Color(0xFFC9E7DC),fontSize:12)),
     ])),
-    const SizedBox(height:23),const Overline('ACTIVITÉ CLINIQUE'),const SizedBox(height:12),
+    const SizedBox(height:12),
+    _sessionAccountCard(),
+    const SizedBox(height:22),const Overline('ACTIVITÉ CLINIQUE'),const SizedBox(height:12),
     _drawerItem(Icons.dashboard_outlined,'Tableau de bord',()=>_switchTab(0)),
     _drawerItem(Icons.person_add_alt_1_outlined,'Nouvelle admission',(){Navigator.pop(context);openIntake();}),
     _drawerItem(Icons.folder_copy_outlined,'Patients',()=>_switchTab(1)),
