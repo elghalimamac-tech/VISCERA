@@ -6,8 +6,6 @@ import '../document_checklist.dart';
 import '../biological_followup.dart';
 import '../postoperative_events.dart';
 import '../preoperative_readiness.dart';
-import '../cfs_assessment.dart';
-import '../clinical_scores.dart';
 import 'clinical_scores_page.dart';
 import 'lab_results_page.dart';
 import '../store.dart';
@@ -62,9 +60,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     );
     if (result==true && mounted) await _openDischargeVerification();
   }
-  void _openObservations()=>Navigator.push(
-    context,MaterialPageRoute(builder:(_)=>DailyObservationsPage(patient:p)));
-
   Future<void> _openDischargeVerification() async {
     if (!p.isPostOp || !p.physicallyAdmitted) return;
     final action = await showModalBottomSheet<String>(
@@ -381,11 +376,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   observation:admissionObservationFor(p)!,
                   isAdmission:true),
               ],
-              if(p.isActive || p.isProgrammed)
-                TextButton.icon(
-                  onPressed:_editClinical,
-                  icon:const Icon(Icons.edit_note_outlined),
-                  label:const Text('Modifier l’observation d’admission')),
             ],
           )),
           const SizedBox(height:10),
@@ -422,26 +412,12 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                     .length.toString()+
                     ' observation(s) à reporter dans Magica/Sillage',
                     style:const TextStyle(fontSize:11,color:VColors.muted))),
-              Wrap(spacing:8,runSpacing:8,children:[
-                if(p.isActive || p.isProgrammed)
-                  OutlinedButton.icon(
-                    key:const Key('patient-add-daily-observation'),
-                    onPressed:()=>showClinicalObservationEditor(context,p),
-                    icon:const Icon(Icons.add_circle_outline),
-                    label:const Text('Ajouter une observation')),
-                if(p.isActive || p.isProgrammed)
-                  OutlinedButton.icon(
-                    key:const Key('patient-daily-biology-form'),
-                    onPressed:()=>Navigator.push(context,
-                      MaterialPageRoute(builder:(_)=>LabResultsPage(patient:p))),
-                    icon:const Icon(Icons.biotech_outlined),
-                    label:const Text('Remplir les bilans')),
-                IconButton(
-                  key:const Key('patient-clinical-history'),
-                  onPressed:_openObservations,
-                  tooltip:'Ouvrir tout le suivi des observations',
-                  icon:const Icon(Icons.history_rounded,color:VColors.ink)),
-              ]),
+              if(p.isActive || p.isProgrammed)
+                const Padding(
+                  padding:EdgeInsets.only(top:6),
+                  child:Text('Ajouter une note : bouton flottant « Observation quotidienne ». '
+                    'Bilans : formulaire unique accessible en haut du dossier.',
+                    style:TextStyle(fontSize:11,color:VColors.muted))),
             ],
           )),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
@@ -493,27 +469,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             )),
           ],
-          SectionHeading((p.stage==CaseStage.preoperative ||
-             p.stage==CaseStage.scheduled || p.stage==CaseStage.inTheatre)
-             ? 'Évaluation avant chirurgie' : 'Suivi et complications postopératoires'),
-          if(p.stage==CaseStage.preoperative || p.stage==CaseStage.scheduled ||
-             p.stage==CaseStage.inTheatre || p.cfsScore!=null)...[
-            CfsAssessmentCard(
-              key:const Key('cfs-preoperative-assessment'),
-              patient:p,
-              readOnly:p.stage==CaseStage.discharged || p.isOmitted ||
-                (p.stage!=CaseStage.preoperative && p.stage!=CaseStage.scheduled)),
-            const SizedBox(height:12),
-          ],
-          ClinicalScoresCard(
-            key:const Key('patient-clinical-scores'),
-            patient:p,
-            readOnly:p.stage==CaseStage.discharged || p.isOmitted),
-          const SizedBox(height:12),
-          BiologicalIndicesCard(patient:p),
           if(p.stage==CaseStage.inTheatre || p.isPostOp ||
               p.stage==CaseStage.discharged) ...[
             const SizedBox(height:12),
+            SectionHeading('Événements postopératoires'),
             PostoperativeEventsCard(patient:p,
               readOnly:p.stage==CaseStage.discharged),
           ],
