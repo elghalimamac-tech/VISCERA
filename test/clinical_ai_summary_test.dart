@@ -38,12 +38,13 @@ void main() {
     expect(text.contains('2026-11-04'),isFalse);
   });
   testWidgets('IA : aucun envoi sans relecture explicite',(tester)async{
+    await tester.binding.setSurfaceSize(const Size(1080, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final p=sample();
     await tester.pumpWidget(MaterialApp(home:ClinicalAiPage(patient:p)));
     expect(find.byKey(const Key('clinical-ai-preview')),findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('clinical-ai-generate')),280,
-      scrollable:find.byType(Scrollable).first);
+    expect(find.byKey(const Key('clinical-ai-score-dashboard')),findsOneWidget);
+    expect(find.textContaining('Scores et indices cliniques'),findsOneWidget);
     final button=tester.widget<FilledButton>(
       find.byKey(const Key('clinical-ai-generate')));
     expect(button.onPressed,isNull);
