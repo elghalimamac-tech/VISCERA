@@ -59,6 +59,11 @@ Deno.serve(async (req: Request) => {
       if (typeof body.is_admin !== "boolean") {
         return reply({ error: "invalid_admin_value" }, 400);
       }
+      // L'élévation au rôle ADMIN exige une confirmation explicite,
+      // également côté serveur. Le retrait ne nécessite pas cette saisie.
+      if (body.is_admin === true && body.confirmation !== "DONNER ADMIN") {
+        return reply({ error: "admin_confirmation_required" }, 400);
+      }
       const { data: profile, error: profileError } = await server
         .from("doctor_profiles")
         .select("approval_status,approved_role,is_admin")
