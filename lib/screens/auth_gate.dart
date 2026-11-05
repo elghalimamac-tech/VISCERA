@@ -48,7 +48,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    // Constructeur : écoute le lien de confirmation / récupération Supabase.
+    // Gestion de session et liens de récupération du mot de passe.
     auth = DoctorAuthController.fromSingleton();
   }
 
@@ -116,8 +116,6 @@ class _AuthGateState extends State<AuthGate> {
         return _login();
       case AuthScreen.signup:
         return _signup();
-      case AuthScreen.confirmation:
-        return _confirmation();
       case AuthScreen.forgot:
         return _forgot();
       case AuthScreen.reset:
@@ -189,7 +187,7 @@ class _AuthGateState extends State<AuthGate> {
   ]);
 
   Widget _signup() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    _title('Créer mon compte', 'Gestion des patients — Chirurgie viscérale. Inscription réservée aux médecins autorisés de VISCERA.'),
+    _title('Créer mon compte', 'Chirurgie viscérale · deux hôpitaux. Votre compte sera actif après validation par un administrateur.'),
     const Text('Statut médical', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
     const SizedBox(height: 9),
     SegmentedButton<String>(
@@ -286,26 +284,6 @@ class _AuthGateState extends State<AuthGate> {
       child: const Text('J’ai déjà un compte')),
   ]);
 
-  Widget _confirmation() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    const Icon(Icons.mark_email_unread_outlined,color: Color(0xFF007A80),size:47),
-    const SizedBox(height: 15),
-    _title('Vérifiez votre adresse e-mail', 'Vous allez recevoir un message VISCERA. Cliquez sur « Confirmer mon adresse e-mail » pour valider votre inscription.'),
-    const AuthEmailSpamReminder(),
-    if(auth.pendingEmail!=null)
-      Text(auth.pendingEmail!,textAlign:TextAlign.center,
-        style:const TextStyle(fontWeight:FontWeight.w700))
-    else
-      _input(email,'Adresse e-mail utilisée pour l’inscription',
-        type:TextInputType.emailAddress),
-    const SizedBox(height: 16),
-    _notice(),
-    _action('Renvoyer l’e-mail de validation',
-      ()=>auth.resendConfirmation(emailOverride: email.text)),
-    const SizedBox(height: 14),
-    OutlinedButton(onPressed: ()=>auth.refreshAccess(),child: const Text('J’ai confirmé mon email')),
-    TextButton(onPressed:()=>auth.go(AuthScreen.login),child: const Text('Retour à la connexion')),
-  ]);
-
   Widget _forgot() => Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
     const Icon(Icons.lock_reset_outlined,size:43,color:Color(0xFF007A80)),
     const SizedBox(height:12),
@@ -332,9 +310,9 @@ class _AuthGateState extends State<AuthGate> {
   Widget _pending() => Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
     const Icon(Icons.admin_panel_settings_outlined,size:46,color:Color(0xFF007A80)),
     const SizedBox(height:12),
-    _title('Accès en attente', 'Votre email est confirmé. Le responsable du service doit valider votre compte.'),
+    _title('Vérification par un admin nécessaire', 'Votre inscription est enregistrée. Un administrateur doit vérifier et approuver votre compte avant la première connexion.'),
     Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFFF0F6F8),borderRadius:BorderRadius.circular(9)),
-      child:Text('Statut demandé : ${auth.requestedRole == 'senior' ? 'Senior' : 'Junior'}\nAucun dossier patient accessible avant validation.',style:const TextStyle(fontSize:13,height:1.7))),
+      child:Text('Statut demandé : ${auth.requestedRole == 'senior' ? 'Senior' : 'Junior'}\nVous recevrez un e-mail lorsque votre compte aura été validé. Aucun dossier patient accessible avant cette approbation.',style:const TextStyle(fontSize:13,height:1.7))),
     const SizedBox(height:16),_notice(),
     _action('Actualiser mon accès',()=>auth.refreshAccess()),
     const SizedBox(height:12),
