@@ -1,4 +1,5 @@
 import '../branding.dart';
+import 'admin_users_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../doctor_registration_options.dart';
@@ -18,7 +19,7 @@ class _AdminPageState extends State<AdminPage> {
 
   @override void initState(){super.initState();_list=_load();}
   Future<List<Map<String,dynamic>>> _load() async {
-    final data=await Supabase.instance.client.rpc('viscera_admin_get_doctors_with_email');
+    final data=await Supabase.instance.client.rpc('viscera_admin_all_users');
     if(data is! List) throw StateError('Réponse inattendue');
     return data.map((e)=>Map<String,dynamic>.from(e as Map)).toList();
   }
@@ -142,7 +143,7 @@ class _AdminPageState extends State<AdminPage> {
           Icon(state=='approved'?Icons.check_circle_outline:Icons.info_outline,
             size:17,color:state=='approved'?const Color(0xFF117C57):const Color(0xFFA66B35)),
           const SizedBox(width:7),
-          Text(admin?'Administrateur principal':_status(state),
+          Text(admin?(d['is_owner']==true?'Administrateur principal':'Administrateur'):_status(state),
             style:const TextStyle(fontSize:12,fontWeight:FontWeight.w600)),
         ]),
         if(!admin)...[
@@ -169,9 +170,9 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   @override Widget build(BuildContext context) {
-    if(appStore.activeLocalProfile?.isVisceraOwner != true) {
+    if(appStore.activeLocalProfile?.isAdmin != true) {
       return Scaffold(appBar:AppBar(title:const Text('Administration')),
-        body:const Center(child:Text('Accès réservé à l’administrateur principal.')));
+        body:const Center(child:Text('Accès réservé aux administrateurs approuvés.')));
     }
     return Scaffold(
       backgroundColor:const Color(0xFFF4F7F6),
@@ -203,7 +204,7 @@ class _AdminPageState extends State<AdminPage> {
           final active=rows.where((d)=>d['approval_status']=='approved').length;
           final inactive=rows.where((d)=>d['approval_status']=='disabled').length;
           final filtered=rows.where((d){
-            return (_tab=='all'||d['approval_status']==_tab)
+            return d['approval_status'] != 'orphan' && (_tab=='all'||d['approval_status']==_tab)
               && (d['display_name'] as String? ?? '').toLowerCase()
                   .contains(_search.trim().toLowerCase());
           }).toList();
@@ -223,6 +224,8 @@ class _AdminPageState extends State<AdminPage> {
                 const SizedBox(width:8),
                 _counter(inactive,'Bloqués',Icons.block_outlined),
               ]),
+              const SizedBox(height:22),
+              AdminUsersPanel(onChanged:_refresh),
               const SizedBox(height:22),
               const Text('Gestion des médecins',
                 style:TextStyle(fontWeight:FontWeight.w800,fontSize:18,color:VColors.ink)),
