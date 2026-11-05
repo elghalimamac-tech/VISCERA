@@ -1,4 +1,7 @@
-# VISCERA V12 — Authentification sécurisée
+# VISCERA V12 — Authentification sécurisée (historique)
+
+> **Guide historique remplacé.** Le parcours en vigueur depuis le 05/11/2026 est décrit dans [BREVO_ADMIN_APPROVAL.md](BREVO_ADMIN_APPROVAL.md) : pas de confirmation e-mail pour l'inscription, validation par admin, et notification par Brevo. Les instructions ci-dessous ne sont plus à appliquer telles quelles.
+
 
 ## Statut actuel (important)
 
