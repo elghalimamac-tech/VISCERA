@@ -240,8 +240,11 @@ class _CrpPainter extends CustomPainter {
     final left=42.0,top=10.0,right=math.max(left+2,size.width-12);
     final bottom=math.max(top+3,size.height-30);
     final height=bottom-top,width=right-left;
-    final maximum=math.max(1.0,values.fold<double>(0,
-      (m,v)=>math.max(m,v.value))*1.1);
+    final observedMaximum=values.fold<double>(0,
+      (m,v)=>math.max(m,v.value));
+    // Échelle PCT adaptée aux petites valeurs (0,1 à 0,5 ng/mL).
+    final maximum=math.max(axisDigits > 0 ? 0.05 : 1.0,
+      observedMaximum*1.1);
     final first=values.first.day.millisecondsSinceEpoch;
     final last=values.last.day.millisecondsSinceEpoch;
     for(var j=0;j<=4;j++) {
