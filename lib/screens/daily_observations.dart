@@ -175,135 +175,194 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
 
 }
 
-/// Formulaire commun accessible directement depuis le dossier patient
-/// et depuis le suivi des observations, avec les mêmes validations.
+/// Saisie clinique commune : les résultats biologiques sont saisis une fois
+/// dans LabResultsPage, et réutilisés sans être effacés par cette observation.
 Future<void> showClinicalObservationEditor(
-  BuildContext context, PatientCase p, {DailyObservation? existing}) async {
-    if (!p.isActive && !p.isProgrammed) return;
-    DateTime selected = existing?.date ?? DateTime.now();
-    final initial = existing;
-    final vitals = TextEditingController(text: existing?.vitals ?? '');
-    final symptoms = TextEditingController(text: existing?.symptoms ?? '');
-    final exam = TextEditingController(text: existing?.clinicalExam ?? '');
-    final results = TextEditingController(text: existing?.results ?? '');
-    final plan = TextEditingController(text: existing?.plan ?? '');
-    final values = [vitals, symptoms, exam, results, plan];
-    final labs = <String,TextEditingController>{
-      for(final field in biologyFields) field.key:TextEditingController(
-        text:existing?.biology[field.key]?.toString() ?? ''),
-    };
-    final labControllers=labs.values.toList();
-    try {
-      await showModalBottomSheet<void>(
-        context: context, isScrollControlled: true, showDragHandle: true,
-        builder: (sheetContext) => StatefulBuilder(builder: (sheetContext, redraw) =>
-          Padding(padding: EdgeInsets.fromLTRB(18, 5, 18, MediaQuery.of(sheetContext).viewInsets.bottom + 12),
-            child: SizedBox(height: MediaQuery.of(sheetContext).size.height * .78,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Observation clinique du jour', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+    BuildContext context, PatientCase p, {DailyObservation? existing}) async {
+  if (!p.isActive && !p.isProgrammed) return;
+
+  DailyObservation? findOnDate(DateTime date) {
+    for (final note in p.dailyObservations) {
+      if (_sameDay(note.date, date)) return note;
+    }
+    return null;
+  }
+
+  DateTime selected = existing?.date ?? DateTime.now();
+  DailyObservation? editing = existing ?? findOnDate(selected);
+  final vitals = TextEditingController(text: editing?.vitals ?? '');
+  final symptoms = TextEditingController(text: editing?.symptoms ?? '');
+  final exam = TextEditingController(text: editing?.clinicalExam ?? '');
+  final results = TextEditingController(text: editing?.results ?? '');
+  final plan = TextEditingController(text: editing?.plan ?? '');
+  final fields = [vitals, symptoms, exam, results, plan];
+
+  void loadClinical(DailyObservation? note) {
+    vitals.text = note?.vitals ?? '';
+    symptoms.text = note?.symptoms ?? '';
+    exam.text = note?.clinicalExam ?? '';
+    results.text = note?.results ?? '';
+    plan.text = note?.plan ?? '';
+  }
+
+  try {
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, redraw) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            18, 5, 18, MediaQuery.of(sheetContext).viewInsets.bottom + 12),
+          child: SizedBox(
+            height: MediaQuery.of(sheetContext).size.height * .78,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Observation clinique du jour',
+                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.event_outlined),
                   label: Text('Date : ${_obsDate(selected)}'),
-                  onPressed: initial == null ? () async {
+                  onPressed: existing == null ? () async {
                     final admission = p.admittedAt;
                     final start = admission == null ? DateTime(2020)
                       : DateTime(admission.year, admission.month, admission.day);
                     final today = DateTime.now();
                     final first = start.isAfter(today) ? today : start;
-                    final picked = await showDatePicker(context: sheetContext,
-                      initialDate: selected, firstDate: first,
-                      lastDate: today);
-                    if (picked != null) redraw(() => selected = picked);
+                    final picked = await showDatePicker(
+                      context: sheetContext,
+                      initialDate: selected,
+                      firstDate: first,
+                      lastDate: today,
+                    );
+                    if (picked != null && sheetContext.mounted) {
+                      redraw(() {
+                        selected = picked;
+                        editing = findOnDate(picked);
+                        loadClinical(editing);
+                      });
+                    }
                   } : null,
                 ),
                 const SizedBox(height: 8),
                 Expanded(child: ListView(children: [
-                  const Text('Bilans biologiques utiles aux scores · champs individuels',
-                    style:TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
-                  const SizedBox(height:6),
-                  const Text('CRP pour mDULK ; Hb pour ARISCAT ; créatinine pour RCRI ; '
-                    'albumine, lymphocytes, bilirubine et poids pour les indices '
-                    'biologiques. Tous les champs sont facultatifs ; une valeur '
-                    'absente reste vide et ne vaut jamais zéro.',
-                    style:TextStyle(fontSize:11,color:VColors.muted)),
-                  const SizedBox(height:9),
-                  for(final field in biologyFields) ...[
-                    if(field.key=='albumin') ...[
-                      const SizedBox(height:7),
-                      const Text('Autres bilans utilisés par les scores et indices',
-                        style:TextStyle(fontWeight:FontWeight.w800,fontSize:12)),
-                      const SizedBox(height:10),
-                    ],
-                    Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
-                      key:ValueKey('daily-biology-'+field.key),
-                      controller:labs[field.key],
-                      keyboardType:const TextInputType.numberWithOptions(decimal:true),
-                      decoration:InputDecoration(labelText:field.label+' ('+field.unit+')',
-                        hintText:'Résultat non renseigné',
-                        border:const OutlineInputBorder(),isDense:true))),
-                  ],
-                  const Divider(height:22),
-                  VoiceClinicalField(label: 'Constantes : TA, FC, T°, SpO₂, diurèse…', controller: vitals, maxLines: 3),
+                  Card(
+                    elevation: 0,
+                    color: VColors.softMint,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text('Bilans biologiques liés aux scores',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 13)),
+                          const SizedBox(height: 5),
+                          Text(
+                            'CRP, GB, Hb, créatinine, albumine et autres '
+                            'paramètres : un seul formulaire daté, sans doublon. '
+                            'Les résultats seront conservés lorsque vous '
+                            'enregistrerez cette observation.',
+                            style: const TextStyle(fontSize: 12)),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            key: const Key('observation-open-lab-results'),
+                            onPressed: () async {
+                              await Navigator.of(sheetContext).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => LabResultsPage(
+                                    patient: p, initialDate: selected),
+                                ),
+                              );
+                              if (sheetContext.mounted) redraw(() {});
+                            },
+                            icon: const Icon(Icons.biotech_outlined),
+                            label: const Text('Renseigner les bilans / scores'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  VoiceClinicalField(label: 'Évolution / plaintes / symptômes', controller: symptoms, maxLines: 4),
+                  VoiceClinicalField(
+                    label: 'Constantes : TA, FC, T°, SpO₂, diurèse…',
+                    controller: vitals, maxLines: 3),
                   const SizedBox(height: 12),
-                  VoiceClinicalField(label: 'Examen clinique du jour', controller: exam, maxLines: 4),
+                  VoiceClinicalField(
+                    label: 'Évolution / plaintes / symptômes',
+                    controller: symptoms, maxLines: 4),
                   const SizedBox(height: 12),
-                  VoiceClinicalField(label: 'Bilans, imagerie, résultats', controller: results, maxLines: 4),
+                  VoiceClinicalField(
+                    label: 'Examen clinique du jour',
+                    controller: exam, maxLines: 4),
                   const SizedBox(height: 12),
-                  VoiceClinicalField(label: 'Conduite à tenir / prescriptions à valider', controller: plan, maxLines: 4),
+                  VoiceClinicalField(
+                    label: 'Imagerie / examens complémentaires',
+                    controller: results, maxLines: 4),
                   const SizedBox(height: 12),
-                  const Text('Le texte dicté est un brouillon. Vérifier notamment les valeurs, négations, doses et unités.',
+                  VoiceClinicalField(
+                    label: 'Conduite à tenir / prescriptions à valider',
+                    controller: plan, maxLines: 4),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Relire les valeurs, négations, doses et unités dictées. '
+                    'Les bilans biologiques sont saisis dans leur formulaire dédié.',
                     style: TextStyle(color: VColors.muted, fontSize: 12)),
                 ])),
                 const SizedBox(height: 9),
                 SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check), label: const Text('Enregistrer l’observation'),
+                  icon: const Icon(Icons.check),
+                  label: const Text('Enregistrer l’observation'),
                   onPressed: () {
-                    final biology=<String,double>{};
-                    try {
-                      for(final field in biologyFields){
-                        final entered=parseBiology(labs[field.key]!.text,field);
-                        if(entered!=null)biology[field.key]=entered;
-                      }
-                    } on FormatException catch(error){
+                    // Une saisie biologique effectuée dans l'écran dédié peut
+                    // avoir été enregistrée après l'ouverture de ce formulaire.
+                    final previous = findOnDate(selected);
+                    final biology = Map<String, double>.from(
+                      previous?.biology ?? const <String, double>{});
+                    if (biology.isEmpty &&
+                        fields.every((field) => field.text.trim().isEmpty)) {
                       ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        SnackBar(content:Text(error.message)));
+                        const SnackBar(content: Text(
+                          'Renseignez au moins un élément clinique '
+                          'ou un bilan biologique.')));
                       return;
                     }
-                    if (biology.isEmpty && values.every((c) => c.text.trim().isEmpty)) {
-                      ScaffoldMessenger.of(sheetContext).showSnackBar(const SnackBar(content: Text('Renseignez au moins un élément clinique.')));
-                      return;
-                    }
-                    final duplicate = p.dailyObservations.any((o) => !_sameDay(o.date, initial?.date ?? DateTime(1900)) && _sameDay(o.date, selected));
-                    if (duplicate) {
-                      ScaffoldMessenger.of(sheetContext).showSnackBar(const SnackBar(content: Text('Une observation existe déjà à cette date. Ouvrez-la pour la modifier.')));
-                      return;
-                    }
-                    final changed = initial != null &&
-                      ([initial.vitals, initial.symptoms, initial.clinicalExam, initial.results, initial.plan]
-                        .asMap().entries.any((entry) => entry.value != values[entry.key].text.trim()) ||
-                        initial.biology.length!=biology.length ||
-                        biology.entries.any((e)=>initial.biology[e.key]!=e.value));
+                    final inputs = fields.map((field) => field.text.trim()).toList();
+                    final changed = previous == null ||
+                      [previous.vitals, previous.symptoms,
+                        previous.clinicalExam, previous.results, previous.plan]
+                      .asMap().entries.any((entry) =>
+                        entry.value != inputs[entry.key]);
+
                     appStore.saveDailyObservation(p, DailyObservation(
-                      date: selected, vitals: vitals.text.trim(), symptoms: symptoms.text.trim(),
-                      clinicalExam: exam.text.trim(), results: results.text.trim(), plan: plan.text.trim(),
-                      biology:biology,
-                      reportedMagica: changed ? false : (initial?.reportedMagica ?? false),
-                      reportedSillage: changed ? false : (initial?.reportedSillage ?? false),
-                      reportedMagicaAt: changed ? null : initial?.reportedMagicaAt,
-                      reportedSillageAt: changed ? null : initial?.reportedSillageAt,
+                      date: previous?.date ?? selected,
+                      vitals: inputs[0],
+                      symptoms: inputs[1],
+                      clinicalExam: inputs[2],
+                      results: inputs[3],
+                      plan: inputs[4],
+                      biology: biology,
+                      reportedMagica: changed
+                        ? false : (previous?.reportedMagica ?? false),
+                      reportedSillage: changed
+                        ? false : (previous?.reportedSillage ?? false),
+                      reportedMagicaAt: changed
+                        ? null : previous?.reportedMagicaAt,
+                      reportedSillageAt: changed
+                        ? null : previous?.reportedSillageAt,
                     ));
                     Navigator.pop(sheetContext);
                   },
                 )),
-              ]),
+              ],
             ),
           ),
         ),
-      );
-    } finally {
-      for (final controller in [...values,...labControllers]) { controller.dispose(); }
+      ),
+    );
+  } finally {
+    for (final controller in fields) {
+      controller.dispose();
     }
   }
+}
