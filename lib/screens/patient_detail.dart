@@ -114,6 +114,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             const SizedBox(height: 12),
           ],
           FloatingActionButton.extended(
+            key:const Key('add-daily-observation-fab'),
             heroTag: 'observation-${p.id}',
             backgroundColor: VColors.ink,
             foregroundColor: Colors.white,
