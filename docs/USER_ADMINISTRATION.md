@@ -44,6 +44,31 @@ modifie uniquement `doctor_profiles.junior_category` et
 dans `viscera_private.doctor_grade_audit`. Elle ne change ni
 `approved_role`, ni les droits ADMIN, ni le statut d'approbation.
 
+## Organisation de l'espace administrateur
+
+L'écran Administration possède deux espaces sans liste redondante :
+
+1. **Inscriptions** : vérification, approbation, désactivation, remise en
+   attente et relance du mail de validation. Recherche et filtres par statut.
+2. **Utilisateurs** : liste complète des comptes Auth (y compris sans profil),
+   recherche, ouverture individuelle d'une fiche compacte, grade et actions
+   autorisées.
+
+L'accueil conserve trois indicateurs En attente / Actifs / Désactivés. La
+mise en page limite la largeur sur le Web et fonctionne avec une colonne
+de fiches dépliables sur mobile.
+
+## Attribution de la permission ADMIN
+
+Accorder ADMIN requiert **une saisie exacte de `DONNER ADMIN`** dans la fenêtre
+de confirmation. Le bouton d'accord reste désactivé jusqu'à validation.
+La fonction `viscera-admin-users` exige indépendamment
+`confirmation: "DONNER ADMIN"` lorsque `action: "set_admin"` et
+`is_admin: true`. Le simple fait d'envoyer `is_admin: true` ne suffit pas.
+
+Seul le propriétaire principal peut accorder ou retirer ADMIN. La
+suppression physique conserve sa confirmation séparée `SUPPRIMER`.
+
 ## Suppression définitive
 
 La fenêtre oblige à retaper exactement `SUPPRIMER`. Le serveur refuse :
