@@ -6,11 +6,11 @@ import 'doctor_registration_options.dart';
 import 'email_link.dart';
 import 'push_device_registration.dart';
 
-/// La gestion des mots de passe et les liens de confirmation sont assurés
-/// par Supabase Auth, pas par le téléphone ou SharedPreferences.
+/// Les mots de passe restent gérés par Supabase Auth. L'accès à l'application
+/// est conditionné à l'approbation administrative, pas à un clic sur e-mail.
 /// Toute autorisation médicale provient de doctor_profiles.approved_role,
 /// jamais de raw_user_meta_data / requested_role.
-enum AuthScreen { login, signup, confirmation, forgot, reset, loading, pending, approved }
+enum AuthScreen { login, signup, forgot, reset, loading, pending, approved }
 
 class DoctorAuthController extends ChangeNotifier {
   DoctorAuthController(this.client) {
@@ -82,15 +82,15 @@ class DoctorAuthController extends ChangeNotifier {
         message = null;
       } else {
         await refreshAccess();
-        message = 'Adresse e-mail confirmée. Votre compte reste soumis à validation par le service.';
+        message = 'Vérification par un admin nécessaire. Vous serez informé par e-mail après validation.';
       }
     } on AuthException {
       screen = link.type == VisceraEmailLinkType.signup
-          ? AuthScreen.confirmation : AuthScreen.forgot;
+          ? AuthScreen.pending : AuthScreen.forgot;
       message = 'Lien invalide ou expiré. Pour réessayer, demandez un nouvel e-mail.';
     } catch (_) {
       screen = link.type == VisceraEmailLinkType.signup
-          ? AuthScreen.confirmation : AuthScreen.forgot;
+          ? AuthScreen.pending : AuthScreen.forgot;
       message = 'Vérification impossible. Vérifiez votre connexion et demandez un nouveau lien.';
     } finally {
       _linkProcessing = false;
@@ -114,7 +114,7 @@ class DoctorAuthController extends ChangeNotifier {
     final user = client.auth.currentUser;
     if (user == null) {
       appStore.clearAuthenticatedProfile();
-      if (screen != AuthScreen.confirmation && screen != AuthScreen.forgot) {
+      if (screen != AuthScreen.pending && screen != AuthScreen.forgot) {
         screen = AuthScreen.login;
       }
       busy = false;
@@ -122,13 +122,6 @@ class DoctorAuthController extends ChangeNotifier {
       return;
     }
     if (screen == AuthScreen.reset) return;
-    if (user.emailConfirmedAt == null) {
-      pendingEmail = user.email;
-      screen = AuthScreen.confirmation;
-      appStore.clearAuthenticatedProfile();
-      notifyListeners();
-      return;
-    }
     screen = AuthScreen.loading;
     notifyListeners();
     try {
@@ -203,10 +196,6 @@ class DoctorAuthController extends ChangeNotifier {
     );
     if (gradeError != null) { message = gradeError; notifyListeners(); return false; }
     final medicalTitle = role == 'junior' ? 'Dr' : seniorTitle!;
-    // Un seul portail HTTPS pour Android, Web et les applications mail :
-    // un schéma viscera:// pouvait aboutir à une page vide si l'application
-    // n'était pas installée ou si le navigateur refusait l'ouverture.
-    final redirectUrl = visceraConfirmationWebUrl;
     final metadata = <String, dynamic>{
       'first_name': first,
       'last_name': last,
@@ -220,27 +209,13 @@ class DoctorAuthController extends ChangeNotifier {
       await client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
-        emailRedirectTo: redirectUrl,
         data: metadata,
       );
       pendingEmail = email.trim().toLowerCase();
-      screen = AuthScreen.confirmation;
+      screen = AuthScreen.pending;
+      message = 'Vérification par un admin nécessaire. Un e-mail vous informera après validation.';
     });
   }
-
-  Future<bool> resendConfirmation({String? emailOverride}) async => _execute(() async {
-    final email = pendingEmail ?? client.auth.currentUser?.email ??
-        emailOverride?.trim().toLowerCase();
-    if (email == null || email.isEmpty) {
-      throw StateError('Saisissez l’adresse e-mail utilisée lors de l’inscription.');
-    }
-    await client.auth.resend(
-      type: OtpType.signup,
-      email: email,
-      emailRedirectTo: visceraConfirmationWebUrl,
-    );
-    message = 'Si cette adresse est éligible, un nouveau lien a été envoyé. Vérifier vos spams.';
-  });
 
   Future<bool> forgotPassword(String email) async => _execute(() async {
     pendingEmail = email.trim().toLowerCase();
