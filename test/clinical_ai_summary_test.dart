@@ -37,6 +37,27 @@ void main() {
     expect(text.contains(p.id),isFalse);
     expect(text.contains('2026-11-04'),isFalse);
   });
+  test('Synthèse avec score retrouvé : valeur, interprétation et phase',(){
+    final p=sample();
+    p.clinicalScores['caprini']={
+      'value':'6',
+      'interpretation':'Risque thromboembolique élevé à réévaluer',
+      'assessedStage':'preoperative',
+    };
+    final text=buildClinicalAiSummary(p);
+    expect(text,contains('Score caprini : 6'));
+    expect(text,contains('Interprétation enregistrée pour caprini'));
+    expect(text,contains('Phase de saisie du score caprini : preoperative'));
+    expect(text,contains('Aucun score clinique formel enregistré.'),isFalse);
+  });
+  test('Si aucun score clinique, signaler explicitement les données manquantes',(){
+    final p=sample();
+    final text=buildClinicalAiSummary(p);
+    expect(text,contains('Aucun score clinique formel enregistré.'));
+    expect(text.contains('Score caprini :'),isFalse);
+    expect(text.contains('Score news2 :'),isFalse);
+  });
+
   testWidgets('IA : aucun envoi sans relecture explicite',(tester)async{
     await tester.binding.setSurfaceSize(const Size(1080, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
