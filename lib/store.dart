@@ -658,7 +658,7 @@ class AppStore extends ChangeNotifier {
   }
 
   /// Les observations des patients issus du bloc sont enregistrées dans Supabase.
-  /// Une modification nécessite à nouveau le report manuel dans Magica/Sillage.
+  /// Une modification nécessite à nouveau la validation du report dans Magica/Sillage.
   void saveDailyObservation(PatientCase p, DailyObservation note) {
     if ((!p.isActive && !p.isProgrammed) || !note.hasContent) return;
     final existingIndex = p.dailyObservations.indexWhere((item) =>
@@ -673,16 +673,18 @@ class AppStore extends ChangeNotifier {
     _saveIfImported(p);
   }
 
-  void setObservationReported(PatientCase p, DailyObservation note, {bool? magica, bool? sillage}) {
+  /// Magica et Sillage sont un seul logiciel : une case de report.
+  /// Les anciens arguments restent acceptés pour la compatibilité.
+  void setObservationReported(PatientCase p, DailyObservation note,
+      {bool? reported, bool? magica, bool? sillage}) {
     if (!p.isActive && !p.isProgrammed) return;
-    if (magica != null) {
-      note.reportedMagica = magica;
-      note.reportedMagicaAt = magica ? DateTime.now() : null;
-    }
-    if (sillage != null) {
-      note.reportedSillage = sillage;
-      note.reportedSillageAt = sillage ? DateTime.now() : null;
-    }
+    final value = reported ?? magica ?? sillage;
+    if (value == null) return;
+    final stamped = value ? DateTime.now() : null;
+    note.reportedMagica = value;
+    note.reportedSillage = value;
+    note.reportedMagicaAt = stamped;
+    note.reportedSillageAt = stamped;
     notifyListeners();
     _saveIfImported(p);
   }
