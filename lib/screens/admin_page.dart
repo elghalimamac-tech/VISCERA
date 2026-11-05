@@ -18,7 +18,7 @@ class _AdminPageState extends State<AdminPage> {
 
   @override void initState(){super.initState();_list=_load();}
   Future<List<Map<String,dynamic>>> _load() async {
-    final data=await Supabase.instance.client.rpc('viscera_admin_get_doctors');
+    final data=await Supabase.instance.client.rpc('viscera_admin_get_doctors_with_email');
     if(data is! List) throw StateError('Réponse inattendue');
     return data.map((e)=>Map<String,dynamic>.from(e as Map)).toList();
   }
@@ -73,7 +73,9 @@ class _AdminPageState extends State<AdminPage> {
       builder:(ctx)=>AlertDialog(
         title:Text('$label le médecin ?'),
         content:Text(action=='approve'
-          ? 'Confirmez avoir vérifié l’identité médicale et le rattachement au service de $name.'
+          ? 'Confirmez avoir vérifié l’identité médicale, l’adresse e-mail '
+            'déclarée et le rattachement au service de $name '
+            'par un canal professionnel indépendant.'
           : 'Confirmer : $label — $name ?'),
         actions:[
           TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Annuler')),
@@ -129,6 +131,10 @@ class _AdminPageState extends State<AdminPage> {
               style:const TextStyle(fontWeight:FontWeight.w800,color:VColors.ink,fontSize:15)),
             const SizedBox(height:3),
             Text(_grade(d),style:const TextStyle(fontSize:12,color:VColors.muted)),
+            const SizedBox(height:3),
+            Text(d['email'] as String? ?? 'Adresse e-mail indisponible',
+              style:const TextStyle(fontSize:12,color:VColors.muted),
+              maxLines:2,overflow:TextOverflow.ellipsis),
           ])),
         ]),
         const SizedBox(height:11),
