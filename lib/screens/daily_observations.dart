@@ -38,14 +38,27 @@ class DailyObservationCard extends StatelessWidget {
   final DailyObservation observation;
   final bool isAdmission;
 
-  Widget _line(String label, String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label.toUpperCase(), style: const TextStyle(
-        color: VColors.muted, fontSize: 10, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 2),
-      Text(value, style: const TextStyle(fontSize: 12.5)),
-    ]),
+  /// Un contenu clinique occupe une véritable zone de lecture : une colonne
+  /// sur mobile, deux colonnes régulières sur les grands écrans Web.
+  Widget _clinicalPanel(String label, String value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+    decoration: BoxDecoration(
+      color: VColors.background,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: VColors.line),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(),
+          style: const TextStyle(color: VColors.muted,
+            fontSize: 10, letterSpacing: .7, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 5),
+        Text(value, softWrap: true,
+          style: const TextStyle(fontSize: 13.5,
+            height: 1.4, color: VColors.ink)),
+      ],
+    ),
   );
 
   @override
@@ -53,62 +66,121 @@ class DailyObservationCard extends StatelessWidget {
     final obs = observation;
     final editable = (patient.isActive || patient.isProgrammed) &&
         !patient.isOmitted;
-    return VCard(child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    final day = patient.hospitalizationDayOn(obs.date);
+    final sections = <Widget>[
+      if (obs.vitals.trim().isNotEmpty)
+        _clinicalPanel('Constantes et paramètres', obs.vitals.trim()),
+      if (obs.symptoms.trim().isNotEmpty)
+        _clinicalPanel('Évolution et symptômes', obs.symptoms.trim()),
+      if (obs.clinicalExam.trim().isNotEmpty)
+        _clinicalPanel('Examen clinique', obs.clinicalExam.trim()),
+      if (obs.results.trim().isNotEmpty)
+        _clinicalPanel('Examens complémentaires / imagerie', obs.results.trim()),
+      if (obs.plan.trim().isNotEmpty)
+        _clinicalPanel('Conduite à tenir', obs.plan.trim()),
+    ];
+    return VCard(
+      key: ValueKey('clinical-note-' + _obsDate(obs.date)),
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Expanded(child: Text(
-            (isAdmission ? 'Admission · ' : '') + _obsDate(obs.date) +
-            (patient.hospitalizationDayOn(obs.date) == null ? '' :
-                ' · J' + patient.hospitalizationDayOn(obs.date).toString()),
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          Container(
+            width: 37, height: 37,
+            decoration: BoxDecoration(
+              color: VColors.softMint,
+              borderRadius: BorderRadius.circular(11)),
+            child: const Icon(Icons.event_note_outlined,
+              color: VColors.ink, size: 20)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_obsDate(obs.date),
+                style: const TextStyle(fontSize: 15,
+                  fontWeight: FontWeight.w800, color: VColors.ink)),
+              const SizedBox(height: 3),
+              Text(isAdmission ? 'Observation du jour d’entrée' :
+                  'Observation clinique quotidienne',
+                style: const TextStyle(fontSize: 11, color: VColors.muted)),
+            ],
           )),
-          if (editable) TextButton.icon(
-            onPressed: () => showClinicalObservationEditor(context, patient,
-              existing: obs),
-            icon: const Icon(Icons.edit_outlined, size: 16),
-            label: const Text('Modifier'),
-          ),
+          if (day != null) VTag('J$day', highlight:true),
+          if (editable) IconButton(
+            key: ValueKey('edit-clinical-note-' + _obsDate(obs.date)),
+            tooltip: 'Modifier cette observation',
+            onPressed: () => showClinicalObservationEditor(
+              context, patient, existing: obs),
+            icon: const Icon(Icons.edit_outlined,
+              size: 19, color: VColors.ink)),
         ]),
-        if (obs.vitals.trim().isNotEmpty) _line('Constantes', obs.vitals),
-        if (obs.symptoms.trim().isNotEmpty) _line('Symptômes / évolution', obs.symptoms),
-        if (obs.clinicalExam.trim().isNotEmpty) _line('Examen clinique', obs.clinicalExam),
-        if (obs.biology.isNotEmpty) ...[
-          const Text('BILANS BIOLOGIQUES', style: TextStyle(
-            fontWeight: FontWeight.w800, fontSize: 11, color: VColors.ink)),
-          const SizedBox(height: 6),
-          Wrap(spacing: 7, runSpacing: 6, children: [
-            for (final field in biologyFields)
-              if (obs.biology.containsKey(field.key))
-                Chip(label: Text(field.label + ' : ' +
-                  obs.biology[field.key]!.toString() + ' ' + field.unit,
-                  style: const TextStyle(fontSize: 11))),
-          ]),
-          const SizedBox(height: 8),
+        if (sections.isNotEmpty) ...[
+          const SizedBox(height: 13),
+          LayoutBuilder(builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final panelWidth = width >= 720 ? (width - 12) / 2 : width;
+            return Wrap(
+              spacing: 12, runSpacing: 10,
+              children: [
+                for (final section in sections)
+                  SizedBox(width: panelWidth, child: section),
+              ],
+            );
+          }),
         ],
-        if (obs.results.trim().isNotEmpty) _line('Bilans / imagerie', obs.results),
-        if (obs.plan.trim().isNotEmpty) _line('Conduite à tenir', obs.plan),
-        const Divider(height: 21),
+        if (obs.biology.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: VColors.line)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(children: [
+                  Icon(Icons.biotech_outlined, size: 17, color: VColors.ink),
+                  SizedBox(width: 7),
+                  Text('Biologie du jour', style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w800,
+                    color: VColors.ink)),
+                ]),
+                const SizedBox(height: 8),
+                Wrap(spacing: 7, runSpacing: 7, children: [
+                  for (final field in biologyFields)
+                    if (obs.biology.containsKey(field.key))
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: VColors.softMint,
+                        side: const BorderSide(color: VColors.line),
+                        label: Text(field.label + ' : ' +
+                          obs.biology[field.key]!.toString() + ' ' + field.unit,
+                          style: const TextStyle(fontSize: 11.5,
+                            color: VColors.ink))),
+                ]),
+              ],
+            ),
+          ),
+        ],
+        const Divider(height: 22, color: VColors.line),
         CheckboxListTile(
           key: ValueKey('report-magica-sillage-' + _obsDate(obs.date)),
-          contentPadding: EdgeInsets.zero,
           dense: true,
-          title: const Text('Reporté sur Magica / Sillage'),
-          subtitle: const Text('Une seule validation de report manuel'),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          title: const Text('Reporté sur Magica / Sillage',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          subtitle: Text(obs.fullyReported
+            ? 'Report manuel confirmé' : 'Report manuel à confirmer',
+            style: const TextStyle(fontSize: 11, color: VColors.muted)),
           value: obs.fullyReported,
           onChanged: editable
             ? (v) => appStore.setObservationReported(
                 patient, obs, reported: v ?? false)
             : null,
-          controlAffinity: ListTileControlAffinity.leading,
         ),
-        Text(obs.fullyReported
-          ? '✓ Report manuel confirmé'
-          : 'Report manuel à confirmer',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
-            color: obs.fullyReported ? VColors.ink : const Color(0xFFA45633))),
-      ],
-    ));
+      ]),
+    );
   }
 }
 
