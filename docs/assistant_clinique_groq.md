@@ -13,8 +13,23 @@
 - Réponse structurée en français : hypothèses différentielles, éléments à vérifier,
   examens/évaluations à discuter, options de conduite à tenir, signes d'alerte,
   limites. Aucune prescription, aucun acte ou changement de dossier automatique.
-- La synthèse et les réponses ne sont pas enregistrées par la fonction dans
-  la base VISCERA. Ne pas coller de données directement identifiantes.
+- Les **réponses GROQ réussies** et leurs sources sont enregistrées
+  automatiquement dans la table sécurisée `viscera_clinical_ai_reports`,
+  rattachées au dossier patient (bloc ou admission manuelle), avec la date,
+  le médecin initiateur et le modèle utilisé. Les synthèses envoyées à GROQ
+  ne sont pas conservées dans cette table.
+- Dans chaque dossier patient, **Analyses cliniques enregistrées** affiche
+  les derniers rapports ; l’historique permet de retrouver les anciens
+  et de relire chacun sans recontacter GROQ.
+- Les anciens rapports ne sont jamais remplacés par une nouvelle réponse :
+  l’historique est append-only. Les dossiers sont accessibles uniquement aux
+  médecins habilités de l’établissement, selon les politiques RLS.
+- Si l’enregistrement échoue, le serveur renvoie
+  `clinical_report_save_failed` au lieu de prétendre avoir sauvegardé
+  le rapport. Aucun dossier brouillon non partagé ne peut recevoir une
+  analyse qui serait ensuite introuvable.
+- Ne jamais coller d’identifiants directs dans les synthèses transmises
+  à GROQ ; la relecture et l’autorisation restent obligatoires.
 
 ## Recommandations sourcées (catalogue du 05/11/2026)
 
