@@ -7,9 +7,11 @@ import 'store.dart';
 
 /// Rubrique repliée par défaut, sans doublon avec CFS et ASA.
 class ClinicalScoresCard extends StatelessWidget {
-  const ClinicalScoresCard({super.key, required this.patient, this.readOnly = false});
+  const ClinicalScoresCard({super.key, required this.patient, this.readOnly = false, this.expandedOnLoad = false, this.expandFirstForm = false});
   final PatientCase patient;
   final bool readOnly;
+  final bool expandedOnLoad;
+  final bool expandFirstForm;
 
   @override Widget build(BuildContext context) {
     final preop=patient.stage==CaseStage.scheduled ||
@@ -26,12 +28,13 @@ class ClinicalScoresCard extends StatelessWidget {
       (score.period=='Préopératoire' && preop) ||
       (score.period=='Postopératoire' && postop) ||
       patient.clinicalScores.containsKey(score.id);
+    final firstVisible = clinicalScoreSpecs.where(visible).firstOrNull?.id;
     return Card(color:Colors.white,elevation:0,
       shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16),
         side:BorderSide(color:Colors.grey.shade300)),
       child:ExpansionTile(
         key:const Key('clinical-scores-tile'),
-        initiallyExpanded:false,
+        initiallyExpanded:expandedOnLoad,
         title:Text('Scores adaptés · '+(preop?'Préopératoire':postop?'Postopératoire':'Au bloc'),
           style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800)),
         subtitle:Text(preop
@@ -48,6 +51,7 @@ class ClinicalScoresCard extends StatelessWidget {
             if(visible(score))
               ClinicalScoreForm(key:ValueKey('form-'+score.id),
                 patient:patient,spec:score,
+                initiallyExpanded:expandFirstForm && score.id==firstVisible,
                 readOnly:readOnly ||
                   (score.period=='Préopératoire' && !preop) ||
                   (score.period=='Postopératoire' && !postop)),
@@ -59,10 +63,12 @@ class ClinicalScoresCard extends StatelessWidget {
 
 class ClinicalScoreForm extends StatefulWidget {
   const ClinicalScoreForm({super.key, required this.patient,
-    required this.spec, this.readOnly = false});
+    required this.spec, this.readOnly = false,
+    this.initiallyExpanded = false});
   final PatientCase patient;
   final ClinicalScoreSpec spec;
   final bool readOnly;
+  final bool initiallyExpanded;
   @override State<ClinicalScoreForm> createState() => _ClinicalScoreFormState();
 }
 
@@ -342,7 +348,7 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     final ageRequired = ['nrs2002', 'ariscat'].contains(widget.spec.id);
     return ExpansionTile(
       key: ValueKey('score-' + widget.spec.id),
-      initiallyExpanded: false,
+      initiallyExpanded: widget.initiallyExpanded,
       title: Text(widget.spec.title, style:
         const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
       subtitle: Text(saved == null
