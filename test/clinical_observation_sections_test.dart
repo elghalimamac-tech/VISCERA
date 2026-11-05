@@ -52,4 +52,38 @@ void main() {
     expect(find.textContaining('Hémoglobine : 10.2'),findsOneWidget);
     expect(tester.takeException(),isNull);
   });
+
+  testWidgets('Notes cliniques lisibles en une colonne mobile et deux sur Web',
+      (tester) async {
+    final patient=_patient();
+    final note=DailyObservation(
+      date:DateTime(2026,11,6),
+      vitals:'TA 125/75, FC 82/min',
+      symptoms:'Douleurs en diminution',
+      clinicalExam:'Abdomen souple',
+      plan:'Surveillance clinique et contrôle biologique',
+    );
+    Future<void> showAt(Size size) async {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(home:Scaffold(
+        body:SingleChildScrollView(child:DailyObservationCard(
+          patient:patient,observation:note)),
+      )));
+      await tester.pumpAndSettle();
+    }
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await showAt(const Size(390, 780));
+    final mobileFirst=tester.getTopLeft(find.text('CONSTANTES ET PARAMÈTRES'));
+    final mobileSecond=tester.getTopLeft(find.text('ÉVOLUTION ET SYMPTÔMES'));
+    expect((mobileFirst.dx-mobileSecond.dx).abs(), lessThan(3));
+    expect(mobileSecond.dy, greaterThan(mobileFirst.dy));
+    expect(tester.takeException(),isNull);
+
+    await showAt(const Size(1120, 900));
+    final webFirst=tester.getTopLeft(find.text('CONSTANTES ET PARAMÈTRES'));
+    final webSecond=tester.getTopLeft(find.text('ÉVOLUTION ET SYMPTÔMES'));
+    expect(webSecond.dx, greaterThan(webFirst.dx+100));
+    expect((webSecond.dy-webFirst.dy).abs(),lessThan(3));
+    expect(tester.takeException(),isNull);
+  });
 }
