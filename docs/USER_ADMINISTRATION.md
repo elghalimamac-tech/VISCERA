@@ -19,6 +19,31 @@ côté serveur à chaque action.
 Seuls les médecins **déjà approuvés** peuvent être promus ADMIN. Une nouvelle
 connexion (ou actualisation des droits) peut être nécessaire pour voir le menu.
 
+## Modification du grade des juniors
+
+Dans « Tous les utilisateurs VISCERA », le bouton **Modifier le grade**
+affiche la même nomenclature qu'au moment de l'inscription :
+- Interne 1re année : 1er ou 2e passage ;
+- Interne 2e année : 3e ou 4e passage ;
+- Résident : 1re, 2e, 3e, 4e ou 5e année, sans passage d'internat.
+
+Les valeurs techniques sont les clés de `juniorCategories` dans
+`lib/doctor_registration_options.dart`, afin d'éviter deux listes
+divergentes. Le formulaire utilise aussi `passagesForCategory` et
+`validateMedicalGrade` avant d'enregistrer.
+
+Le serveur vérifie indépendamment le statut ADMIN approuvé, les sept
+catégories possibles, la compatibilité du passage, le rôle junior
+du compte et l'interdiction de modifier le propriétaire ou son
+propre grade depuis ce panneau. Un ADMIN délégué ne peut pas modifier
+le grade d'un autre ADMIN ; le propriétaire principal le peut.
+
+La fonction `viscera_admin_update_junior_grade(uuid,text,integer)`
+modifie uniquement `doctor_profiles.junior_category` et
+`doctor_profiles.internship_passage` et journalise les changements
+dans `viscera_private.doctor_grade_audit`. Elle ne change ni
+`approved_role`, ni les droits ADMIN, ni le statut d'approbation.
+
 ## Suppression définitive
 
 La fenêtre oblige à retaper exactement `SUPPRIMER`. Le serveur refuse :
