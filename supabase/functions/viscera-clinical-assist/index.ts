@@ -54,6 +54,14 @@ const guidelineCatalog = [
     title: "Preoperative Assessment of Adults Undergoing Elective Noncardiac Surgery",
     year: 2024, url: "https://esaic.org/guideline/pre-operative-evaluation-of-adults-undergoing-elective-noncardiac-surgery-1st-update/",
     scope: "Évaluation préopératoire adaptée aux risques, sans bilan systématique" },
+  { id: "ARISCAT_2010", organization: "ARISCAT Group",
+    title: "Prediction of Postoperative Pulmonary Complications — Original ARISCAT Cohort",
+    year: 2010, url: "https://pubmed.ncbi.nlm.nih.gov/21045639/",
+    scope: "Variables et validation du score pulmonaire ARISCAT" },
+  { id: "ALBI_2015", organization: "Johnson et al. / JCO",
+    title: "ALBI Grade — Original Validation in Liver Disease",
+    year: 2015, url: "https://pubmed.ncbi.nlm.nih.gov/25512453/",
+    scope: "Index albumine-bilirubine et limites du contexte hépatique" },
   { id: "NEWS2_RCP", organization: "Royal College of Physicians",
     title: "National Early Warning Score 2 (NEWS2)",
     year: 2017, url: "https://rcp.ac.uk/resources/national-early-warning-score-news-2/",
@@ -94,7 +102,7 @@ const scoreCatalog = [
   {id:"rcri",name:"RCRI (Lee)",period:"preop",sources:["ESC_NCS2022"],
     inputs:"Six critères : type d'intervention, coronaropathie, insuffisance cardiaque, AVC/AIT, insulinothérapie, créatinine",
     labs:"Créatinine mg/L si inconnue et évaluation rénale selon contexte" },
-  {id:"ariscat",name:"ARISCAT",period:"preop",sources:["ESAIC_PREOP2024"],
+  {id:"ariscat",name:"ARISCAT",period:"preop",sources:["ARISCAT_2010","ESAIC_PREOP2024"],
     inputs:"Âge, SpO2, infection respiratoire récente, anémie, site et durée opératoires, urgence",
     labs:"Hémoglobine g/dL si inconnue ; mesure de SpO2 et données de chirurgie" },
   {id:"news2",name:"NEWS2",period:"hospitalisation",sources:["NEWS2_RCP"],
@@ -110,6 +118,21 @@ const scoreCatalog = [
   {id:"clavien",name:"Clavien-Dindo",period:"postop",sources:["SIS2024"],
     inputs:"Complication documentée, traitements nécessaires et retentissement",
     labs:"Aucun panel obligatoire ; classement rétrospectif de la gravité des complications" },
+  {id:"mgps",name:"mGPS",period:"hospitalisation",sources:[],
+    inputs:"Contexte inflammatoire et nutritionnel, sans décision isolée",
+    labs:"CRP, albuminémie datées" },
+  {id:"car",name:"CAR",period:"hospitalisation",sources:[],
+    inputs:"Rapport CRP / albumine, sans seuil universel",
+    labs:"CRP, albuminémie datées" },
+  {id:"pni",name:"PNI",period:"hospitalisation",sources:[],
+    inputs:"Evaluation nutritionnelle et clinique complète",
+    labs:"Albuminémie et lymphocytes datés" },
+  {id:"gnri",name:"GNRI",period:"hospitalisation",sources:[],
+    inputs:"Fragilité/nutrition des patients âgés, poids de référence",
+    labs:"Albumine, poids actuel et poids de référence validé" },
+  {id:"albi",name:"ALBI",period:"hospitalisation",sources:["ALBI_2015"],
+    inputs:"Contexte hépatique approprié à l'index",
+    labs:"Albumine (g/L), bilirubine totale (mg/L) datées" },
 ] as const;
 const scoreIds = scoreCatalog.map((score)=>score.id);
 const textArray={type:"array",items:{type:"string"}};
@@ -297,6 +320,44 @@ Deno.serve(async (request: Request) => {
     return reply({ error: "exact_age_detected" }, 400);
   }
 
+  // Le serveur extrait les scores du SEUL texte clinique relu et transmis
+  // par le médecin. N'accepter aucune nouvelle valeur de l'IA.
+  const allowedScoreIds = new Set<string>(scoreIds);
+  const enteredScores = new Map<string,string>();
+  const addScore=(id:string, raw:string)=>{
+    const key=id.toLowerCase().trim();
+    const value=raw.trim();
+    if(allowedScoreIds.has(key) && value.length>0 && value.length<=48) {
+      enteredScores.set(key,value);
+    }
+  };
+  for(const line of summary.split("\n")) {
+    const scored=line.match(/^Score\s+([a-z0-9_-]+)\s*:\s*(.+)$/i);
+    if(scored) addScore(scored[1],scored[2]);
+    const frailty=line.match(/^Clinical Frailty Scale\s*:\s*(\d+)\s*$/i);
+    if(frailty) addScore("cfs",frailty[1]);
+    const asa=line.match(/^ASA\s*:\s*(\S+)\s*$/i);
+    if(asa) addScore("asa",asa[1]);
+    const biological=line.match(
+      /^Indice biologique indicatif\s+([a-z0-9_-]+)\s*:\s*([^()]+?)(?:\s*\(|\s*$)/i);
+    if(biological) addScore(biological[1],biological[2]);
+  }
+  const phaseFromNote=(summary.match(/^Phase\s*:\s*(.+)$/im)?.[1]??"")
+    .toLowerCase();
+  const isPostop=/post|opér[ée]|sortie/.test(phaseFromNote);
+  const isPreop=/pr[eé]op|avant|programmé|admission/.test(phaseFromNote);
+  const colorectalContext=/colorect|col[oô]n|rectum|sigmo[iï]d|anastomos/.test(
+    summary.toLowerCase());
+  const eligibleToRecommend=(id:string)=>{
+    const item=scoreCatalog.find((s)=>s.id===id);
+    if(!item || enteredScores.has(id)) return false;
+    if(isPostop && item.period==="preop") return false;
+    if(isPreop && item.period==="postop") return false;
+    if((id==="mdulk" || id==="isrec") && !colorectalContext) return false;
+    return true;
+  };
+  const availableScoreList=[...enteredScores]
+    .map(([id,value])=>({id,value}));
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
     return reply({ error: "groq_key_not_configured" }, 503);
@@ -324,6 +385,10 @@ Deno.serve(async (request: Request) => {
             JSON.stringify(guidelineCatalog) +
             "\nCatalogue de scores disponibles dans VISCERA :\n" +
             JSON.stringify(scoreCatalog) +
+            "\nScores explicitement présents dans la synthèse :\n" +
+            JSON.stringify(availableScoreList) +
+            "\nPour assessed_scores : reprendre seulement ces identifiants et valeurs. " +
+            "Pour scores_to_consider : ne proposer aucun score déjà présent.\n" +
             "\nSynthèse clinique désidentifiée :\n" + summary },
         ],
         response_format: {
@@ -367,6 +432,9 @@ Deno.serve(async (request: Request) => {
     if (!result || !Array.isArray(result.hypotheses) ||
         !Array.isArray(result.assessments_to_discuss) ||
         !Array.isArray(result.management_options_to_discuss) ||
+        !Array.isArray(result.assessed_scores) ||
+        !Array.isArray(result.scores_to_consider) ||
+        !Array.isArray(result.labs_to_consider) ||
         !Array.isArray(result.warning_signs) ||
         !Array.isArray(result.limits)) {
       return reply({ error: "groq_invalid_response" }, 502);
@@ -392,12 +460,66 @@ Deno.serve(async (request: Request) => {
         .map((item) => ({ ...item, source_ids: sourceIds(item.source_ids) }))
         .filter((item) => typeof item.text === "string" &&
           item.text.trim() !== "" && item.source_ids.length > 0);
+    const acceptedScoreIds=new Set<string>(scoreIds);
+    const cleanScored=(result.assessed_scores as unknown[])
+      .filter((item): item is Record<string,unknown> =>
+        item!==null && typeof item==="object" && !Array.isArray(item))
+      .filter((item)=>typeof item.score_id==="string" &&
+        typeof item.value==="string" &&
+        enteredScores.get(item.score_id)===item.value.trim())
+      .map((item)=>({
+        score_id:item.score_id,
+        value:item.value,
+        interpretation:typeof item.interpretation==="string"
+          ? item.interpretation.slice(0,650) : "",
+        management_impact:typeof item.management_impact==="string"
+          ? item.management_impact.slice(0,850) : "",
+        uncertainty_and_verification:
+          typeof item.uncertainty_and_verification==="string"
+          ? item.uncertainty_and_verification.slice(0,600) : "",
+        source_ids: sourceIds(item.source_ids),
+      }));
+    const cleanRecommendedScores=(result.scores_to_consider as unknown[])
+      .filter((item): item is Record<string,unknown> =>
+        item!==null && typeof item==="object" && !Array.isArray(item))
+      .filter((item)=>typeof item.score_id==="string" &&
+        eligibleToRecommend(item.score_id))
+      .map((item)=>{
+        const meta=scoreCatalog.find((s)=>s.id===item.score_id)!;
+        const official=new Set<string>(meta.sources);
+        const ids=sourceIds(item.source_ids)
+          .filter((ref)=>official.has(ref));
+        return {...item,source_ids:ids};
+      })
+      .filter((item)=>Array.isArray(item.source_ids) &&
+        item.source_ids.length>0)
+      .slice(0,6);
+    const cleanLabs=(result.labs_to_consider as unknown[])
+      .filter((item): item is Record<string,unknown> =>
+        item!==null && typeof item==="object" && !Array.isArray(item))
+      .map((item)=>({
+        ...item,
+        source_ids:sourceIds(item.source_ids),
+        relevant_scores:Array.isArray(item.relevant_scores)
+          ? item.relevant_scores.filter((id:unknown)=>
+              typeof id==="string" && acceptedScoreIds.has(id)) : [],
+      }))
+      .filter((item)=>typeof item.test==="string" &&
+        item.test.trim().length>0 && item.test.length<=140 &&
+        item.source_ids.length>0)
+      .slice(0,8);
+    result.assessed_scores=cleanScored;
+    result.scores_to_consider=cleanRecommendedScores;
+    result.labs_to_consider=cleanLabs;
     result.hypotheses = cleanHypotheses;
     result.assessments_to_discuss = cleanActions("assessments_to_discuss");
     result.management_options_to_discuss =
       cleanActions("management_options_to_discuss");
     const cited = new Set<string>([
       ...cleanHypotheses.flatMap((x) => x.source_ids),
+      ...cleanScored.flatMap((x) => x.source_ids),
+      ...cleanRecommendedScores.flatMap((x) => x.source_ids),
+      ...cleanLabs.flatMap((x) => x.source_ids),
       ...(result.assessments_to_discuss as Array<{source_ids:string[]}>)
         .flatMap((x) => x.source_ids),
       ...(result.management_options_to_discuss as Array<{source_ids:string[]}>)
@@ -410,6 +532,8 @@ Deno.serve(async (request: Request) => {
       result,
       references,
       reference_catalog: guidelineCatalog,
+      score_catalog: scoreCatalog,
+      recognized_score_ids:[...enteredScores.keys()],
       bibliography_reviewed_at: bibliographyReviewedAt,
       sources_live_verified: false,
       model: "openai/gpt-oss-120b",
