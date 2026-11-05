@@ -1,7 +1,7 @@
 -- Notifications VISCERA : envoi immédiat sur insertion, contrôle toutes les minutes.
 -- Aucun secret d'authentification Supabase/Firebase dans SQL, GitHub ou Flutter.
 create extension if not exists pg_cron;
-create extension if not exists pg_net;
+create extension if not exists pg_net with schema extensions;
 create schema if not exists viscera_private;
 revoke all on schema viscera_private from public, anon, authenticated, service_role;
 
