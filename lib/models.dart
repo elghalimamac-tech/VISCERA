@@ -89,7 +89,8 @@ class ClinicalDocuments {
 }
 
 /// Une observation par date civile et par dossier, modifiable au cours du séjour.
-/// Magica et Sillage sont des attestations de REPORT MANUEL, sans synchronisation.
+/// Magica/Sillage désigne un même report manuel ; les deux anciens champs
+/// restent présents pour relire les dossiers enregistrés avant la fusion.
 class DailyObservation {
   DailyObservation({required this.date, this.vitals = '', this.symptoms = '',
     this.clinicalExam = '', this.results = '', this.plan = '',
@@ -107,7 +108,8 @@ class DailyObservation {
   DateTime updatedAt;
   bool get hasContent => biology.isNotEmpty ||
       [vitals, symptoms, clinicalExam, results, plan].any((s) => s.trim().isNotEmpty);
-  bool get fullyReported => reportedMagica && reportedSillage;
+  /// Une seule attestation de report, compatible avec les données anciennes.
+  bool get fullyReported => reportedMagica || reportedSillage;
 }
 
 /// Demande d'avis d'un autre service pendant l'hospitalisation.
