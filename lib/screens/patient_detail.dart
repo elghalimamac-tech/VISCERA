@@ -24,11 +24,25 @@ class PatientDetailPage extends StatefulWidget {
 }
 class _PatientDetailPageState extends State<PatientDetailPage> {
   PatientCase get p=>widget.patient;
+  bool _savingRecord = false;
   @override void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && p.dischargeDue) _showDischargeReview();
     });
+  }
+
+  Future<void> _savePatientRecord() async {
+    if (_savingRecord) return;
+    setState(() => _savingRecord = true);
+    try {
+      await appStore.saveClinical(p);
+      if (mounted) _notice('Dossier enregistré dans VISCERA.');
+    } catch (_) {
+      if (mounted) _notice('Enregistrement impossible. Réessayez avant de quitter.');
+    } finally {
+      if (mounted) setState(() => _savingRecord = false);
+    }
   }
 
   Future<void> _showDischargeReview() async {
@@ -174,21 +188,36 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                     maxLines:2,overflow:TextOverflow.ellipsis,
                     style:const TextStyle(fontSize:11,color:VColors.muted)),
                 ])),
-                IconButton(
-                  key:const Key('save-patient-record'),
-                  tooltip:'Enregistrer le dossier dans VISCERA',
-                  onPressed:() async {
-                    try {
-                      await appStore.saveClinical(p);
-                      if(mounted)_notice('Dossier enregistré dans VISCERA.');
-                    } catch (_) {
-                      if(mounted)_notice('Enregistrement impossible. Vérifiez les modifications.');
-                    }
-                  },
-                  icon:const Icon(Icons.save_outlined,color:VColors.ink)),
               ]),
             ),
           ],
+          const SizedBox(height:11),
+          Tooltip(
+            message:'Enregistrer les modifications du dossier patient dans VISCERA',
+            child:SizedBox(
+              width:double.infinity,
+              child:FilledButton.icon(
+                key:const Key('save-patient-record'),
+                onPressed:_savingRecord?null:_savePatientRecord,
+                style:FilledButton.styleFrom(
+                  backgroundColor:VColors.ink,
+                  foregroundColor:Colors.white,
+                  minimumSize:const Size.fromHeight(54),
+                  shape:RoundedRectangleBorder(
+                    borderRadius:BorderRadius.circular(13)),
+                ),
+                icon:_savingRecord
+                  ?const SizedBox(width:19,height:19,
+                      child:CircularProgressIndicator(
+                        strokeWidth:2.2,color:Colors.white))
+                  :const Icon(Icons.save_rounded,size:21),
+                label:Text(_savingRecord
+                    ? 'Enregistrement en cours…' : 'Enregistrer le dossier',
+                  style:const TextStyle(fontSize:15,
+                    fontWeight:FontWeight.w800)),
+              ),
+            ),
+          ),
           const SizedBox(height:11),
           VCard(
             color:VColors.softMint,
@@ -343,45 +372,99 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             child:ExpansionTile(
               key:const Key('patient-admission-observation'),
               initiallyExpanded:false,
-              tilePadding:EdgeInsets.zero,
-              childrenPadding:const EdgeInsets.only(bottom:12),
+              tilePadding:const EdgeInsets.symmetric(vertical:5),
+              childrenPadding:const EdgeInsets.only(bottom:14),
               expandedAlignment:Alignment.topLeft,
+              leading:Container(
+                width:40,height:40,
+                decoration:BoxDecoration(color:VColors.softMint,
+                  borderRadius:BorderRadius.circular(12)),
+                child:const Icon(Icons.assignment_outlined,
+                  color:VColors.ink,size:21)),
               title:const Text('Observation clinique à l’admission',
-                style:TextStyle(fontSize:14,fontWeight:FontWeight.w800,
+                style:TextStyle(fontSize:14.5,fontWeight:FontWeight.w800,
                   color:VColors.ink)),
               subtitle:Text(p.hospitalizationStartDate==null
-                ? 'Évaluation clinique initiale'
-                : 'Entrée · '+_date(p.hospitalizationStartDate!),
+                ? 'Bilan clinique initial · '+p.origin
+                : 'Entrée le '+_date(p.hospitalizationStartDate!)+' · '+p.origin,
                 style:const TextStyle(fontSize:12,color:VColors.muted)),
               children:[
-                // Étirement explicite : ExpansionTile centre par défaut
-                // ses enfants à leur largeur intrinsèque sur écran Web.
-                SizedBox(width:double.infinity,child:Column(
-                  crossAxisAlignment:CrossAxisAlignment.stretch,
-                  children:[
-                    const Divider(height:18,color:VColors.line),
-                    _clinical('Motif d’admission',p.motive),
-                    if(p.history.trim().isNotEmpty)
-                      _clinical('Interrogatoire',p.history),
-                    if(p.exam.trim().isNotEmpty)
-                      _clinical('Examen clinique initial',p.exam),
-                    if(p.investigations.trim().isNotEmpty)
-                      _clinical('Examens complémentaires initiaux',p.investigations),
-                    if(p.labs.trim().isNotEmpty)
-                      _clinical('Bilans à l’admission',p.labs),
-                    if(p.immediatePlan.trim().isNotEmpty)
-                      _clinical('Conduite à tenir initiale',p.immediatePlan),
-                    if(admissionObservationFor(p)!=null)...[
-                      const Divider(height:20,color:VColors.line),
-                      const Text('Suivi daté du jour d’entrée',
-                        style:TextStyle(fontWeight:FontWeight.w800,
-                          fontSize:12,color:VColors.ink)),
-                      const SizedBox(height:9),
-                      DailyObservationCard(patient:p,
-                        observation:admissionObservationFor(p)!,
-                        isAdmission:true),
-                    ],
-                  ],
+                SizedBox(width:double.infinity,child:Align(
+                  alignment:Alignment.centerLeft,
+                  child:ConstrainedBox(
+                    constraints:const BoxConstraints(maxWidth:950),
+                    child:Column(
+                      crossAxisAlignment:CrossAxisAlignment.stretch,
+                      children:[
+                        const Divider(height:18,color:VColors.line),
+                        const Padding(
+                          padding:EdgeInsets.only(top:4,bottom:10),
+                          child:Row(children:[
+                            Icon(Icons.medical_information_outlined,
+                              size:19,color:VColors.ink),
+                            SizedBox(width:8),
+                            Expanded(child:Text('Évaluation clinique initiale',
+                              style:TextStyle(fontSize:13.5,
+                                fontWeight:FontWeight.w800,
+                                color:VColors.ink))),
+                          ]),
+                        ),
+                        _clinical('Motif d’admission',p.motive,
+                          icon:Icons.flag_outlined,emphasized:true),
+                        if(p.history.trim().isNotEmpty)
+                          _clinical('Interrogatoire / histoire de la maladie',
+                            p.history,icon:Icons.subject_rounded),
+                        if(p.exam.trim().isNotEmpty)
+                          _clinical('Examen clinique initial',p.exam,
+                            icon:Icons.personal_injury_outlined),
+                        if(p.investigations.trim().isNotEmpty ||
+                           p.labs.trim().isNotEmpty ||
+                           p.immediatePlan.trim().isNotEmpty)...[
+                          const Padding(
+                            padding:EdgeInsets.only(top:9,bottom:10),
+                            child:Row(children:[
+                              Icon(Icons.fact_check_outlined,
+                                size:19,color:VColors.ink),
+                              SizedBox(width:8),
+                              Expanded(child:Text('Examens et prise en charge',
+                                style:TextStyle(fontSize:13.5,
+                                  fontWeight:FontWeight.w800,
+                                  color:VColors.ink))),
+                            ]),
+                          ),
+                          if(p.investigations.trim().isNotEmpty)
+                            _clinical('Examens complémentaires initiaux',
+                              p.investigations,
+                              icon:Icons.biotech_outlined),
+                          if(p.labs.trim().isNotEmpty)
+                            _clinical('Bilans à l’admission',p.labs,
+                              icon:Icons.science_outlined),
+                          if(p.immediatePlan.trim().isNotEmpty)
+                            _clinical('Conduite à tenir initiale',
+                              p.immediatePlan,
+                              icon:Icons.assignment_turned_in_outlined),
+                        ],
+                        if(admissionObservationFor(p)!=null)...[
+                          const Divider(height:25,color:VColors.line),
+                          const Padding(
+                            padding:EdgeInsets.only(bottom:10),
+                            child:Row(children:[
+                              Icon(Icons.event_note_outlined,
+                                size:19,color:VColors.ink),
+                              SizedBox(width:8),
+                              Expanded(child:Text('Observation du jour d’entrée',
+                                style:TextStyle(fontSize:13.5,
+                                  fontWeight:FontWeight.w800,
+                                  color:VColors.ink))),
+                            ]),
+                          ),
+                          DailyObservationCard(patient:p,
+                            observation:admissionObservationFor(p)!,
+                            isAdmission:true),
+                        ],
+                      ],
+                    ),
+                  ),
                 )),
               ],
             ),
@@ -543,32 +626,31 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   );
 
   Widget _line(IconData icon,String label,String value)=>Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:VColors.muted,size:18),const SizedBox(width:11),SizedBox(width:90,child:Text(label,style:const TextStyle(fontSize:12,color:VColors.muted))),Expanded(child:Text(value,style:const TextStyle(fontSize:12.8,fontWeight:FontWeight.w700)))]);
-  /// Même alignement que les observations quotidiennes : lecture verticale,
-  /// texte sur toute la largeur, sans colonne vide sur les écrans Web.
-  Widget _clinical(String label, String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 9),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(13, 11, 12, 12),
-      decoration: BoxDecoration(
-        color: VColors.background,
-        borderRadius: BorderRadius.circular(11),
-        border: const Border(
-          left: BorderSide(color: VColors.mint, width: 3),
-          top: BorderSide(color: VColors.line),
-          right: BorderSide(color: VColors.line),
-          bottom: BorderSide(color: VColors.line),
-        ),
+  /// Note d'admission en lecture verticale, sans colonne de texte étroite.
+  Widget _clinical(String label, String value,
+      {IconData icon=Icons.notes_outlined,bool emphasized=false}) => Padding(
+    padding:const EdgeInsets.only(bottom:9),
+    child:Container(
+      width:double.infinity,
+      padding:const EdgeInsets.fromLTRB(14,13,14,14),
+      decoration:BoxDecoration(
+        color:emphasized?VColors.softMint:VColors.background,
+        borderRadius:BorderRadius.circular(12),
+        border:Border.all(color:emphasized?VColors.mint:VColors.line),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label.toUpperCase(), style: const TextStyle(
-          fontSize: 10, letterSpacing: .7,
-          fontWeight: FontWeight.w800, color: VColors.muted)),
-        const SizedBox(height: 5),
-        Text(value.trim().isEmpty ? 'Non renseigné' : value.trim(),
-          softWrap: true,
-          style: TextStyle(fontSize: 13.5, height: 1.4,
-            color: value.trim().isEmpty ? VColors.muted : VColors.ink)),
+      child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Icon(icon,color:VColors.ink,size:18),
+        const SizedBox(width:11),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text(label,style:const TextStyle(
+              fontSize:12.5,fontWeight:FontWeight.w800,color:VColors.ink)),
+            const SizedBox(height:6),
+            SelectableText(value.trim().isEmpty
+                ? 'Non renseigné' : value.trim(),
+              style:TextStyle(fontSize:14,height:1.5,
+                color:value.trim().isEmpty?VColors.muted:VColors.ink)),
+          ])),
       ]),
     ),
   );
