@@ -67,6 +67,28 @@ async function trustedServiceKey(request: Request): Promise<string | null> {
   if (legacy && received === legacy) return legacy;
   if (namedSecret && received === namedSecret) return namedSecret;
   if (await verifiedGithubWorkflow(request)) return namedSecret || legacy || null;
+
+  // Réveil signé par PostgreSQL (pg_net/pg_cron ou trigger INSERT).
+  // La signature est validée côté serveur par une RPC inaccessible aux clients.
+  // Aucun service_role ni secret de signature ne quitte Supabase.
+  const epoch = request.headers.get("x-viscera-epoch");
+  const signature = request.headers.get("x-viscera-signature");
+  const internalKey = namedSecret || legacy;
+  const internalUrl = Deno.env.get("SUPABASE_URL");
+  if (internalKey && internalUrl && epoch && signature &&
+      /^\\d{10,13}$/.test(epoch) && /^[0-9a-f]{64}$/.test(signature)) {
+    try {
+      const verifier = createClient(internalUrl, internalKey, {
+        auth: {autoRefreshToken:false, persistSession:false},
+      });
+      const {data, error} = await verifier.rpc("viscera_verify_push_dispatch", {
+        p_epoch:epoch, p_signature:signature,
+      });
+      if (!error && data === true) return internalKey;
+    } catch (_) {
+      // Toujours échouer fermé. GitHub OIDC reste le chemin de secours.
+    }
+  }
   return null;
 }
 
