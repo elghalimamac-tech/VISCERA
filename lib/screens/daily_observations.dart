@@ -153,7 +153,8 @@ class DailyObservationCard extends StatelessWidget {
                         backgroundColor: VColors.softMint,
                         side: const BorderSide(color: VColors.line),
                         label: Text(field.label + ' : ' +
-                          obs.biology[field.key]!.toString() + ' ' + field.unit,
+                          field.displayStored(obs.biology[field.key]!) +
+                          ' ' + field.unit,
                           style: const TextStyle(fontSize: 11.5,
                             color: VColors.ink))),
                 ]),
