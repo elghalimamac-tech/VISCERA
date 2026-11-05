@@ -825,9 +825,9 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
           const SizedBox(height:10),
           _bibliographyCard(),
           const Padding(padding:EdgeInsets.symmetric(vertical:8),
-            child:Text('Résultat non enregistré dans le dossier. '
-              'Vérifier chaque suggestion avant tout acte, '
-              'en particulier en situation d’urgence.',
+            child:Text('Analyse sauvegardée dans le dossier patient. '
+              'Chaque suggestion doit être vérifiée avant tout acte, '
+              'particulièrement en situation d’urgence.',
               style:TextStyle(fontSize:12,color:VColors.muted))),
         ],
       ],
