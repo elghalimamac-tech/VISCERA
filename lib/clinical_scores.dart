@@ -367,7 +367,11 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       autoSources['hb']=hbSample.day.toIso8601String();
     }
     if(creatinineSample!=null && !answers.containsKey('creatinine')){
-      computedInputs['creatinine']=creatinineSample.value>177?'1':'0';
+      // Les dossiers historiques stockent la créatinine en µmol/L.
+      // Le seuil du RCRI est strictement > 20 mg/L (> 2 mg/dL).
+      final mgL = biologyFields.firstWhere((f)=>f.key=='creatinine')
+        .fromCanonical(creatinineSample.value);
+      computedInputs['creatinine']=mgL>20?'1':'0';
       autoSources['creatinine']=creatinineSample.day.toIso8601String();
     }
     if(widget.spec.id=='mdulk') {
@@ -443,7 +447,8 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
         if(creatinineSample!=null)
           Padding(padding:const EdgeInsets.only(bottom:8),
             child:Text('Créatinine préopératoire : '+
-              creatinineSample.value.toString()+' µmol/L · prélèvement du '+
+              biologyFields.firstWhere((f)=>f.key=='creatinine')
+                .displayStored(creatinineSample.value)+' mg/L · prélèvement du '+
               creatinineSample.day.day.toString()+'/'+creatinineSample.day.month.toString()+
               '/'+creatinineSample.day.year.toString()+
               '. Critère RCRI prérempli ; vérifier sa pertinence clinique.',
