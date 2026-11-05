@@ -8,10 +8,12 @@ import 'theme.dart';
 class CfsAssessmentCard extends StatefulWidget {
   const CfsAssessmentCard({
     super.key, required this.patient, this.readOnly = false,
+    this.expandedOnLoad = false,
   });
 
   final PatientCase patient;
   final bool readOnly;
+  final bool expandedOnLoad;
 
   @override
   State<CfsAssessmentCard> createState() => _CfsAssessmentCardState();
@@ -233,7 +235,7 @@ class _CfsAssessmentCardState extends State<CfsAssessmentCard> {
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
         key: const Key('cfs-collapse-tile'),
-        initiallyExpanded: false,
+        initiallyExpanded: widget.expandedOnLoad,
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         title: const Text('Fragilité clinique (CFS)',
