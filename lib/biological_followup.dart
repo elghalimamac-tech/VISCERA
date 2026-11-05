@@ -52,6 +52,13 @@ double? parseBiology(String raw,BiologyField field) {
   }
   return field.toCanonical(v);
 }
+
+/// Seuil RCRI : créatinine STRICTEMENT supérieure à 2 mg/dL = 20 mg/L.
+/// Les prélèvements sont conservés en µmol/L pour les anciens dossiers.
+bool rcriCreatinineRisk(double storedUmolL) =>
+    biologyFields.firstWhere((field) => field.key == 'creatinine')
+      .fromCanonical(storedUmolL) > 20.0;
+
 class LabPoint {
   const LabPoint(this.day,this.value);
   final DateTime day;
