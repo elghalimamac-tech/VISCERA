@@ -61,15 +61,6 @@ class ClinicalScoresPage extends StatelessWidget {
                 ),
               ),
             ),
-            if (preoperative || patient.cfsScore != null ||
-                patient.asaClass.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              CfsAssessmentCard(
-                patient: patient,
-                readOnly: readOnly || !preoperative,
-                expandedOnLoad: preoperative,
-              ),
-            ],
             const SizedBox(height: 12),
             ClinicalScoresCard(
               patient: patient,
@@ -77,6 +68,15 @@ class ClinicalScoresPage extends StatelessWidget {
               expandedOnLoad: true,
               expandFirstForm: true,
             ),
+            if (preoperative || patient.cfsScore != null ||
+                patient.asaClass.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              CfsAssessmentCard(
+                patient: patient,
+                readOnly: readOnly || !preoperative,
+                expandedOnLoad: false,
+              ),
+            ],
           ],
         ),
       );
