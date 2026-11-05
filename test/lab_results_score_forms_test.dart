@@ -83,8 +83,31 @@ void main() {
       )),
     )));
     expect(find.textContaining('Créatinine préopératoire'), findsOneWidget);
-    expect(find.textContaining('190.0 µmol/L'), findsOneWidget);
+    expect(find.textContaining('21.493 mg/L'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Bilans historiques : valeur stockée convertie à l affichage',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final patient = patientForLabs();
+    patient.dailyObservations.add(DailyObservation(
+      date: DateTime.now(),
+      biology: {'creatinine': 176.8, 'bilirubin': 17.104,
+        'lymphocytes': 1.2, 'platelets': 230},
+    ));
+    await tester.pumpWidget(MaterialApp(home: LabResultsPage(patient:patient)));
+    await tester.scrollUntilVisible(find.byKey(const Key('lab-result-creatinine')),
+      280, scrollable:find.byType(Scrollable).first);
+    final creat= tester.widget<TextFormField>(
+      find.byKey(const Key('lab-result-creatinine')));
+    expect(creat.controller!.text, '20');
+    await tester.scrollUntilVisible(find.byKey(const Key('lab-result-bilirubin')),
+      280, scrollable:find.byType(Scrollable).first);
+    final bilirubin=tester.widget<TextFormField>(
+      find.byKey(const Key('lab-result-bilirubin')));
+    expect(bilirubin.controller!.text, '10');
   });
 
   test('L’absence de CRP bloque le mDULK et les valeurs saisies restent datées', () {
