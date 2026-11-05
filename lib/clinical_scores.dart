@@ -13,13 +13,16 @@ class ClinicalScoresCard extends StatelessWidget {
 
   @override Widget build(BuildContext context) {
     final preop=patient.stage==CaseStage.scheduled ||
-      patient.stage==CaseStage.preoperative ||
-      patient.stage==CaseStage.inTheatre;
+      patient.stage==CaseStage.preoperative;
     final postop=patient.stage==CaseStage.postoperative ||
       patient.stage==CaseStage.dischargeReady ||
       patient.stage==CaseStage.discharged;
+    final colorectal=RegExp(r'colo|rect|sigmo|anastomos',
+      caseSensitive:false).hasMatch(patient.effectiveProcedure);
     bool visible(ClinicalScoreSpec score) =>
-      score.period=='Hospitalisation' ||
+      (score.id=='mdulk'||score.id=='isrec') &&
+         !colorectal && !patient.clinicalScores.containsKey(score.id)
+       ? false : (score.period=='Hospitalisation' && (preop||postop)) ||
       (score.period=='Préopératoire' && preop) ||
       (score.period=='Postopératoire' && postop) ||
       patient.clinicalScores.containsKey(score.id);
@@ -29,11 +32,12 @@ class ClinicalScoresCard extends StatelessWidget {
       child:ExpansionTile(
         key:const Key('clinical-scores-tile'),
         initiallyExpanded:false,
-        title:Text('Scores adaptés · '+(preop?'Préopératoire':'Postopératoire'),
+        title:Text('Scores adaptés · '+(preop?'Préopératoire':postop?'Postopératoire':'Au bloc'),
           style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800)),
         subtitle:Text(preop
           ? 'Nutrition · thrombose · anesthésie · cœur'
-          : 'Complications · fistules · surveillance',
+          : postop ? 'Complications · fistules · surveillance'
+          : 'En attente de confirmation de fin du bloc',
           style:const TextStyle(fontSize:12)),
         childrenPadding:const EdgeInsets.fromLTRB(12,0,12,12),
         children:[
