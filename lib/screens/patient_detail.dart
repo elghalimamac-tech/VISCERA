@@ -131,7 +131,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
         // reste entièrement accessible au-dessus des FAB persistants.
         // Deux FAB en postopératoire (sortie + observation), sinon un seul.
         padding: EdgeInsets.fromLTRB(18, 14, 18,
-          (p.isPostOp && p.physicallyAdmitted) ? 260 : 190),
+          (p.isPostOp && p.physicallyAdmitted) ? 450 : 300),
         children:[
           VCard(color:VColors.ink,padding:const EdgeInsets.all(18),
             child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
