@@ -16,6 +16,7 @@ void main() {
       ),
     ));
     expect(find.text('VISCERA'), findsOneWidget);
+    expect(find.text('CHIRURGIE VISCÉRALE · DEUX HÔPITAUX'), findsOneWidget);
     expect(find.text('Dossier patient'), findsOneWidget);
     expect(find.byType(VisceraMark), findsNWidgets(3));
   });
