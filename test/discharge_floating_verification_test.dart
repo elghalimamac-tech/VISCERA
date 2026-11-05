@@ -93,10 +93,11 @@ void main() {
     final omission = find.byKey(const Key('omit-program-admission'));
     final dischargeFab = find.byKey(const Key('declare-discharge-fab'));
     expect(dischargeFab, findsOneWidget);
-    await tester.scrollUntilVisible(
-      omission, 500, scrollable: find.byType(Scrollable).first,
-    );
-    await tester.drag(find.byType(ListView).first, const Offset(0, -380));
+    // La liste est longue : se placer au bout sans dépendre du hit-test
+    // du centre de l'écran, qui peut être masqué par un FAB persistant.
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first);
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
     await tester.pumpAndSettle();
 
     expect(omission, findsOneWidget);
