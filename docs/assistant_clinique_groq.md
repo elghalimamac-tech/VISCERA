@@ -16,6 +16,34 @@
 - La synthèse et les réponses ne sont pas enregistrées par la fonction dans
   la base VISCERA. Ne pas coller de données directement identifiantes.
 
+## Recommandations sourcées (catalogue du 05/11/2026)
+
+Le modèle **n'a pas d'accès web en direct**. Le serveur lui transmet une
+bibliographie institutionnelle vérifiée le 5 novembre 2026. Les citations de
+réponse sont des identifiants préautorisés ; l'Edge Function rejette les
+références inconnues et retire les propositions sans source du catalogue.
+
+- **SSC 2026** : https://sccm.org/survivingsepsiscampaign/guidelines-and-resources/surviving-sepsis-campaign-adult-guidelines
+- **WSES PCT 2026** : https://pubmed.ncbi.nlm.nih.gov/42938782/
+- **ERAS colorectal 2025** : https://pubmed.ncbi.nlm.nih.gov/40783294/
+- **ESPEN nutrition chirurgie 2025** : https://doi.org/10.1016/j.clnu.2025.08.029
+- **IDSA 2024** : https://www.idsociety.org/practice-guideline/intra-abdominal-infections/
+- **SIS 2024** : https://sisna.org/the-surgical-infection-society-guidelines-on-the-management-of-intra-abdominal-infection-2024-update/
+- **ASA 2026** : https://doi.org/10.1097/ao9.0000000000000002
+- **NEWS2 / RCP 2017** : https://rcp.ac.uk/resources/national-early-warning-score-news-2/
+
+**Attention :** les identifiants cités par le modèle ne prouvent pas à eux
+seuls que la proposition est conforme au texte original. Une revue humaine
+de la phrase et des recommandations est indispensable ; ne jamais qualifier
+le catalogue d'actualisé en temps réel. Planifier un contrôle périodique des
+publications et des recommandations institutionnelles, particulièrement en
+cas de publication d'une nouvelle version ou de changement des pratiques.
+
+L'écran patient comprend un bouton d'analyse mis en évidence, et l'écran
+GROQ montre les **scores enregistrés et indices disponibles** en premier.
+Les hypothèses et options de prise en charge comportent chacune des liens
+vers les sources, suivies de la bibliographie consultable.
+
 ## Activation serveur
 
 1. Créer une clé API GROQ : https://console.groq.com/keys
