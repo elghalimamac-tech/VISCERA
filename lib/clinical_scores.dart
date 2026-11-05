@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'clinical_score_engine.dart';
+import 'biological_followup.dart';
 import 'caprini_assessment.dart';
 import 'clinical_score_specs.dart';
 import 'models.dart';
@@ -88,6 +89,15 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       ? raw.map<String, String>((key, value) =>
           MapEntry(key.toString(), value.toString()))
       : {};
+    // Les valeurs issues automatiquement des bilans ne sont pas des
+    // réponses manuelles permanentes : les prélèvements ultérieurs
+    // doivent pouvoir actualiser les calculs avant une réévaluation.
+    final automatic = record is Map ? record['autoInputs'] : null;
+    if (automatic is List) {
+      for (final key in automatic) {
+        answers.remove(key.toString());
+      }
+    }
   }
 
   @override void didUpdateWidget(covariant ClinicalScoreForm oldWidget) {
@@ -95,7 +105,22 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     if (!identical(oldWidget.patient, widget.patient)) _load();
   }
 
-  Future<void> _save(ScoreResult result) async {
+  /// Dernier prélèvement compatible avec la phase préopératoire.
+  /// Ne jamais utiliser une prise de sang postopératoire pour un score préop.
+  LabPoint? preoperativeLab(String key) {
+    final surgeryDate = DateTime(widget.patient.blockAt.year,
+        widget.patient.blockAt.month, widget.patient.blockAt.day);
+    final series = labSeries(widget.patient, key);
+    for (final point in series.reversed) {
+      final sampleDate = DateTime(point.day.year, point.day.month, point.day.day);
+      if (!sampleDate.isAfter(surgeryDate)) return point;
+    }
+    return null;
+  }
+
+  Future<void> _save(ScoreResult result,
+      Map<String,String> computedInputs,
+      Map<String,String> autoSources) async {
     if (widget.readOnly || saving) return;
     final p = widget.patient;
     if (!p.fromBlocProgram && !p.fromManualAdmission) {
@@ -104,7 +129,7 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     }
     final backup = Map<String, dynamic>.from(p.clinicalScores);
     setState(() => saving = true);
-    final snapshot=Map<String,String>.from(answers);
+    final snapshot=Map<String,String>.from(computedInputs);
     DateTime? biologicalDate;
     if(widget.spec.id=='mdulk') {
       final today=DateTime.now();
@@ -127,6 +152,8 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       'interpretation': result.interpretation,
       'inputs': snapshot,
       'biologicalDate':biologicalDate?.toIso8601String(),
+      'autoInputs':autoSources.keys.toList(),
+      'labSources':autoSources,
       'assessedAt': DateTime.now().toUtc().toIso8601String(),
       'assessedBy': appStore.activeLocalProfile?.id ?? '',
       'assessedStage':p.stage.name,
@@ -192,9 +219,9 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
     }
   }
 
-  Widget _choice(ClinicalQuestion question) {
+  Widget _choice(ClinicalQuestion question, {String? suggested}) {
     final index = question.choices.indexWhere(
-      (item) => item.value == answers[question.id]);
+      (item) => item.value == (answers[question.id] ?? suggested));
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -330,6 +357,19 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
   Widget build(BuildContext context) {
     final age = ClinicalScoring.age(widget.patient);
     final computedInputs=Map<String,String>.from(answers);
+    final autoSources=<String,String>{};
+    final hbSample=widget.spec.id=='ariscat'
+      ? preoperativeLab('hb') : null;
+    final creatinineSample=widget.spec.id=='rcri'
+      ? preoperativeLab('creatinine') : null;
+    if(hbSample!=null && !answers.containsKey('hb')){
+      computedInputs['hb']=hbSample.value<10?'11':'0';
+      autoSources['hb']=hbSample.day.toIso8601String();
+    }
+    if(creatinineSample!=null && !answers.containsKey('creatinine')){
+      computedInputs['creatinine']=creatinineSample.value>177?'1':'0';
+      autoSources['creatinine']=creatinineSample.day.toIso8601String();
+    }
     if(widget.spec.id=='mdulk') {
       computedInputs.remove('crp');
       final now=DateTime.now();
@@ -392,7 +432,24 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
           _number('pulse','Pouls (par min)'),
           _number('temp','Température (°C)',decimal:true),
         ],
-        for (final question in widget.spec.questions) _choice(question),
+        if(hbSample!=null)
+          Padding(padding:const EdgeInsets.only(bottom:8),
+            child:Text('Hémoglobine préopératoire : '+
+              hbSample.value.toString()+' g/dL · prélèvement du '+
+              hbSample.day.day.toString()+'/'+hbSample.day.month.toString()+
+              '/'+hbSample.day.year.toString()+
+              '. Critère ARISCAT prérempli ; vérifier sa pertinence clinique.',
+              style:const TextStyle(fontSize:11))),
+        if(creatinineSample!=null)
+          Padding(padding:const EdgeInsets.only(bottom:8),
+            child:Text('Créatinine préopératoire : '+
+              creatinineSample.value.toString()+' µmol/L · prélèvement du '+
+              creatinineSample.day.day.toString()+'/'+creatinineSample.day.month.toString()+
+              '/'+creatinineSample.day.year.toString()+
+              '. Critère RCRI prérempli ; vérifier sa pertinence clinique.',
+              style:const TextStyle(fontSize:11))),
+        for (final question in widget.spec.questions)
+          _choice(question, suggested: computedInputs[question.id]),
         if (result != null)
           Align(alignment: Alignment.centerLeft,
             child: Text('Résultat : ' + result.value + ' · ' +
@@ -410,7 +467,7 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
         if (!widget.readOnly)
           SizedBox(width: double.infinity, child: FilledButton.icon(
             key: ValueKey('save-score-' + widget.spec.id),
-            onPressed: result == null || saving ? null : () => _save(result),
+            onPressed: result == null || saving ? null : () => _save(result, computedInputs, autoSources),
             icon: const Icon(Icons.save_outlined, size: 18),
             label: Text(saving ? 'Enregistrement…' : 'Enregistrer ce score'),
           )),
