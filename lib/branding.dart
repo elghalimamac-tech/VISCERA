@@ -30,7 +30,7 @@ class VisceraBrandLockup extends StatelessWidget {
     super.key,
     this.onDark = false,
     this.markSize = 46,
-    this.subtitle = 'HUIM6 BOUSKOURA · CHIRURGIE VISCÉRALE',
+    this.subtitle = 'CHIRURGIE VISCÉRALE · DEUX HÔPITAUX',
   });
   final bool onDark;
   final double markSize;
