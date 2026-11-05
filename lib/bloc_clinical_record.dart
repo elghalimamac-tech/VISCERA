@@ -80,8 +80,9 @@ class BlocClinicalRecordService {
       'results': note.results,
       'plan': note.plan,
       'biology': note.biology,
-      'reportedMagica': note.reportedMagica,
-      'reportedSillage': note.reportedSillage,
+      'reportedMagicaSillage': note.fullyReported,
+      'reportedMagica': note.fullyReported,
+      'reportedSillage': note.fullyReported,
       'reportedMagicaAt': note.reportedMagicaAt?.toIso8601String(),
       'reportedSillageAt': note.reportedSillageAt?.toIso8601String(),
       'updatedAt': note.updatedAt.toIso8601String(),
@@ -253,8 +254,10 @@ class BlocClinicalRecordService {
                   (e) => e.key is String && e.value is num).map(
                     (e) => MapEntry(e.key as String,(e.value as num).toDouble())))
             : const {},
-          reportedMagica: _bool(item['reportedMagica']),
-          reportedSillage: _bool(item['reportedSillage']),
+          reportedMagica: _bool(item['reportedMagicaSillage']) ||
+            _bool(item['reportedMagica']) || _bool(item['reportedSillage']),
+          reportedSillage: _bool(item['reportedMagicaSillage']) ||
+            _bool(item['reportedMagica']) || _bool(item['reportedSillage']),
           reportedMagicaAt: _date(item['reportedMagicaAt']),
           reportedSillageAt: _date(item['reportedSillageAt']),
           updatedAt: _date(item['updatedAt']),
