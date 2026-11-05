@@ -174,9 +174,10 @@ Deno.serve(async (req: Request) => {
               notification:{title:item.title,body:item.body},
               data:{kind:item.kind,notification_id:item.id},
               android:{
-                // Les changements de programme doivent parvenir même en veille.
-                priority:["urgent_admissions","program_updates"].includes(item.kind)
-                  ? "high" : "normal",
+                // Toutes les notifications sont visibles et doivent être rapides,
+                // y compris confirmations de sortie et changements d'accès.
+                // FCM peut différer les messages « normal » pendant Doze.
+                priority:"high",
                 notification:{
                   channel_id:"viscera_events_v1",
                   visibility:"PRIVATE",
