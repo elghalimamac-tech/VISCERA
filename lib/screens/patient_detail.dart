@@ -8,6 +8,7 @@ import '../postoperative_events.dart';
 import '../preoperative_readiness.dart';
 import 'clinical_scores_page.dart';
 import 'clinical_ai_page.dart';
+import 'clinical_ai_history.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -26,6 +27,7 @@ class PatientDetailPage extends StatefulWidget {
 class _PatientDetailPageState extends State<PatientDetailPage> {
   PatientCase get p=>widget.patient;
   bool _savingRecord = false;
+  int _clinicalAiHistoryReload = 0;
   @override void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -252,8 +254,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           const SizedBox(height:8),
           SizedBox(width:double.infinity,child:FilledButton(
             key:const Key('open-clinical-ai'),
-            onPressed:()=>Navigator.push(context,MaterialPageRoute(
-              builder:(_)=>ClinicalAiPage(patient:p))),
+            onPressed:() async {
+              await Navigator.push(context,MaterialPageRoute<void>(
+                builder:(_)=>ClinicalAiPage(patient:p)));
+              if(mounted) setState(()=>_clinicalAiHistoryReload++);
+            },
             style:FilledButton.styleFrom(
               backgroundColor:const Color(0xFF0E5260),
               foregroundColor:Colors.white,
@@ -284,6 +289,12 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 size:17,color:Colors.white),
             ]),
           )),
+          const SizedBox(height:9),
+          ClinicalAiHistoryCard(
+            key:ValueKey('clinical-ai-history-${p.id}-$_clinicalAiHistoryReload'),
+            patient:p,
+          ),
+          const SizedBox(height:5),
           if(p.physicallyAdmitted && p.stage!=CaseStage.inTheatre &&
               !p.isOmitted)...[
             const SizedBox(height:8),
