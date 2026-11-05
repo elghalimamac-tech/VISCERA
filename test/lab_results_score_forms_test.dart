@@ -73,7 +73,7 @@ void main() {
         patient: patient, spec: ariscat, initiallyExpanded: true,
       )),
     )));
-    expect(find.textContaining('Hémoglobine préopératoire'), findsOneWidget);
+    expect(find.textContaining('Hémoglobine préopératoire :'), findsOneWidget);
     expect(find.textContaining('8.7 g/dL'), findsOneWidget);
 
     final rcri = clinicalScoreSpecs.singleWhere((x) => x.id == 'rcri');
