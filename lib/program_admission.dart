@@ -12,13 +12,17 @@ class ProgramAdmission {
        patient.stage == CaseStage.discharged)return;
     final surgeryDay=DateTime(patient.blockAt.year,
       patient.blockAt.month,patient.blockAt.day);
-    final today=DateTime(now.year,now.month,now.day);
     patient.admittedAt ??= surgeryDay;
     // Le service considère les trois pièces d'admission déjà présentes
     // pour les patients du programme. Ne jamais remplacer une correction
     // manuelle ou une pièce explicitement décochée après import.
     for (final requirement in ClinicalDocuments.admission) {
-      if (patient.documents.containsKey(requirement.key)) continue;
+      final existing = patient.documents[requirement.key];
+      // Corrige également les anciennes checklists laissées à leur état
+      // initial, mais respecte toute vérification/dévalidation manuelle datée.
+      if(existing != null && (existing.checkedAt != null ||
+         existing.fromProgram || existing.verified ||
+         existing.stamped != null || existing.notApplicable))continue;
       patient.documents[requirement.key] = DocumentCheck()
         ..verified = true
         ..stamped = requirement.needsStamp ? true : null
@@ -28,12 +32,11 @@ class ProgramAdmission {
         || patient.admissionTiming==source) {
       patient.admissionTiming=source;
     }
-    // Ne pas écraser les transitions déjà validées par le service.
-    if(patient.stage==CaseStage.scheduled ||
-       (patient.stage==CaseStage.preoperative &&
-        patient.admissionTiming==source && !today.isBefore(surgeryDay))) {
-      patient.stage=today.isBefore(surgeryDay)
-        ? CaseStage.preoperative : CaseStage.postoperative;
+    // Le programme certifie une admission administrative de suivi, pas la
+    // réalisation de l'intervention. La transition postopératoire nécessite
+    // une confirmation de fin du bloc par un soignant.
+    if(patient.stage==CaseStage.scheduled) {
+      patient.stage=CaseStage.preoperative;
     }
   }
 
