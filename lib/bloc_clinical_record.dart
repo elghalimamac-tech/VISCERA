@@ -32,6 +32,7 @@ class BlocClinicalRecordService {
     'nutritionAssessmentStatus': patient.nutritionAssessmentStatus,
     'geriatricAssessmentStatus': patient.geriatricAssessmentStatus,
     'clinicalScores': patient.clinicalScores,
+    'serviceTransfers': patient.serviceTransfers,
     'cpaStatus': patient.cpaStatus,
     'preopLabStatus': patient.preopLabStatus,
     'admissionPrescriptionStatus': patient.admissionPrescriptionStatus,
@@ -120,6 +121,16 @@ class BlocClinicalRecordService {
     patient.clinicalScores = rawScores is Map
       ? Map<String, dynamic>.from(rawScores)
       : <String, dynamic>{};
+    patient.serviceTransfers.clear();
+    final transfers = data['serviceTransfers'];
+    if (transfers is List) {
+      for (final transfer in transfers) {
+        if (transfer is Map && transfer['fromUnit'] is String &&
+            transfer['toUnit'] is String && transfer['at'] is String) {
+          patient.serviceTransfers.add(Map<String, dynamic>.from(transfer));
+        }
+      }
+    }
     patient.cpaStatus = _text(data['cpaStatus']).isEmpty ? 'a_verifier' : _text(data['cpaStatus']);
     patient.preopLabStatus = _text(data['preopLabStatus']).isEmpty ? 'a_verifier' : _text(data['preopLabStatus']);
     patient.admissionPrescriptionStatus = _text(data['admissionPrescriptionStatus']).isEmpty ? 'a_verifier' : _text(data['admissionPrescriptionStatus']);
