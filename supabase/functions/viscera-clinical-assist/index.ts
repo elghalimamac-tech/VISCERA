@@ -103,6 +103,11 @@ Deno.serve(async (request: Request) => {
   ];
   if (identifyingPatterns.some((pattern) => pattern.test(summary)))
     return reply({ error: "possible_identifier_detected" }, 400);
+  // An exact age can re-identify rare cases. Ask the clinician to
+  // replace it with a 10-year interval (e.g., 60–69 years).
+  if (/\b(?:tranche d[’']âge|âge)\s*:\s*\d{1,3}\s*(?:ans)?\s*$/im.test(summary)) {
+    return reply({ error: "exact_age_detected" }, 400);
+  }
 
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
@@ -120,7 +125,8 @@ Deno.serve(async (request: Request) => {
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
         temperature: 0.2,
-        max_completion_tokens: 1800,
+        max_completion_tokens: 3600,
+        reasoning_effort: "medium",
         include_reasoning: false,
         stream: false,
         messages: [
@@ -138,26 +144,50 @@ Deno.serve(async (request: Request) => {
       }),
     });
     if (!response.ok) {
-      // Ne pas journaliser les requêtes/réponses cliniques ni les données GROQ.
-      return reply({ error: response.status === 429
-        ? "groq_rate_limited" : "groq_provider_unavailable" }, 503);
+      // Diagnostiquer UNIQUEMENT le statut HTTP du fournisseur :
+      // ni prompts, ni noms, ni réponses, ni messages d'erreur bruts en logs.
+      const status = response.status;
+      const classification = status === 400 || status === 422
+        ? "groq_request_rejected" : status === 401
+        ? "groq_invalid_api_key" : status === 403
+        ? "groq_access_denied" : status === 404
+        ? "groq_model_unavailable" : status === 429
+        ? "groq_rate_limited" : status >= 500
+        ? "groq_service_unavailable" : "groq_provider_error";
+      console.warn("viscera-clinical-assist: " +
+        classification + " provider_status=" + String(status));
+      return reply({
+        error: classification,
+        provider_http_status: status,
+      }, status === 429 ? 429 : 502);
     }
     const payload = await response.json();
     const raw = payload?.choices?.[0]?.message?.content;
     if (typeof raw !== "string" || raw.length > 30000)
       return reply({ error: "invalid_ai_response" }, 502);
-    const result = JSON.parse(raw);
+    let result: Record<string, unknown>;
+    try { result = JSON.parse(raw); }
+    catch {
+      console.warn("viscera-clinical-assist: groq_invalid_json");
+      return reply({ error: "groq_invalid_response" }, 502);
+    }
     if (!result || !Array.isArray(result.hypotheses) ||
         !Array.isArray(result.assessments_to_discuss) ||
         !Array.isArray(result.management_options_to_discuss) ||
         !Array.isArray(result.warning_signs) ||
         !Array.isArray(result.limits)) {
-      return reply({ error: "invalid_ai_response" }, 502);
+      return reply({ error: "groq_invalid_response" }, 502);
     }
     // Réponse non persistée : l'utilisateur peut la consulter et la confronter.
     return reply({ result, model: "openai/gpt-oss-120b",
       warning: "Aide à la discussion, non validée cliniquement." });
-  } catch {
-    return reply({ error: "groq_provider_unavailable" }, 503);
+  } catch (error) {
+    const timedOut = error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+    // No raw exception output: external errors may reflect user inputs.
+    console.warn("viscera-clinical-assist: " +
+      (timedOut ? "groq_timeout" : "groq_network_failure"));
+    return reply({ error: timedOut ? "groq_timeout" :
+      "groq_network_failure" }, timedOut ? 504 : 503);
   }
 });
