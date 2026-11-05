@@ -8,6 +8,7 @@ import '../postoperative_events.dart';
 import '../preoperative_readiness.dart';
 import '../cfs_assessment.dart';
 import '../clinical_scores.dart';
+import 'clinical_scores_page.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -201,7 +202,8 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:_factCard(Icons.bed_outlined,'Unité / box',
-              p.currentUnit.isEmpty || p.currentBox.isEmpty ? 'Non attribué' : '${p.currentUnit} · ${p.currentBox}',
+              p.currentUnit.isEmpty ? 'Non attribué' : p.currentBox.isEmpty
+                ? '${p.currentUnit} · Box à préciser' : '${p.currentUnit} · ${p.currentBox}',
               onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_changeBed)),
             const SizedBox(width:9),
             Expanded(child:_factCard(Icons.person_outline_rounded,'Responsable',
@@ -213,6 +215,24 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 (p.programSurgeon.isNotEmpty?p.programSurgeon:'À attribuer'),
               onTap:(p.stage==CaseStage.discharged||p.isOmitted)?null:_editResponsible)),
           ]),
+          const SizedBox(height:11),
+          SizedBox(width:double.infinity,child:FilledButton.tonalIcon(
+            key:const Key('open-clinical-score-forms'),
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>ClinicalScoresPage(patient:p))),
+            icon:const Icon(Icons.assignment_outlined),
+            label:const Text('Remplir les formulaires de scores cliniques'),
+          )),
+          if(p.physicallyAdmitted && p.stage!=CaseStage.inTheatre &&
+              !p.isOmitted)...[
+            const SizedBox(height:8),
+            SizedBox(width:double.infinity,child:OutlinedButton.icon(
+              key:const Key('transfer-patient-service'),
+              onPressed:_transferService,
+              icon:const Icon(Icons.swap_horiz_rounded),
+              label:const Text('Transférer vers un autre service'),
+            )),
+          ],
           if(p.dischargeDue||p.stage==CaseStage.dischargeReady)...[
             const SizedBox(height:11),
             VCard(color:VColors.orangeSoft,padding:const EdgeInsets.all(14),
@@ -288,6 +308,31 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               ],
             ),
           ])),
+          if(p.serviceTransfers.isNotEmpty)...[
+            const SizedBox(height:10),
+            VCard(child:ExpansionTile(
+              key:const Key('patient-service-transfer-history'),
+              initiallyExpanded:false,
+              tilePadding:EdgeInsets.zero,
+              title:Text('Historique des transferts · ${p.serviceTransfers.length}',
+                style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800)),
+              children:[
+                for(final transfer in p.serviceTransfers.reversed.take(20))
+                  ListTile(
+                    dense:true,
+                    leading:const Icon(Icons.swap_horiz_rounded),
+                    title:Text('${transfer['fromUnit'] ?? '—'} → '
+                      '${transfer['toUnit'] ?? '—'}'),
+                    subtitle:Text(
+                      'Box : ${transfer['fromBox'] ?? '—'} → '
+                      '${(transfer['toBox'] ?? '').toString().isEmpty ? 'à préciser' : transfer['toBox']}'
+                      '\\nMotif : ${transfer['reason'] ?? '—'}'
+                      '\\nPar : ${transfer['by'] ?? '—'} · '
+                      '${DateTime.tryParse((transfer['at'] ?? '').toString())?.toLocal().toString().substring(0,16) ?? '—'}'),
+                  ),
+              ],
+            )),
+          ],
           SectionHeading('Clinique et observations',trailing:Row(
             mainAxisSize:MainAxisSize.min,children:[
               IconButton(onPressed:_editIdentity,
@@ -603,6 +648,189 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     if(await showConfirmation(context,title:'Fin du bloc',message:'Retour prévu à ${p.afterUnit} / Box ${p.afterBox}. Les documents manquants resteront signalés dans le dossier postopératoire.',action:'Valider'))appStore.finishTheatre(p);
   }
   void _notice(String text)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(text)));
+
+  /// Transfert effectif entre services du même établissement, distinct
+  /// d'une simple modification de box. La date d'admission ne change pas.
+  Future<void> _transferService() async {
+    if(!p.physicallyAdmitted || p.stage==CaseStage.inTheatre ||
+       p.stage==CaseStage.discharged || p.isOmitted ||
+       (!p.fromBlocProgram && !p.fromManualAdmission)) {
+      _notice('Le transfert nécessite un séjour actif et un dossier partagé.');
+      return;
+    }
+    if(p.currentUnit.trim().isEmpty) {
+      _notice('Renseignez d’abord le service actuel du patient.');
+      return;
+    }
+
+    String? selectedService;
+    final otherService = TextEditingController();
+    final targetBox = TextEditingController();
+    final reason = TextEditingController();
+    final navigationInset = MediaQuery.of(context).viewPadding.bottom;
+    final details = await showModalBottomSheet<List<String>>(
+      context:context, isScrollControlled:true, useSafeArea:true,
+      showDragHandle:true,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh) {
+        final media=MediaQuery.of(ctx);
+        return Padding(
+          padding:EdgeInsets.fromLTRB(20,8,20,
+            media.viewInsets.bottom>0
+              ? media.viewInsets.bottom+24 : navigationInset+28),
+          child:ConstrainedBox(
+            constraints:BoxConstraints(
+              maxHeight:(media.size.height-media.viewInsets.bottom-
+                navigationInset-90).clamp(210.0,media.size.height).toDouble()),
+            child:SingleChildScrollView(child:Column(
+              mainAxisSize:MainAxisSize.min,
+              crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                Text('Transfert vers un autre service',
+                  style:Theme.of(ctx).textTheme.titleLarge),
+                const SizedBox(height:6),
+                Text('Service actuel : ${p.currentUnit}'
+                  '${p.currentBox.isEmpty ? '' : ' · Box ${p.currentBox}'}',
+                  style:const TextStyle(fontSize:12,color:VColors.muted)),
+                const SizedBox(height:10),
+                const Text('Le dossier et ses observations seront conservés. '
+                  'Ce transfert ne constitue pas une sortie hospitalière.',
+                  style:TextStyle(fontSize:12)),
+                const SizedBox(height:15),
+                DropdownButtonFormField<String>(
+                  key:const Key('transfer-destination-service'),
+                  isExpanded:true,
+                  initialValue:selectedService,
+                  decoration:const InputDecoration(
+                    labelText:'Service destinataire *',
+                    border:OutlineInputBorder()),
+                  items:[
+                    ...hospitalUnits.map((unit)=>DropdownMenuItem<String>(
+                      value:unit.code,
+                      child:Text(unit.label,overflow:TextOverflow.ellipsis))),
+                    const DropdownMenuItem<String>(
+                      value:'__OTHER_SERVICE__',
+                      child:Text('Autre service (à préciser)')),
+                  ],
+                  onChanged:(value)=>refresh(()=>selectedService=value)),
+                if(selectedService=='__OTHER_SERVICE__')...[
+                  const SizedBox(height:12),
+                  TextField(
+                    key:const Key('transfer-other-service'),
+                    controller:otherService,
+                    maxLength:100,
+                    decoration:const InputDecoration(
+                      labelText:'Nom du service destinataire *',
+                      border:OutlineInputBorder()),
+                  ),
+                ],
+                const SizedBox(height:12),
+                TextField(
+                  key:const Key('transfer-destination-box'),
+                  controller:targetBox,
+                  maxLength:30,
+                  decoration:const InputDecoration(
+                    labelText:'Numéro du box (facultatif)',
+                    border:OutlineInputBorder()),
+                ),
+                const SizedBox(height:12),
+                TextField(
+                  key:const Key('transfer-reason'),
+                  controller:reason,
+                  maxLength:400, minLines:2, maxLines:4,
+                  decoration:const InputDecoration(
+                    labelText:'Motif du transfert *',
+                    border:OutlineInputBorder()),
+                ),
+                const SizedBox(height:15),
+                SizedBox(width:double.infinity,child:FilledButton.icon(
+                  key:const Key('confirm-service-transfer-form'),
+                  icon:const Icon(Icons.swap_horiz_rounded),
+                  onPressed:(){
+                    final service=selectedService=='__OTHER_SERVICE__'
+                      ? otherService.text.trim() : (selectedService??'');
+                    if(service.length<2 || reason.text.trim().isEmpty) {
+                      _notice('Précisez le service destinataire et le motif.');
+                      return;
+                    }
+                    if(service.toLowerCase()==p.currentUnit.trim().toLowerCase()){
+                      _notice('Même service : utilisez Modifier l’unité / le box.');
+                      return;
+                    }
+                    Navigator.pop(ctx,[service,targetBox.text.trim(),
+                      reason.text.trim()]);
+                  },
+                  label:const Text('Vérifier le transfert'),
+                )),
+                const SizedBox(height:8),
+              ],
+            )),
+          ),
+        );
+      }),
+    );
+    otherService.dispose();
+    targetBox.dispose();
+    reason.dispose();
+    if(!mounted || details==null)return;
+    final destination=details[0], box=details[1], reasonText=details[2];
+    final conflict=appStore.conflictingBox(destination,box,
+      exceptPatientId:p.id);
+    if(conflict!=null) {
+      _notice('Box déjà occupé par ${conflict.name}. Transfert non enregistré.');
+      return;
+    }
+    final confirmed=await showConfirmation(context,
+      title:'Confirmer le transfert',
+      message:'Transférer ${p.name} de ${p.currentUnit} vers $destination'
+        '${box.isEmpty ? ' (box à préciser)' : ' / Box $box'} ? '
+        'Le dossier et l’historique restent conservés.',
+      action:'Confirmer le transfert');
+    if(!mounted || !confirmed)return;
+    // Sauvegarde sécurisée avec retour à l'état précédent en cas d'échec.
+    final beforeUnit=p.beforeUnit, beforeBox=p.beforeBox;
+    final afterUnit=p.afterUnit, afterBox=p.afterBox;
+    final fromUnit=p.currentUnit, fromBox=p.currentBox;
+    final postoperative=p.isPostOp;
+    if(postoperative){
+      p.afterUnit=destination;
+      p.afterBox=box;
+    }else{
+      final afterWasSame=p.afterUnit==p.beforeUnit &&
+        p.afterBox==p.beforeBox;
+      p.beforeUnit=destination;
+      p.beforeBox=box;
+      if(afterWasSame) {
+        p.afterUnit=destination;
+        p.afterBox=box;
+      }
+    }
+    p.serviceTransfers.add({
+      'fromUnit':fromUnit,
+      'fromBox':fromBox,
+      'toUnit':destination,
+      'toBox':box,
+      'reason':reasonText,
+      'at':DateTime.now().toUtc().toIso8601String(),
+      'by':appStore.activeLocalProfile?.name??'Médecin non identifié',
+      'byId':appStore.activeLocalProfile?.id??'',
+      'stage':p.stage.name,
+    });
+    appStore.refresh();
+    try {
+      await appStore.saveClinical(p);
+      if(mounted){
+        appStore.refresh();
+        _notice('Transfert vers $destination enregistré dans le dossier.');
+      }
+    }catch(_){
+      p.beforeUnit=beforeUnit;p.beforeBox=beforeBox;
+      p.afterUnit=afterUnit;p.afterBox=afterBox;
+      p.serviceTransfers.removeLast();
+      appStore.refresh();
+      if(mounted)_notice('Transfert non enregistré. Affectation précédente conservée.');
+    }
+  }
+
   Future<void> _changeBed() async {
     final postoperative = p.isPostOp || p.stage == CaseStage.inTheatre;
     String current = postoperative ? p.afterUnit : p.beforeUnit;
