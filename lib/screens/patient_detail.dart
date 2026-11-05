@@ -516,6 +516,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             PostoperativeEventsCard(patient:p,
               readOnly:p.stage==CaseStage.discharged),
           ],
+          if(p.stage!=CaseStage.notAdmitted)...[
+            SectionHeading('Actions de prise en charge'),
+            _actions(),
+          ],
           if(p.fromBlocProgram && p.stage!=CaseStage.discharged)...[
             const SizedBox(height:18),
             const Divider(),
@@ -531,10 +535,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 minimumSize:const Size(double.infinity,48)),
             ),
             const SizedBox(height:12),
-          ],
-          if(p.stage!=CaseStage.notAdmitted)...[
-            SectionHeading('Actions de prise en charge'),
-            _actions(),
           ],
         ],
       ),
