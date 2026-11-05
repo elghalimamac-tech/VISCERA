@@ -43,9 +43,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
     final transfer=find.byKey(const Key('transfer-patient-service'));
     expect(transfer,findsOneWidget);
-    await tester.ensureVisible(transfer);
-    await tester.drag(find.byType(ListView).first, const Offset(0,-260));
+    await Scrollable.ensureVisible(tester.element(transfer),
+      alignment: 0.3, duration: Duration.zero);
     await tester.pumpAndSettle();
+    expect(transfer, findsOneWidget);
     await tester.tap(transfer);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('transfer-destination-service')),findsOneWidget);
