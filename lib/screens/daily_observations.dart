@@ -6,6 +6,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../voice_dictation.dart';
+import 'lab_results_page.dart';
 
 String _obsDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
@@ -35,6 +36,16 @@ class _DailyObservationsPageState extends State<DailyObservationsPage> {
         const SizedBox(height: 15),
         CrpTrendCard(patient:p),
         const SizedBox(height: 13),
+        if (p.isActive || p.isProgrammed) ...[
+          FilledButton.tonalIcon(
+            key:const Key('open-daily-labs-form'),
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>LabResultsPage(patient:p))),
+            icon:const Icon(Icons.biotech_outlined),
+            label:const Text('Saisir les bilans biologiques du jour'),
+          ),
+          const SizedBox(height:9),
+        ],
         if (p.isActive || p.isProgrammed) ElevatedButton.icon(
           onPressed: () => showClinicalObservationEditor(context, p),
           icon: const Icon(Icons.add_circle_outline),
