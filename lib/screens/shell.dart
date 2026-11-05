@@ -209,7 +209,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       .then((_) { if(mounted) unawaited(_refreshUnreadCount()); });
   }
   void openNotificationSettings()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationSettingsPage()));
-  void openAdmin(){if(appStore.activeLocalProfile?.isVisceraOwner != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
+  void openAdmin(){if(appStore.activeLocalProfile?.isAdmin != true)return;Navigator.push(context,MaterialPageRoute(builder:(_)=>const AdminPage()));}
 
   @override Widget build(BuildContext context)=>AnimatedBuilder(animation:appStore,builder:(context,_)=>Scaffold(
     key:shellKey,
@@ -271,7 +271,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _drawerItem(Icons.notifications_none_rounded,'Centre de notifications',(){Navigator.pop(context);openInbox();}),
     _drawerItem(Icons.event_note_outlined,'Consultations',(){Navigator.pop(context);openReferencePlanning();}),
     _drawerItem(Icons.groups_outlined,'Professeurs et médecins',(){Navigator.pop(context);openReferencePlanning();}),
-    if(appStore.activeLocalProfile?.isVisceraOwner == true)...[
+    if(appStore.activeLocalProfile?.isAdmin == true)...[
       const SizedBox(height:24),const Overline('ESPACE ADMINISTRATEUR'),const SizedBox(height:10),
       _drawerItem(Icons.admin_panel_settings_outlined,'Administration VISCERA',(){Navigator.pop(context);openAdmin();}),
     ],
@@ -346,7 +346,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       Row(children:[
         Expanded(child:_homeShortcut(
           Icons.calendar_month_rounded,'Mon planning',openPlanning,primary:true)),
-        if(appStore.activeLocalProfile?.isVisceraOwner==true)...[
+        if(appStore.activeLocalProfile?.isAdmin==true)...[
           const SizedBox(width:8),
           Expanded(child:_homeShortcut(
             Icons.admin_panel_settings_outlined,'Administration',openAdmin)),
