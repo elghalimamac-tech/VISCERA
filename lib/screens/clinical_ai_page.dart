@@ -460,8 +460,8 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
     if(!mounted)return;
     // Renseigner un formulaire modifie potentiellement le dossier.
     // Actualiser l'aperçu, et exiger une nouvelle validation avant GROQ.
+    summary.text=buildClinicalAiSummary(widget.patient);
     setState(() {
-      summary.text=buildClinicalAiSummary(widget.patient);
       reviewed=false;
       response=null;
       references=[];
