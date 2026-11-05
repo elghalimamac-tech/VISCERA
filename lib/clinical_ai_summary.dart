@@ -23,13 +23,28 @@ String buildClinicalAiSummary(PatientCase patient, {DateTime? referenceDate}) {
   if (patient.asaClass.isNotEmpty) {
     buffer.writeln('ASA : ${_redact(patient.asaClass, patient)}');
   }
+  if(patient.clinicalScores.isEmpty &&
+      patient.cfsScore==null && patient.asaClass.isEmpty) {
+    buffer.writeln('Aucun score clinique formel enregistré.');
+  }
   for (final score in patient.clinicalScores.entries) {
     final record = score.value;
     if (record is! Map || record['value'] == null) continue;
     final key = score.key.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
     final value = record['value'].toString();
-    if (value.length <= 15) {
-      buffer.writeln('Score $key : ${_redact(value, patient)}');
+    if (value.isEmpty || value.length>15)continue;
+    buffer.writeln('Score $key : ${_redact(value, patient)}');
+    final interpretation=(record['interpretation']??'').toString().trim();
+    if(interpretation.isNotEmpty) {
+      buffer.writeln('Interprétation enregistrée pour $key : '+
+        _redact(interpretation.length>240
+          ? interpretation.substring(0,240)
+          : interpretation,patient));
+    }
+    final phase=(record['assessedStage']??'').toString().trim();
+    if(phase.length<=40 && phase.isNotEmpty) {
+      buffer.writeln('Phase de saisie du score $key : '+
+        _redact(phase,patient));
     }
   }
   // Indices calculés à partir de prélèvements réellement disponibles.
