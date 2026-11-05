@@ -252,7 +252,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:VColors.ink,borderRadius:BorderRadius.circular(20)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       VisceraMark(size:39,onDark:true),SizedBox(height:13),
       Text('VISCERA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:23,letterSpacing:1)),
-      Text('Chirurgie viscérale • HUIM6',style:TextStyle(color:Color(0xFFC9E7DC),fontSize:12)),
+      Text('Chirurgie viscérale · Deux hôpitaux',style:TextStyle(color:Color(0xFFC9E7DC),fontSize:12)),
     ])),
     const SizedBox(height:23),const Overline('ACTIVITÉ CLINIQUE'),const SizedBox(height:12),
     _drawerItem(Icons.dashboard_outlined,'Tableau de bord',()=>_switchTab(0)),
