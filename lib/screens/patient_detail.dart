@@ -7,6 +7,7 @@ import '../biological_followup.dart';
 import '../postoperative_events.dart';
 import '../preoperative_readiness.dart';
 import 'clinical_scores_page.dart';
+import 'clinical_ai_page.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -247,6 +248,14 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               builder:(_)=>ClinicalScoresPage(patient:p))),
             icon:const Icon(Icons.assignment_outlined),
             label:const Text('Scores cliniques et bilans biologiques'),
+          )),
+          const SizedBox(height:8),
+          SizedBox(width:double.infinity,child:OutlinedButton.icon(
+            key:const Key('open-clinical-ai'),
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>ClinicalAiPage(patient:p))),
+            icon:const Icon(Icons.psychology_alt_outlined),
+            label:const Text('Assistant clinique GROQ · hypothèses'),
           )),
           if(p.physicallyAdmitted && p.stage!=CaseStage.inTheatre &&
               !p.isOmitted)...[
