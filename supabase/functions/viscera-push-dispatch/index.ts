@@ -76,7 +76,7 @@ async function trustedServiceKey(request: Request): Promise<string | null> {
   const internalKey = namedSecret || legacy;
   const internalUrl = Deno.env.get("SUPABASE_URL");
   if (internalKey && internalUrl && epoch && signature &&
-      /^\\d{10,13}$/.test(epoch) && /^[0-9a-f]{64}$/.test(signature)) {
+      /^\d{10,13}$/.test(epoch) && /^[0-9a-f]{64}$/.test(signature)) {
     try {
       const verifier = createClient(internalUrl, internalKey, {
         auth: {autoRefreshToken:false, persistSession:false},
