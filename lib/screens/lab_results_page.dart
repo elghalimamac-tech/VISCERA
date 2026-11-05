@@ -53,7 +53,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
     final note = observationFor(selectedDate);
     for (final field in biologyFields) {
       controllers[field.key]!.text =
-          note?.biology[field.key]?.toString() ?? '';
+          note?.biology[field.key] == null ? '' :
+          field.displayStored(note!.biology[field.key]!);
     }
   }
 
@@ -95,10 +96,17 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   Future<void> saveResults() async {
     if (saving || !canEdit || !(formKey.currentState?.validate() ?? false)) return;
+    final old = observationFor(selectedDate);
     final biology = <String, double>{};
     try {
       for (final field in biologyFields) {
-        final value = parseBiology(controllers[field.key]!.text, field);
+        final raw = controllers[field.key]!.text.trim();
+        final previouslyStored = old?.biology[field.key];
+        // Ne pas réarrondir les anciennes mesures quand le champ est inchangé.
+        // Une saisie nouvelle est convertie dans l'unité canonique historique.
+        final value = previouslyStored != null &&
+            raw == field.displayStored(previouslyStored)
+            ? previouslyStored : parseBiology(raw, field);
         if (value != null) biology[field.key] = value;
       }
     } on FormatException catch (error) {
@@ -110,7 +118,6 @@ class _LabResultsPageState extends State<LabResultsPage> {
       return;
     }
 
-    final old = observationFor(selectedDate);
     final originalIndex = p.dailyObservations.indexWhere((item) =>
         item.date.year == selectedDate.year &&
         item.date.month == selectedDate.month &&
@@ -187,10 +194,10 @@ class _LabResultsPageState extends State<LabResultsPage> {
                       Text(p.name, style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 17)),
                       const SizedBox(height: 6),
-                      const Text('Un champ numérique pour chaque bilan, avec ses unités. '
-                        'Les résultats sont facultatifs et ne sont jamais inventés. '
-                        'Les scores utilisant ces résultats ne seront calculés '
-                        'que si les données nécessaires sont disponibles.',
+                      const Text('Un champ numérique par bilan dans les unités du laboratoire. '
+                        'Créatinine et bilirubine : saisie en mg/L ; conversion '
+                        'automatique pour les scores RCRI et ALBI. '
+                        'Les résultats manquants restent vides.',
                         style: TextStyle(fontSize: 12)),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
