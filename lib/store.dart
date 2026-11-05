@@ -31,7 +31,7 @@ class AppStore extends ChangeNotifier {
     return null;
   }
   /// Le rôle administrateur est attesté par le profil approuvé Supabase Auth.
-  bool get canManageTeam => activeLocalProfile?.isVisceraOwner == true;
+  bool get canManageTeam => activeLocalProfile?.isAdmin == true;
   final List<PatientCase> patients = [];
   final BlocClinicalRecordService _clinicalService = const BlocClinicalRecordService();
   final ManualAdmissionService _manualService = ManualAdmissionService();
