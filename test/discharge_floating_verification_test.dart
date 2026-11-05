@@ -53,7 +53,7 @@ void main() {
       home:PatientDetailPage(patient:patient),
     ));
     expect(find.byKey(const Key('declare-discharge-fab')),findsOneWidget);
-    expect(find.text('Observation clinique'),findsOneWidget);
+    expect(find.text('Observation quotidienne'),findsOneWidget);
 
     final redButton=tester.widget<FloatingActionButton>(
       find.byKey(const Key('declare-discharge-fab')));
@@ -128,7 +128,7 @@ void main() {
     final patient=dischargePatient(stage:CaseStage.preoperative);
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
     expect(find.byKey(const Key('declare-discharge-fab')),findsNothing);
-    expect(find.text('Observation clinique'),findsOneWidget);
+    expect(find.text('Observation quotidienne'),findsOneWidget);
   });
   testWidgets('Date d’admission : programme officiel prioritaire sur admittedAt',
       (tester) async {
