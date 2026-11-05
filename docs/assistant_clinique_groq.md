@@ -44,6 +44,42 @@ GROQ montre les **scores enregistrés et indices disponibles** en premier.
 Les hypothèses et options de prise en charge comportent chacune des liens
 vers les sources, suivies de la bibliographie consultable.
 
+## Scores enregistrés, scores recommandés et bilans ciblés
+
+Depuis la version 7 de l'Edge Function `viscera-clinical-assist` :
+
+- Les scores saisis par le médecin sont extraits de la synthèse qu'il a relue.
+  L'IA doit expliquer **valeur, interprétation, limites, éventuel changement
+  de surveillance ou de coordination** et source correspondante. Le serveur
+  élimine une valeur proposée par le modèle si elle ne correspond pas
+  exactement à une valeur enregistrée dans le texte transmis.
+- Si aucun score clinique formel n'est enregistré, GROQ peut suggérer les
+  scores adaptés à la phase du patient. Pour chacun, il précise le motif
+  clinique, les critères requis, les éventuels examens biologiques
+  réellement nécessaires et l'utilité attendue pour la prise en charge.
+- Les suggestions couvrent notamment ASA, CFS, NRS-2002, Caprini, RCRI,
+  ARISCAT (préopératoire) ; NEWS2 (surveillance) ; DULK/mDULK, ISREC et
+  Clavien-Dindo (postopératoire, dans leurs indications respectives).
+- Les indices biologiques mGPS, CAR, PNI, GNRI, ALBI peuvent être recensés
+  dans la synthèse, mais leur application pratique n'est jamais considérée
+  comme une recommandation universelle. Les scores sans références
+  spécifiques doivent signaler le manque d'étayage.
+- Pour les examens à discuter, la réponse doit indiquer *indication clinique,
+  moment/condition, score éventuel et conséquence possible*. Les bilans
+  manquants ne sont **jamais interprétés comme normaux** et les scores
+  incomplets ne sont **jamais calculés artificiellement**.
+- Le modèle ne doit pas recommander systématiquement CRP, PCT, lactate,
+  troponine ou bilan de coagulation sans contexte clinique.
+- Aucun traitement n'est prescrit ni aucune demande de bilan exécutée
+  automatiquement. Toute interprétation et conduite à tenir doivent être
+  vérifiées par l'équipe médicale.
+
+L'ensemble repose sur un catalogue documentaire daté, non sur une
+actualisation web en temps réel. Les références de définition de scores
+anciens (par exemple ISREC 2010 et Clavien-Dindo 2004) restent utiles à
+l'interprétation, **sans être présentées comme les recommandations de
+prise en charge les plus récentes**.
+
 ## Activation serveur
 
 1. Créer une clé API GROQ : https://console.groq.com/keys
