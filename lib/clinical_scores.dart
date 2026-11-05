@@ -367,11 +367,9 @@ class _ClinicalScoreFormState extends State<ClinicalScoreForm> {
       autoSources['hb']=hbSample.day.toIso8601String();
     }
     if(creatinineSample!=null && !answers.containsKey('creatinine')){
-      // Les dossiers historiques stockent la créatinine en µmol/L.
-      // Le seuil du RCRI est strictement > 20 mg/L (> 2 mg/dL).
-      final mgL = biologyFields.firstWhere((f)=>f.key=='creatinine')
-        .fromCanonical(creatinineSample.value);
-      computedInputs['creatinine']=mgL>20?'1':'0';
+      // Unité de saisie : mg/L ; stockage historique : µmol/L.
+      computedInputs['creatinine']=
+        rcriCreatinineRisk(creatinineSample.value)?'1':'0';
       autoSources['creatinine']=creatinineSample.day.toIso8601String();
     }
     if(widget.spec.id=='mdulk') {
