@@ -250,12 +250,39 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             label:const Text('Scores cliniques et bilans biologiques'),
           )),
           const SizedBox(height:8),
-          SizedBox(width:double.infinity,child:OutlinedButton.icon(
+          SizedBox(width:double.infinity,child:FilledButton(
             key:const Key('open-clinical-ai'),
             onPressed:()=>Navigator.push(context,MaterialPageRoute(
               builder:(_)=>ClinicalAiPage(patient:p))),
-            icon:const Icon(Icons.psychology_alt_outlined),
-            label:const Text('Assistant clinique GROQ · hypothèses'),
+            style:FilledButton.styleFrom(
+              backgroundColor:const Color(0xFF0E5260),
+              foregroundColor:Colors.white,
+              padding:const EdgeInsets.symmetric(horizontal:16,vertical:17),
+              shape:RoundedRectangleBorder(
+                borderRadius:BorderRadius.circular(16))),
+            child:Row(children:[
+              Container(
+                width:43,height:43,
+                decoration:BoxDecoration(
+                  color:const Color(0xFF247A82),
+                  borderRadius:BorderRadius.circular(13)),
+                child:const Icon(Icons.psychology_alt_rounded,size:25,
+                  color:Colors.white)),
+              const SizedBox(width:13),
+              const Expanded(child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text('Assistant clinique',
+                    style:TextStyle(fontSize:16,
+                      fontWeight:FontWeight.w900,color:Colors.white)),
+                  SizedBox(height:4),
+                  Text('Hypothèses · Scores · Sources médicales',
+                    style:TextStyle(fontSize:11.5,
+                      color:Color(0xFFD7F3F2))),
+                ],
+              )),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                size:17,color:Colors.white),
+            ]),
           )),
           if(p.physicallyAdmitted && p.stage!=CaseStage.inTheatre &&
               !p.isOmitted)...[
