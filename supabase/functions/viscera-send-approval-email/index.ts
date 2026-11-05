@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
   try {
     // Vérification du JWT côté serveur ET de l'approbation admin en base.
     const { data: auth, error: authError } = await admin.auth.getUser(token);
-    if (authError || !auth.user || auth.user.id !== OWNER_ID) {
+    if (authError || !auth.user) {
       return reply({ error: "forbidden" }, 403);
     }
     const { data: owner, error: ownerError } = await admin.from("doctor_profiles")
@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
     }
     const body = await req.json().catch(() => ({}));
     const targetId = (body as {target_id?: unknown}).target_id;
-    if (!isUuid(targetId) || targetId === OWNER_ID) {
+    if (!isUuid(targetId) || targetId === OWNER_ID || targetId === auth.user.id) {
       return reply({ error: "invalid_target" }, 400);
     }
     const { data: target, error: targetError } = await admin.from("doctor_profiles")
