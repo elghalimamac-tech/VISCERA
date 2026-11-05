@@ -351,52 +351,98 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 tooltip:'Modifier le dossier clinique',
                 icon:const Icon(Icons.edit_outlined,size:20)),
             ])),
-          VCard(child:Column(
-            crossAxisAlignment:CrossAxisAlignment.start,children:[
-            Row(children:[
-              const Icon(Icons.monitor_heart_outlined,color:VColors.ink,size:22),
-              const SizedBox(width:10),
-              Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
-                children:[
-                Text(p.dailyObservations.length.toString() +
-                  ' observation(s) clinique(s)',
-                  style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
-                const SizedBox(height:3),
-                Text(p.dailyObservations.isEmpty
-                    ? 'Aucune observation enregistrée'
-                    : 'Dernière : ' + _date(p.dailyObservations.first.date),
-                  style:const TextStyle(fontSize:11.5,color:VColors.muted)),
-              ])),
-              IconButton(
-                key:const Key('patient-clinical-history'),
-                onPressed:_openObservations,
-                tooltip:'Voir les observations et leur historique',
-                icon:const Icon(Icons.history_rounded,color:VColors.ink)),
-            ]),
-            if(p.dailyObservations.any((observation)=>!observation.fullyReported))...[
-              const SizedBox(height:6),
-              Text(p.dailyObservations.where((o)=>!o.fullyReported)
-                  .length.toString() + ' observation(s) à reporter dans Magica/Sillage',
-                style:const TextStyle(fontSize:11,color:VColors.muted)),
-            ],
-            const Divider(height:24,color:VColors.line),
-            _clinical('Motif de prise en charge',p.motive),
-            ExpansionTile(
-              key:const Key('patient-clinical-details'),
-              initiallyExpanded:false,
-              tilePadding:EdgeInsets.zero,
-              childrenPadding:const EdgeInsets.only(top:10),
-              title:const Text('Interrogatoire, examen et bilans',
-                style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:VColors.ink)),
-              children:[
-                _clinical('Interrogatoire',p.history),
-                _clinical('Examen clinique',p.exam),
-                _clinical('Examens complémentaires',p.investigations),
-                _clinical('Bilans',p.labs),
-                _clinical('Conduite à tenir immédiate',p.immediatePlan),
+          VCard(child:ExpansionTile(
+            key:const Key('patient-admission-observation'),
+            initiallyExpanded:false,
+            tilePadding:EdgeInsets.zero,
+            childrenPadding:const EdgeInsets.only(bottom:12),
+            title:const Text('Observation clinique à l’admission',
+              style:TextStyle(fontSize:14,fontWeight:FontWeight.w800,
+                color:VColors.ink)),
+            subtitle:Text(p.hospitalizationStartDate==null
+              ? 'Données initiales de prise en charge'
+              : 'Entrée · '+_date(p.hospitalizationStartDate!),
+              style:const TextStyle(fontSize:12,color:VColors.muted)),
+            children:[
+              _clinical('Motif d’admission',p.motive),
+              _clinical('Interrogatoire',p.history),
+              _clinical('Examen clinique initial',p.exam),
+              _clinical('Examens complémentaires initiaux',p.investigations),
+              _clinical('Bilans à l’admission',p.labs),
+              _clinical('Conduite à tenir initiale',p.immediatePlan),
+              if(admissionObservationFor(p)!=null)...[
+                const Divider(height:22),
+                const Text('Observation datée du jour d’entrée',
+                  style:TextStyle(fontWeight:FontWeight.w800,
+                    fontSize:12,color:VColors.ink)),
+                const SizedBox(height:8),
+                DailyObservationCard(patient:p,
+                  observation:admissionObservationFor(p)!,
+                  isAdmission:true),
               ],
-            ),
-          ])),
+              if(p.isActive || p.isProgrammed)
+                TextButton.icon(
+                  onPressed:_editClinical,
+                  icon:const Icon(Icons.edit_note_outlined),
+                  label:const Text('Modifier l’observation d’admission')),
+            ],
+          )),
+          const SizedBox(height:10),
+          VCard(child:ExpansionTile(
+            key:const Key('patient-daily-observations'),
+            initiallyExpanded:true,
+            tilePadding:EdgeInsets.zero,
+            childrenPadding:const EdgeInsets.only(bottom:12),
+            title:Text('Observations cliniques actuelles · '+
+              currentObservationsFor(p).length.toString(),
+              style:const TextStyle(fontSize:14,fontWeight:FontWeight.w800,
+                color:VColors.ink)),
+            subtitle:Text(currentObservationsFor(p).isEmpty
+                ? 'Aucune observation quotidienne depuis l’admission'
+                : 'Dernière : '+_date(currentObservationsFor(p).first.date)+
+                  ' · Suivi quotidien affiché dans le dossier',
+                style:const TextStyle(fontSize:12,color:VColors.muted)),
+            children:[
+              if(currentObservationsFor(p).isEmpty)
+                const Padding(
+                  padding:EdgeInsets.symmetric(vertical:10),
+                  child:Text('Les observations quotidiennes apparaîtront '
+                    'ici, par date, après leur enregistrement.',
+                    style:TextStyle(fontSize:12,color:VColors.muted))),
+              for(final note in currentObservationsFor(p))
+                Padding(
+                  padding:const EdgeInsets.only(bottom:10),
+                  child:DailyObservationCard(patient:p,observation:note)),
+              if(p.dailyObservations.any((note)=>!note.fullyReported))
+                Padding(
+                  padding:const EdgeInsets.only(bottom:8),
+                  child:Text(
+                    p.dailyObservations.where((note)=>!note.fullyReported)
+                    .length.toString()+
+                    ' observation(s) à reporter dans Magica/Sillage',
+                    style:const TextStyle(fontSize:11,color:VColors.muted))),
+              Wrap(spacing:8,runSpacing:8,children:[
+                if(p.isActive || p.isProgrammed)
+                  OutlinedButton.icon(
+                    key:const Key('patient-add-daily-observation'),
+                    onPressed:()=>showClinicalObservationEditor(context,p),
+                    icon:const Icon(Icons.add_circle_outline),
+                    label:const Text('Ajouter une observation')),
+                if(p.isActive || p.isProgrammed)
+                  OutlinedButton.icon(
+                    key:const Key('patient-daily-biology-form'),
+                    onPressed:()=>Navigator.push(context,
+                      MaterialPageRoute(builder:(_)=>LabResultsPage(patient:p))),
+                    icon:const Icon(Icons.biotech_outlined),
+                    label:const Text('Remplir les bilans')),
+                IconButton(
+                  key:const Key('patient-clinical-history'),
+                  onPressed:_openObservations,
+                  tooltip:'Ouvrir tout le suivi des observations',
+                  icon:const Icon(Icons.history_rounded,color:VColors.ink)),
+              ]),
+            ],
+          )),
           if(p.stage!=CaseStage.scheduled && p.stage!=CaseStage.notAdmitted)...[
             const SizedBox(height:12),
             SpecialistOpinionsCard(
