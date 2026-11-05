@@ -23,7 +23,7 @@ void main() {
     expect(store.juniors.any((x) => x.name == 'Junior non autorisé'), isFalse);
   });
 
-  test('Seul le propriétaire approuvé peut ajouter un membre', () {
+  test('Les administrateurs approuvés peuvent ajouter un membre', () {
     final store = AppStore();
     store.activateAuthenticatedDoctor(
       id: '4fa3bd1b-6ee1-4b87-97eb-d18527025bc6',
@@ -37,5 +37,11 @@ void main() {
     expect(store.addSenior('Dr Nouveau'), isTrue);
     expect(store.addJunior('Dr Junior Nouveau'), isTrue);
     expect(store.addJunior('Dr Junior Nouveau'), isFalse);
+    store.activateAuthenticatedDoctor(
+      id: '00000000-0000-4000-8000-000000000012',
+      name: 'Dr Admin délégué', email: 'delegue@example.org',
+      role: 'senior', isAdmin: true,
+    );
+    expect(store.canManageTeam, isTrue);
   });
 }
