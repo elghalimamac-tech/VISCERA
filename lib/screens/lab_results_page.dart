@@ -257,7 +257,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                 label: Text(saving ? 'Enregistrement…' : 'Enregistrer les bilans'),
               ),
               const SizedBox(height: 12),
-              const Text('Saisie exclusivement à partir de résultats vérifiés. 
+              const Text('Saisie exclusivement à partir de résultats vérifiés. '
                 'Une modification des bilans réinitialise les cases de report '
                 'Magica/Sillage de cette observation.',
                 style: TextStyle(fontSize: 11, color: VColors.muted)),
