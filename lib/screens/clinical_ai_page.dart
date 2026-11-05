@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../biological_followup.dart';
+import '../clinical_score_specs.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../branding.dart';
 import '../clinical_ai_summary.dart';
@@ -20,6 +24,9 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
   bool loading = false;
   Map<String,dynamic>? response;
   String? errorMessage;
+  List<Map<String,dynamic>> references = [];
+  String? bibliographyDate;
+  String? sourceWarning;
 
   @override
   void initState() {
@@ -31,6 +38,7 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
         setState(() {
           reviewed = false;
           response = null;
+          references = [];
         });
       }
     });
@@ -50,6 +58,7 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
       loading = true;
       response = null;
       errorMessage = null;
+      references = [];
     });
     try {
       final result = await Supabase.instance.client.functions.invoke(
@@ -66,20 +75,61 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
       if (mounted) {
         setState(() {
           response = Map<String,dynamic>.from(body['result'] as Map);
+          references = body['reference_catalog'] is List
+            ? (body['reference_catalog'] as List)
+                .whereType<Map>()
+                .map((v)=>Map<String,dynamic>.from(v)).toList()
+            : [];
+          bibliographyDate=body['bibliography_reviewed_at']?.toString();
+          sourceWarning=body['warning']?.toString();
         });
       }
     } catch (error) {
       if (mounted) {
-        final info = error.toString();
+        Map<String,dynamic> details={};
+        if (error is FunctionException) {
+          final raw=error.details;
+          if(raw is Map) details=Map<String,dynamic>.from(raw);
+          if(raw is String) {
+            try {
+              final parsed=jsonDecode(raw);
+              if(parsed is Map) details=Map<String,dynamic>.from(parsed);
+            } catch (_) {}
+          }
+        }
+        final code=details['error']?.toString()??'';
+        final status=details['provider_http_status']?.toString()??'—';
         setState(() {
-          errorMessage = info.contains('groq_key_not_configured')
-            ? 'GROQ_API_KEY n’est pas configurée dans les secrets Supabase. '
-              'Aucune information clinique n’a été envoyée à GROQ.'
-            : info.contains('possible_identifier_detected')
-            ? 'Un identifiant possible a été repéré dans la synthèse. '
-              'Corrigez le texte avant de réessayer.'
-            : 'Analyse indisponible. Vérifiez la connexion, les autorisations '
-              'du médecin et la configuration serveur GROQ.';
+          errorMessage=switch(code) {
+            'groq_key_not_configured' =>
+              'Clé GROQ_API_KEY manquante dans les secrets Supabase.',
+            'groq_invalid_api_key' =>
+              'GROQ a refusé la clé API (401).',
+            'groq_access_denied' =>
+              'Accès GROQ ou modèle refusé (403).',
+            'groq_model_unavailable' =>
+              'Modèle GROQ indisponible (404).',
+            'groq_request_rejected' =>
+              'Requête GROQ rejetée (HTTP $status) : vérifier les paramètres JSON.',
+            'groq_rate_limited' =>
+              'Quota ou limite GROQ atteinte (429).',
+            'groq_service_unavailable' =>
+              'Service GROQ indisponible (HTTP $status).',
+            'groq_timeout' => 'Délai GROQ dépassé.',
+            'groq_network_failure' => 'Connexion Supabase–GROQ impossible.',
+            'groq_invalid_response' || 'invalid_ai_response' =>
+              'Réponse GROQ non conforme : aucun résultat affiché.',
+            'possible_identifier_detected' =>
+              'Donnée identifiante détectée dans le texte.',
+            'exact_age_detected' =>
+              'Utilisez une tranche d’âge et non l’âge exact.',
+            'doctor_approval_required' =>
+              'Seuls les médecins approuvés peuvent utiliser cet outil.',
+            'unauthorized' =>
+              'Session non valide. Reconnectez-vous.',
+            _ => 'Analyse indisponible : consultez les logs de la fonction '
+              'viscera-clinical-assist.',
+          };
         });
       }
     } finally {
@@ -140,6 +190,154 @@ class _ClinicalAiPageState extends State<ClinicalAiPage> {
             ]),
           ),
       ])));
+
+
+  Map<String,dynamic>? _reference(String id) {
+    for(final ref in references) {
+      if(ref['id']==id) return ref;
+    }
+    return null;
+  }
+
+  Future<void> _openReference(Map<String,dynamic> ref) async {
+    final uri=Uri.tryParse((ref['url']??'').toString());
+    if(uri==null || uri.scheme!='https') return;
+    try {
+      await launchUrl(uri,mode:LaunchMode.externalApplication);
+    } catch (_) {
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Impossible d’ouvrir cette référence médicale.')));
+    }
+  }
+
+  Widget _citations(dynamic input) {
+    final ids=input is List ? input.whereType<String>().toSet() : <String>{};
+    return Padding(
+      padding:const EdgeInsets.only(top:8),
+      child:Wrap(spacing:5,runSpacing:4,children:[
+        for(final id in ids)
+          if(_reference(id)!=null)
+            ActionChip(
+              key:ValueKey('ai-citation-'+id),
+              backgroundColor:VColors.softMint,
+              visualDensity:VisualDensity.compact,
+              avatar:const Icon(Icons.menu_book_outlined,size:15),
+              label:Text(id+' · '+_reference(id)!['year'].toString(),
+                style:const TextStyle(fontSize:11)),
+              onPressed:()=>_openReference(_reference(id)!),
+            ),
+        if(ids.isEmpty)const Text('Référence absente : à vérifier.',
+          style:TextStyle(fontSize:11,color:VColors.muted)),
+      ]),
+    );
+  }
+
+  Widget _scoreDashboard() {
+    final p=widget.patient;
+    final values=<MapEntry<String,String>>[];
+    if(p.cfsScore!=null)values.add(MapEntry('CFS',p.cfsScore.toString()));
+    if(p.asaClass.trim().isNotEmpty)values.add(MapEntry('ASA',p.asaClass));
+    for(final record in p.clinicalScores.entries){
+      final data=record.value;
+      if(data is! Map || data['value']==null)continue;
+      final name=clinicalScoreSpecs
+        .where((item)=>item.id==record.key)
+        .map((item)=>item.title.split(' · ').first)
+        .firstOrNull ?? record.key.toUpperCase();
+      values.add(MapEntry(name,data['value'].toString()));
+    }
+    for(final idx in BioIndices.compute(p)){
+      values.add(MapEntry(idx.name,idx.value));
+    }
+    return Card(
+      key:const Key('clinical-ai-score-dashboard'),
+      color:Colors.white,elevation:0,
+      child:Padding(padding:const EdgeInsets.all(16),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Row(children:[
+            Icon(Icons.monitor_heart_outlined,color:VColors.ink),
+            SizedBox(width:8),
+            Expanded(child:Text('Scores et indices cliniques',
+              style:TextStyle(fontSize:16,fontWeight:FontWeight.w800))),
+          ]),
+          const SizedBox(height:5),
+          const Text('Données enregistrées dans le dossier ; aucun '
+            'score manquant n’est inventé.',
+            style:TextStyle(fontSize:11,color:VColors.muted)),
+          const SizedBox(height:13),
+          if(values.isEmpty)
+            const Text('Aucun score renseigné pour ce dossier.')
+          else Wrap(spacing:9,runSpacing:9,children:[
+            for(final entry in values)
+              Container(
+                key:ValueKey('ai-score-'+entry.key),
+                padding:const EdgeInsets.symmetric(
+                  horizontal:13,vertical:10),
+                decoration:BoxDecoration(
+                  color:VColors.blueSoft,
+                  border:Border.all(color:VColors.line),
+                  borderRadius:BorderRadius.circular(12)),
+                child:Column(mainAxisSize:MainAxisSize.min,
+                  crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text(entry.key,style:const TextStyle(fontSize:11,
+                    color:VColors.ink,fontWeight:FontWeight.w600)),
+                  const SizedBox(height:4),
+                  Text(entry.value,style:const TextStyle(
+                    fontSize:19,color:VColors.ink,
+                    fontWeight:FontWeight.w900)),
+                ]),
+              ),
+          ]),
+          const SizedBox(height:8),
+          const Text('Vérifier la date, les critères et la phase '
+            'clinique avant d’interpréter un score.',
+            style:TextStyle(fontSize:11,color:VColors.muted)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _bibliographyCard() => Card(
+    key:const Key('clinical-ai-sources'),
+    color:Colors.white,elevation:0,
+    child:Padding(padding:const EdgeInsets.all(16),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Row(children:[
+          Icon(Icons.library_books_outlined,color:VColors.ink),
+          SizedBox(width:8),
+          Expanded(child:Text('Sources et recommandations',
+            style:TextStyle(fontSize:16,fontWeight:FontWeight.w800))),
+        ]),
+        const SizedBox(height:7),
+        Text('Catalogue documentaire vérifié le '
+          +(bibliographyDate??'date inconnue')
+          +' · pas de recherche web en temps réel.',
+          style:const TextStyle(fontSize:12,color:VColors.muted)),
+        const SizedBox(height:12),
+        if(references.isEmpty)
+          const Text('Aucune référence fournie. Les propositions '
+            'ne peuvent pas être considérées comme étayées.'),
+        for(final ref in references)
+          ListTile(
+            key:ValueKey('ai-source-'+ref['id'].toString()),
+            dense:true,
+            contentPadding:EdgeInsets.zero,
+            leading:const Icon(Icons.open_in_new,color:VColors.ink),
+            title:Text(ref['organization'].toString()+' · '+
+              ref['year'].toString(),
+              style:const TextStyle(fontWeight:FontWeight.w800,fontSize:12)),
+            subtitle:Text(ref['title'].toString(),
+              style:const TextStyle(fontSize:12)),
+            onTap:()=>_openReference(ref),
+          ),
+        if(sourceWarning!=null)Padding(
+          padding:const EdgeInsets.only(top:8),
+          child:Text(sourceWarning!,
+            style:const TextStyle(fontSize:11,color:VColors.muted))),
+      ]),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
