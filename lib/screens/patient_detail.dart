@@ -532,8 +532,10 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
               patient:p,readOnly:p.stage==CaseStage.discharged),
           ],
           const SizedBox(height:14),
-          SectionHeading('Suivi biologique · CRP'),
+          SectionHeading('Suivi biologique · CRP et procalcitonine'),
           CrpTrendCard(patient:p,compact:true),
+          const SizedBox(height:10),
+          PctTrendCard(patient:p,compact:true),
           const SizedBox(height:12),
           SectionHeading('Documents et vérifications'),
           VCard(child:ExpansionTile(
