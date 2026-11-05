@@ -64,7 +64,7 @@ Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response(null, { headers: cors });
   if (request.method !== "POST") return reply({ error: "method_not_allowed" }, 405);
   const auth = request.headers.get("authorization") || "";
-  const token = auth.match(/^Bearer\\s+([^\\s]+)$/i)?.[1];
+  const token = auth.match(/^Bearer\s+([^\s]+)$/i)?.[1];
   if (!token) return reply({ error: "unauthorized" }, 401);
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -95,11 +95,11 @@ Deno.serve(async (request: Request) => {
   }
   // Ces vérifications ne remplacent PAS la relecture manuelle.
   const identifyingPatterns = [
-    /[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}/i, // e-mail
-    /\\b(?:\\+?212|0)[5-7][0-9 .-]{8,13}\\b/, // téléphone marocain
-    /\\b(?:19|20)\\d{2}[-/]\\d{2}[-/]\\d{2}\\b/, // date ISO
-    /\\b\\d{2}[-/]\\d{2}[-/]\\d{4}\\b/, // date
-    /\\b(?:CIN|CNIE|passeport|identifiant patient|numero dossier|numéro dossier)\\s*[:#]\\s*\\S+/i,
+    /[\w.+-]+@[\w.-]+\.[a-z]{2,}/i, // e-mail
+    /\b(?:\+?212|0)[5-7][0-9 .-]{8,13}\b/, // téléphone marocain
+    /\b(?:19|20)\d{2}[-/]\d{2}[-/]\d{2}\b/, // date ISO
+    /\b\d{2}[-/]\d{2}[-/]\d{4}\b/, // date
+    /\b(?:CIN|CNIE|passeport|identifiant patient|numero dossier|numéro dossier)\s*[:#]\s*\S+/i,
   ];
   if (identifyingPatterns.some((pattern) => pattern.test(summary)))
     return reply({ error: "possible_identifier_detected" }, 400);
@@ -125,7 +125,7 @@ Deno.serve(async (request: Request) => {
         stream: false,
         messages: [
           { role: "system", content: system },
-          { role: "user", content: "Synthèse clinique désidentifiée, validée pour transmission externe :\\n" + summary },
+          { role: "user", content: "Synthèse clinique désidentifiée, validée pour transmission externe :\n" + summary },
         ],
         response_format: {
           type: "json_schema",
