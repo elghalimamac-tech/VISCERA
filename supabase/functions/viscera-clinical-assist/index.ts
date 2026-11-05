@@ -44,7 +44,7 @@ const guidelineCatalog = [
     scope: "Évaluation et prise en charge nutritionnelle périopératoire" },
   { id: "AHRQ_CAPRINI", organization: "AHRQ",
     title: "Preventing Hospital-Associated VTE — Caprini risk assessment",
-    year: 2024, url: "https://www.ahrq.gov/patient-safety/settings/hospital/vtguide/guide4.html",
+    year: "date non précisée", url: "https://www.ahrq.gov/patient-safety/settings/hospital/vtguide/guide4.html",
     scope: "Stratification du risque thromboembolique en chirurgie" },
   { id: "ESC_NCS2022", organization: "ESC",
     title: "Cardiovascular Assessment and Management in Non-Cardiac Surgery",
@@ -62,6 +62,18 @@ const guidelineCatalog = [
     title: "ALBI Grade — Original Validation in Liver Disease",
     year: 2015, url: "https://pubmed.ncbi.nlm.nih.gov/25512453/",
     scope: "Index albumine-bilirubine et limites du contexte hépatique" },
+  { id: "MDULK_VALIDATION2015", organization: "J Visceral Surgery",
+    title: "Validation of DULK Score for Anastomotic Leak — Observational Study",
+    year: 2015, url: "https://pubmed.ncbi.nlm.nih.gov/25577712/",
+    scope: "Validation ponctuelle DULK ; performances variables, pas de décision isolée" },
+  { id: "ISREC2010", organization: "International Study Group of Rectal Cancer",
+    title: "Definition and Grading of Rectal Anastomotic Leakage",
+    year: 2010, url: "https://pubmed.ncbi.nlm.nih.gov/20004450/",
+    scope: "Classification des fuites rectales A/B/C selon le traitement réellement requis" },
+  { id: "CLAVIEN2004", organization: "Dindo / Clavien",
+    title: "Classification of Surgical Complications",
+    year: 2004, url: "https://pubmed.ncbi.nlm.nih.gov/15273542/",
+    scope: "Classification postopératoire des complications selon le traitement" },
   { id: "NEWS2_RCP", organization: "Royal College of Physicians",
     title: "National Early Warning Score 2 (NEWS2)",
     year: 2017, url: "https://rcp.ac.uk/resources/national-early-warning-score-news-2/",
@@ -109,13 +121,13 @@ const scoreCatalog = [
     inputs:"FR, SpO2 et échelle O2 adaptée, oxygénothérapie, PAS, pouls, température, conscience",
     labs:"Aucun bilan sanguin requis pour calculer NEWS2" },
   {id:"mdulk",name:"mDULK",period:"postop",
-    sources:["IDSA2024","WSES_PCT2026"],
+    sources:["MDULK_VALIDATION2015"],
     inputs:"Signes évocateurs de complication anastomotique, examen clinique, paramètres hémodynamiques",
     labs:"CRP postopératoire datée selon la version du score utilisée ; vérifier la validation clinique" },
-  {id:"isrec",name:"ISREC",period:"postop",sources:["SIS2024"],
+  {id:"isrec",name:"ISREC",period:"postop",sources:["ISREC2010"],
     inputs:"Fuite anastomotique documentée et conséquences thérapeutiques",
     labs:"Examens et imagerie seulement si indication clinique ; ce n'est pas un score de dépistage" },
-  {id:"clavien",name:"Clavien-Dindo",period:"postop",sources:["SIS2024"],
+  {id:"clavien",name:"Clavien-Dindo",period:"postop",sources:["CLAVIEN2004"],
     inputs:"Complication documentée, traitements nécessaires et retentissement",
     labs:"Aucun panel obligatoire ; classement rétrospectif de la gravité des complications" },
   {id:"mgps",name:"mGPS",period:"hospitalisation",sources:[],
@@ -266,6 +278,11 @@ Les évaluations NEWS2 sont fondées sur des constantes, pas sur un bilan
 sanguin. Le score ISREC classe une fuite établie, il ne la diagnostique pas.
 Les propositions ne constituent pas une ordonnance.
 Les scores autorisés et leurs domaines sont fournis en catalogue.
+Pour mDULK/DULK, performances et version du score incertaines ;
+ne pas donner un seuil comme universel ni le substituer à l'examen.
+Pour ISREC, classification de fuite rectale prouvée, pas diagnostic.
+Pour Clavien-Dindo, classement de complications après prise en charge,
+pas un outil permettant d'anticiper seul un traitement.
 Chaque recommandation doit comporter des références pertinentes
 du catalogue source, sans fabriquer de recommandations spécifiquement
 étayées par des documents traitant d'autres sujets.
@@ -353,7 +370,9 @@ Deno.serve(async (request: Request) => {
     if(!item || enteredScores.has(id)) return false;
     if(isPostop && item.period==="preop") return false;
     if(isPreop && item.period==="postop") return false;
-    if((id==="mdulk" || id==="isrec") && !colorectalContext) return false;
+    if(id==="mdulk" && !colorectalContext) return false;
+    if(id==="isrec" && !/rect|bas rectum|rectosigmo/i.test(summary))
+      return false;
     return true;
   };
   const availableScoreList=[...enteredScores]
