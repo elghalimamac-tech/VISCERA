@@ -52,16 +52,12 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
 
     final edit=find.byKey(const Key('edit-surgery-details'));
-    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
-    // puis le remonter au-dessus de la zone des actions flottantes.
-    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
+    // Le défilement programmatique évite l'interception par les FAB.
+    await tester.scrollUntilVisible(edit, 250,
+      scrollable:find.byType(Scrollable).first);
     expect(edit, findsOneWidget);
-    // Durée nulle : ne pas attendre une animation qui nécessite les
-    // frames du testeur (blocage si await avant pumpAndSettle).
-    await tester.ensureVisible(edit);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment:0.40,duration:Duration.zero);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
@@ -138,16 +134,11 @@ void main() {
       ),
     ));
     final edit=find.text('Unité / box');
-    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
-    // puis le remonter au-dessus de la zone des actions flottantes.
-    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
+    await tester.scrollUntilVisible(edit, 250,
+      scrollable:find.byType(Scrollable).first);
     expect(edit, findsOneWidget);
-    // Durée nulle : ne pas attendre une animation qui nécessite les
-    // frames du testeur (blocage si await avant pumpAndSettle).
-    await tester.ensureVisible(edit);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment:0.40,duration:Duration.zero);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
