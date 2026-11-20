@@ -63,7 +63,10 @@ void main() {
     await tester.tap(find.byKey(const Key('declare-discharge-fab')));
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
-    expect(find.text('Rédiger les brouillons de sortie'),findsOneWidget);
+    final draftButton=find.text('Rédiger les brouillons de sortie');
+    await tester.scrollUntilVisible(draftButton, 250,
+      scrollable:find.byType(Scrollable).last);
+    expect(draftButton,findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
     expect(find.text('DATE D’ADMISSION'),findsOneWidget);
     expect(find.byKey(const Key('discharge-admission-date')),findsOneWidget);
@@ -91,7 +94,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:DischargePage(patient:patient)));
     await tester.pumpAndSettle();
     expect(find.text('Brouillons de sortie'),findsOneWidget);
-    expect(find.byKey(const Key('save-discharge-drafts')),findsOneWidget);
+    final save=find.byKey(const Key('save-discharge-drafts'));
+    await tester.scrollUntilVisible(save, 250,
+      scrollable:find.byType(Scrollable).first);
+    expect(save,findsOneWidget);
     expect(find.text('Checklist documentaire de sortie'),findsNothing);
     expect(find.text('Valider la sortie et libérer le box'),findsNothing);
     expect(find.text('Déclarer la sortie et libérer le box'),findsNothing);
