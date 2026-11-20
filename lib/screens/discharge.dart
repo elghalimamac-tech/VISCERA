@@ -2,6 +2,7 @@ import '../branding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models.dart';
+import '../document_checklist.dart'; // AdmissionDateHighlight
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
