@@ -68,6 +68,8 @@ void main(){
     expect(p.stage,CaseStage.preoperative);
     ProgramAdmission.apply(p,DateTime(2026,11,2,15));
     expect(p.stage,CaseStage.postoperative);
+    expect(p.isPostOp,isTrue);
+    expect(p.canConfirmTheatreEntry,isFalse);
   });
 
   test('Exclusion persistée : non admis ne revient pas au prochain import',(){
