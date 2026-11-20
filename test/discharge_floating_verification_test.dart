@@ -63,10 +63,6 @@ void main() {
     await tester.tap(find.byKey(const Key('declare-discharge-fab')));
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
-    final draftButton=find.text('Rédiger les brouillons de sortie');
-    await tester.scrollUntilVisible(draftButton, 250,
-      scrollable:find.byType(Scrollable).last);
-    expect(draftButton,findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
     expect(find.text('DATE D’ADMISSION'),findsOneWidget);
     expect(find.byKey(const Key('discharge-admission-date')),findsOneWidget);
@@ -86,6 +82,10 @@ void main() {
     expect(pending.onPressed,isNull);
     expect(patient.stage,CaseStage.postoperative);
     expect(patient.dischargeAt,isNull);
+    final draftButton=find.text('Rédiger les brouillons de sortie');
+    await tester.scrollUntilVisible(draftButton, 250,
+      scrollable:find.byType(Scrollable).last);
+    expect(draftButton,findsOneWidget);
   });
 
   testWidgets('Brouillons de sortie sans checklist ni double validation',
