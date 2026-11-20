@@ -59,7 +59,7 @@ avant toute diffusion aux équipes.
 
 ## Raccourci « Tous les documents vérifiés et cachetés »
 
-Le bouton de validation groupée est positionné **en bas de l'écran de préparation de sortie**, après la checklist et les consignes, **juste au-dessus** de « Valider la sortie et libérer le box ». Il figure aussi **dans le pied fixe de la fenêtre « Vérification avant sortie »**, sous la checklist défilante et au-dessus du bouton rouge de déclaration de sortie. Cette action exige une attestation
+Le bouton de validation groupée est présent **uniquement dans le pied fixe de la fenêtre « Vérification avant sortie »**, ouverte via le bouton flottant rouge « Déclarer la sortie » du dossier patient, sous la checklist et au-dessus de la confirmation finale. La page des brouillons (ordonnance, CRH, CRO) ne contient plus de checklist ni de validation de sortie. Cette action exige une attestation
 explicite du médecin après contrôle **réel** des documents et des cachets.
 
 - Valide d'un seul coup les documents obligatoires et les pièces facultatives
@@ -76,7 +76,7 @@ explicite du médecin après contrôle **réel** des documents et des cachets.
 
 ## Date d'admission dans les vérifications documentaires
 
-La fenêtre « Vérification avant sortie » et la page « Préparer la sortie »
+La fenêtre « Vérification avant sortie » et la page de brouillons de sortie
 mettent en évidence la **date d'admission de suivi** en grand format JJ/MM/AAAA.
 
 - Dossier issu du **programme opératoire** : date du programme où le patient
