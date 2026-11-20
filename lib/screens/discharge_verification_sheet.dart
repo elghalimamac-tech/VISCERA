@@ -188,9 +188,9 @@ class _DischargeVerificationSheetState extends State<DischargeVerificationSheet>
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.description_outlined),
-                      label: const Text('Ouvrir les documents de sortie'),
+                      label: const Text('Rédiger les brouillons de sortie'),
                       onPressed: _saving ? null :
-                        () => Navigator.pop(context, 'documents'),
+                        () => Navigator.pop(context, 'drafts'),
                     ),
                     const SizedBox(height: 8),
                     const Text('Aucun document n’est considéré comme signé '

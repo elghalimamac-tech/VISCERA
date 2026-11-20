@@ -58,7 +58,7 @@ void main(){
     expect(store.occupiedBoxes,0);
   });
 
-  test('Jour du bloc : statut préop tant que la fin du bloc n’est pas confirmée',(){
+  test('Jour du bloc : préop avant le créneau, postop après le créneau',(){
     final p=official(DateTime(2026,11,2,14));
     ProgramAdmission.apply(p,DateTime(2026,11,2,7));
     expect(p.stage,CaseStage.preoperative);
@@ -66,6 +66,10 @@ void main(){
     expect(p.beforeBox,isEmpty);
     expect(p.afterBox,isEmpty);
     expect(p.stage,CaseStage.preoperative);
+    ProgramAdmission.apply(p,DateTime(2026,11,2,15));
+    expect(p.stage,CaseStage.postoperative);
+    expect(p.isPostOp,isTrue);
+    expect(p.canConfirmTheatreEntry,isFalse);
   });
 
   test('Exclusion persistée : non admis ne revient pas au prochain import',(){
@@ -96,7 +100,7 @@ void main(){
     expect(p.isOmitted,isFalse);
     expect(p.motive,'Note fictive avant exclusion');
     expect(p.admittedAt,DateTime(2026,11,2));
-    expect(p.stage,CaseStage.preoperative);
+    expect(p.stage,CaseStage.postoperative);
   });
 
   test('Ancien dossier programmé devient automatiquement actif après rechargement',(){
@@ -106,8 +110,23 @@ void main(){
     ProgramAdmission.apply(next,DateTime(2026,11,2,13));
     BlocClinicalRecordService.apply(next,data,1);
     ProgramAdmission.apply(next,DateTime(2026,11,2,13));
-    expect(next.stage,CaseStage.preoperative);
+    expect(next.stage,CaseStage.postoperative);
     expect(next.isAutoAdmitted,isTrue);
+  });
+
+  test('Programme sans heure : postop à partir du lendemain seulement',(){
+    final p=official(DateTime(2026,11,2));
+    ProgramAdmission.apply(p,DateTime(2026,11,2,20));
+    expect(p.stage,CaseStage.preoperative);
+    ProgramAdmission.apply(p,DateTime(2026,11,3,7));
+    expect(p.stage,CaseStage.postoperative);
+  });
+
+  test('Le statut au bloc explicitement enregistré n’est pas écrasé',(){
+    final p=official(DateTime(2026,11,2,8));
+    p.stage=CaseStage.inTheatre;
+    ProgramAdmission.apply(p,DateTime(2026,11,2,17));
+    expect(p.stage,CaseStage.inTheatre);
   });
 
   test('Admission confirmée et sortie validée ne sont pas écrasées par projection',(){

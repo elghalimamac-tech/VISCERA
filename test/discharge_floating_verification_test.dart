@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:viscera/models.dart';
 import 'package:viscera/screens/patient_detail.dart';
+import 'package:viscera/screens/discharge.dart';
 
 PatientCase dischargePatient({CaseStage stage = CaseStage.postoperative,
     DateTime? admittedAt, DateTime? blockAt,
@@ -81,6 +82,30 @@ void main() {
     expect(pending.onPressed,isNull);
     expect(patient.stage,CaseStage.postoperative);
     expect(patient.dischargeAt,isNull);
+    final draftButton=find.text('Rédiger les brouillons de sortie');
+    await tester.scrollUntilVisible(draftButton, 250,
+      scrollable:find.byType(Scrollable).last);
+    expect(draftButton,findsOneWidget);
+  });
+
+  testWidgets('Brouillons de sortie sans checklist ni double validation',
+      (tester) async {
+    final patient=dischargePatient(stage: CaseStage.dischargeReady);
+    await tester.pumpWidget(MaterialApp(home:DischargePage(patient:patient)));
+    await tester.pumpAndSettle();
+    expect(find.text('Brouillons de sortie'),findsOneWidget);
+    final save=find.byKey(const Key('save-discharge-drafts'));
+    // Les éditeurs multiligne rendent la fin de la liste à la demande.
+    // Défilement direct : pas de geste intercepté par un champ de texte.
+    final scroll=tester.state<ScrollableState>(find.byType(Scrollable).first);
+    for(var i=0; i<6 && save.evaluate().isEmpty; i++){
+      scroll.position.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+    }
+    expect(save,findsOneWidget);
+    expect(find.text('Checklist documentaire de sortie'),findsNothing);
+    expect(find.text('Valider la sortie et libérer le box'),findsNothing);
+    expect(find.text('Déclarer la sortie et libérer le box'),findsNothing);
   });
 
   testWidgets('Les FAB ne masquent jamais le bouton non admis en bas du dossier',

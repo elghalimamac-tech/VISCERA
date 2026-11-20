@@ -18,6 +18,15 @@ PatientCase patientSample() => PatientCase(
   stage: CaseStage.postoperative,
 );
 
+Future<void> dismissDischargeReminder(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  final later=find.text('Plus tard');
+  if (later.evaluate().isNotEmpty) {
+    await tester.tap(later);
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   test('Correction clinique du type de chirurgie et de l’intervention conservée', () {
     final patient = patientSample();
@@ -50,18 +59,15 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final patient = patientSample();
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
+    await dismissDischargeReminder(tester);
 
     final edit=find.byKey(const Key('edit-surgery-details'));
-    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
-    // puis le remonter au-dessus de la zone des actions flottantes.
-    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
+    // Le défilement programmatique évite l'interception par les FAB.
+    await tester.scrollUntilVisible(edit, 250,
+      scrollable:find.byType(Scrollable).first);
     expect(edit, findsOneWidget);
-    // Durée nulle : ne pas attendre une animation qui nécessite les
-    // frames du testeur (blocage si await avant pumpAndSettle).
-    await tester.ensureVisible(edit);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment:0.40,duration:Duration.zero);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();
@@ -137,17 +143,13 @@ void main() {
         child: PatientDetailPage(patient:patient),
       ),
     ));
+    await dismissDischargeReminder(tester);
     final edit=find.text('Unité / box');
-    // Liste virtuelle : faire défiler pour matérialiser le bouton d'abord,
-    // puis le remonter au-dessus de la zone des actions flottantes.
-    for (var i = 0; i < 14 && edit.evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
+    await tester.scrollUntilVisible(edit, 250,
+      scrollable:find.byType(Scrollable).first);
     expect(edit, findsOneWidget);
-    // Durée nulle : ne pas attendre une animation qui nécessite les
-    // frames du testeur (blocage si await avant pumpAndSettle).
-    await tester.ensureVisible(edit);
+    await Scrollable.ensureVisible(tester.element(edit),
+      alignment:0.40,duration:Duration.zero);
     await tester.pumpAndSettle();
     await tester.tap(edit);
     await tester.pumpAndSettle();

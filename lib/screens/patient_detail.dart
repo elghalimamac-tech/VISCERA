@@ -88,7 +88,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
       builder: (context) => DischargeVerificationSheet(patient: p),
     );
     if (!mounted) return;
-    if (action == 'documents') {
+    if (action == 'drafts') {
       await Navigator.push(context,
         MaterialPageRoute(builder: (_) => DischargePage(patient: p)));
     } else if (action == 'confirmed') {
@@ -631,7 +631,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
             PostoperativeEventsCard(patient:p,
               readOnly:p.stage==CaseStage.discharged),
           ],
-          if(p.stage!=CaseStage.notAdmitted)...[
+          if(p.stage!=CaseStage.notAdmitted && p.stage!=CaseStage.dischargeReady) ...[
             SectionHeading('Actions de prise en charge'),
             _actions(),
           ],
@@ -731,7 +731,6 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
     ],
     if(p.stage==CaseStage.inTheatre)ElevatedButton.icon(onPressed:_finishTheatre,icon:const Icon(Icons.check_rounded),label:const Text('Fin du bloc → postopératoire')),
     if(p.stage==CaseStage.postoperative)ElevatedButton.icon(onPressed:()=>appStore.markForDischarge(p),icon:const Icon(Icons.assignment_turned_in_outlined),label:const Text('Préparer la sortie')),
-    if(p.stage==CaseStage.dischargeReady)ElevatedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p))),icon:const Icon(Icons.description_outlined),label:const Text('Documents et validation de sortie')),
     if(p.stage==CaseStage.discharged)OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>DischargePage(patient:p,readOnly:true))),icon:const Icon(Icons.file_open_outlined),label:const Text('Consulter les documents de sortie')),
   ]);
   Future<void> _editResponsible() async {

@@ -2,7 +2,7 @@ import '../branding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models.dart';
-import '../document_checklist.dart';
+import '../document_checklist.dart'; // AdmissionDateHighlight
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -15,7 +15,7 @@ class DischargePage extends StatefulWidget {
 }
 class _DischargePageState extends State<DischargePage> {
   late final TextEditingController prescription,stayReport,operationReport;
-  bool prescriptionChanged=false,clinicalValidated=false,farPrescriptionReady=false,saving=false;
+  bool saving=false;
   PatientCase get p=>widget.patient;
   @override void initState(){super.initState();
     prescription=TextEditingController(text:p.dischargePrescription.isNotEmpty?p.dischargePrescription:_prescriptionDraft(p));
@@ -24,59 +24,103 @@ class _DischargePageState extends State<DischargePage> {
   }
   @override void dispose(){for(final c in [prescription,stayReport,operationReport]){c.dispose();}super.dispose();}
 
-  @override Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:VisceraPageTitle(widget.readOnly?'Documents de sortie':'Préparer la sortie'),backgroundColor:VColors.background),
-    body:AnimatedBuilder(animation:appStore,builder:(context,_)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(20,14,20,35),children:[
-      VCard(color:VColors.ink,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('DOSSIER DE SORTIE',style:TextStyle(color:VColors.mint,fontSize:11,letterSpacing:1.6,fontWeight:FontWeight.w800)),const SizedBox(height:8),Text(p.name,style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w800)),const SizedBox(height:6),Text(p.effectiveProcedure,style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:14),AdmissionDateHighlight(patient:p)])),
-      if(p.isFar)...[const SizedBox(height:13),VCard(color:VColors.orangeSoft,child:Row(children:[const Icon(Icons.priority_high_rounded,color:Color(0xFFA45633)),const SizedBox(width:12),const Expanded(child:Text('Mutuelle FAR : préparer l’ordonnance sur le support FAR.',style:TextStyle(fontWeight:FontWeight.w700,fontSize:13)))]))],
-      SectionHeading('1. Ordonnance de sortie'),
-      if(!widget.readOnly)CheckboxListTile(contentPadding:EdgeInsets.zero,value:prescriptionChanged,onChanged:(v)=>setState(()=>prescriptionChanged=v??false),title:const Text('L’ordonnance doit être adaptée / modifiée ?',style:TextStyle(fontSize:13.5)),controlAffinity:ListTileControlAffinity.leading),
-      _editor(prescription,label:'Texte de l’ordonnance (brouillon)',lines:9,readOnly:widget.readOnly),_copyButton('Copier l’ordonnance',prescription),
-      SectionHeading('2. Compte rendu d’hospitalisation'),_editor(stayReport,label:'Compte rendu d’hospitalisation (brouillon)',lines:10,readOnly:widget.readOnly),_copyButton('Copier le compte rendu',stayReport),
-      SectionHeading('3. Compte rendu opératoire / rapport'),_editor(operationReport,label:'Compte rendu opératoire (brouillon)',lines:9,readOnly:widget.readOnly),_copyButton('Copier le rapport',operationReport),
-      VCard(color:VColors.softMint,child:const Text('Certificat médical : cochez « fait / vérifié » dans la checklist seulement s’il est nécessaire et contrôlez le cachet. Sinon, sélectionnez « Non applicable ». Aucun modèle n’est généré.',style:TextStyle(fontSize:12.5))),
-      SectionHeading('Checklist documentaire de sortie'),
-      AnimatedBuilder(animation:appStore,builder:(context,_)=>DocumentChecklist(patient:p,title:'Documents à remettre et cachets',requirements:ClinicalDocuments.discharge,readOnly:widget.readOnly)),
-      if(!widget.readOnly)...[
-        SectionHeading('Validation médicale'),
-        VCard(child:Column(children:[CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Évaluation clinique et documents relus, corrigés et validés par le médecin.',style:TextStyle(fontSize:12.8)),value:clinicalValidated,onChanged:(v)=>setState(()=>clinicalValidated=v??false)),if(p.isFar)CheckboxListTile(contentPadding:EdgeInsets.zero,controlAffinity:ListTileControlAffinity.leading,title:const Text('Ordonnance sur support FAR préparée.',style:TextStyle(fontSize:12.8)),value:farPrescriptionReady,onChanged:(v)=>setState(()=>farPrescriptionReady=v??false))])),
-        if(!p.allChecked(ClinicalDocuments.discharge))const Padding(padding:EdgeInsets.only(top:9),child:Text('Sortie bloquée : vérifiez tous les documents obligatoires et leurs cachets. Pour les pièces absentes ou non requises, utilisez « Non applicable » lorsque proposé.',style:TextStyle(color:Color(0xFFA45633),fontSize:12))),
-        const SizedBox(height:10),const Text('Les textes sont des brouillons. Aucun traitement médicamenteux n’est prescrit automatiquement. La validation ne remplace pas le dossier médical officiel.',style:TextStyle(color:VColors.muted,fontSize:11.5)),
-        const SizedBox(height:18),
-        // Action groupée placée au bas du parcours, avant la décision de sortie.
-        DischargeDocumentsBulkAction(patient:p,readOnly:saving),
-        const SizedBox(height:14),
-        SizedBox(width:double.infinity,child:ElevatedButton.icon(onPressed:(!saving&&p.canDeclareDischarge&&clinicalValidated&&(!p.isFar||farPrescriptionReady))?_confirm:null,icon:const Icon(Icons.check_circle_outline_rounded),label:const Text('Valider la sortie et libérer le box'))),
-      ]
-    ]))),
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: VisceraPageTitle(widget.readOnly
+        ? 'Documents de sortie archivés' : 'Brouillons de sortie'),
+      backgroundColor: VColors.background),
+    body: SafeArea(child: ListView(
+      padding: const EdgeInsets.fromLTRB(20,14,20,35),
+      children: [
+        VCard(color: VColors.ink,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
+            const Text('DOSSIER DE SORTIE',style: TextStyle(
+              color: VColors.mint,fontSize: 11,letterSpacing: 1.6,
+              fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(p.name,style: const TextStyle(color: Colors.white,
+              fontSize: 22,fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(p.effectiveProcedure,style: const TextStyle(
+              color: Colors.white70,fontSize: 12)),
+            const SizedBox(height: 14),
+            AdmissionDateHighlight(patient: p),
+          ])),
+        if (!widget.readOnly) ...[
+          const SizedBox(height: 12),
+          const VCard(color: VColors.softMint,
+            child: Text('Cette page sert uniquement à rédiger et enregistrer '
+              'les brouillons médicaux. La vérification des documents et '
+              'des cachets, puis la déclaration de sortie, s’effectuent '
+              'exclusivement avec le bouton rouge « Déclarer la sortie » '
+              'du dossier patient.',style: TextStyle(fontSize: 12.5))),
+        ],
+        if (p.isFar) ...[
+          const SizedBox(height: 13),
+          const VCard(color: VColors.orangeSoft,
+            child: Text('Mutuelle FAR : préparer l’ordonnance sur '
+              'le support FAR avant la vérification de sortie.')),
+        ],
+        SectionHeading('1. Ordonnance de sortie'),
+        _editor(prescription,label: 'Texte de l’ordonnance (brouillon)',
+          lines: 9,readOnly: widget.readOnly),
+        _copyButton('Copier l’ordonnance',prescription),
+        SectionHeading('2. Compte rendu d’hospitalisation'),
+        _editor(stayReport,label: 'Compte rendu d’hospitalisation (brouillon)',
+          lines: 10,readOnly: widget.readOnly),
+        _copyButton('Copier le compte rendu',stayReport),
+        SectionHeading('3. Compte rendu opératoire / rapport'),
+        _editor(operationReport,label: 'Compte rendu opératoire (brouillon)',
+          lines: 9,readOnly: widget.readOnly),
+        _copyButton('Copier le rapport',operationReport),
+        const SizedBox(height: 10),
+        const Text('Ces textes sont des brouillons à vérifier et signer '
+          'dans le dossier médical officiel. Ils ne valident aucune sortie.',
+          style: TextStyle(color: VColors.muted,fontSize: 11.5)),
+        if (!widget.readOnly) ...[
+          const SizedBox(height: 18),
+          SizedBox(width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('save-discharge-drafts'),
+              icon: saving
+                ? const SizedBox(height: 16,width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_outlined),
+              onPressed: saving ? null : _saveDrafts,
+              label: Text(saving
+                ? 'Enregistrement…' : 'Enregistrer les brouillons'),
+            )),
+        ],
+      ],
+    )),
   );
   Widget _editor(TextEditingController c,{required String label,required int lines,required bool readOnly})=>VoiceClinicalField(controller:c,label:label,maxLines:lines,readOnly:readOnly);
   Widget _copyButton(String label,TextEditingController c)=>Align(alignment:Alignment.centerRight,child:TextButton.icon(onPressed:()async{await Clipboard.setData(ClipboardData(text:c.text));if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Texte copié.')));},icon:const Icon(Icons.copy_outlined,size:15),label:Text(label)));
-  Future<void> _confirm() async{
-    final ok=await showConfirmation(context,title:'Confirmer la sortie',message:'Le dossier sera marqué « Sorti » et le box libéré dans le tableau du service. Avez-vous vérifié l’aptitude clinique à la sortie et les documents ?',action:'Valider la sortie');
-    if(!ok||!mounted)return;
-    setState(()=>saving=true);
+  Future<void> _saveDrafts() async {
+    if (widget.readOnly || saving) return;
+    final previousPrescription = p.dischargePrescription;
+    final previousReport = p.dischargeReport;
+    final previousOperation = p.operationReport;
+    setState(() => saving = true);
+    p.dischargePrescription = prescription.text;
+    p.dischargeReport = stayReport.text;
+    p.operationReport = operationReport.text;
     try {
-      final saved=await appStore.finalizeDischarge(p,
-        prescription:prescription.text,
-        report:stayReport.text,
-        operationReport:operationReport.text,
-        clinicalValidated:clinicalValidated,
-        farPrescriptionReady:farPrescriptionReady);
-      if(!mounted)return;
-      if(saved) {
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content:Text('Sortie bloquée : documents ou état clinique incomplets.')));
-      }
+      await appStore.saveClinical(p);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Brouillons de sortie enregistrés dans VISCERA.')));
     } catch (_) {
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content:Text('Sortie non enregistrée. Le box reste occupé.')));
+      p.dischargePrescription = previousPrescription;
+      p.dischargeReport = previousReport;
+      p.operationReport = previousOperation;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enregistrement impossible : brouillons non sauvegardés.')));
       }
     } finally {
-      if(mounted)setState(()=>saving=false);
+      if (mounted) setState(() => saving = false);
     }
   }
   String _prescriptionDraft(PatientCase p){

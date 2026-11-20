@@ -27,11 +27,22 @@ class ProgramAdmission {
         || patient.admissionTiming==source) {
       patient.admissionTiming=source;
     }
-    // Le programme certifie une admission administrative de suivi, pas la
-    // réalisation de l'intervention. La transition postopératoire nécessite
-    // une confirmation de fin du bloc par un soignant.
-    if(patient.stage==CaseStage.scheduled) {
-      patient.stage=CaseStage.preoperative;
+    // Les admissions issues du programme basculent directement dans le
+    // parcours "bloc déjà passé" lorsque le créneau opératoire est écoulé.
+    // Un programme futur reste préopératoire : on ne présume pas d'une
+    // intervention qui n'a pas encore pu se dérouler. Si l'heure n'est pas
+    // connue (00:00 par défaut), attendre le lendemain du jour programmé.
+    final today = DateTime(now.year, now.month, now.day);
+    final hasKnownTime = patient.blockAt.hour != 0 ||
+        patient.blockAt.minute != 0;
+    final afterProgram = hasKnownTime
+        ? !now.isBefore(patient.blockAt)
+        : today.isAfter(surgeryDay);
+    if (patient.stage == CaseStage.scheduled ||
+        patient.stage == CaseStage.preoperative) {
+      patient.stage = afterProgram
+          ? CaseStage.postoperative
+          : CaseStage.preoperative;
     }
   }
 
