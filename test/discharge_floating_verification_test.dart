@@ -95,8 +95,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Brouillons de sortie'),findsOneWidget);
     final save=find.byKey(const Key('save-discharge-drafts'));
-    await tester.scrollUntilVisible(save, 250,
-      scrollable:find.byType(Scrollable).first);
+    // Les éditeurs multiligne rendent la fin de la liste à la demande.
+    // Défilement direct : pas de geste intercepté par un champ de texte.
+    final scroll=tester.state<ScrollableState>(find.byType(Scrollable).first);
+    for(var i=0; i<6 && save.evaluate().isEmpty; i++){
+      scroll.position.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+    }
     expect(save,findsOneWidget);
     expect(find.text('Checklist documentaire de sortie'),findsNothing);
     expect(find.text('Valider la sortie et libérer le box'),findsNothing);
