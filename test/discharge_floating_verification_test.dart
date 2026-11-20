@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:viscera/models.dart';
 import 'package:viscera/screens/patient_detail.dart';
+import 'package:viscera/screens/discharge.dart';
 
 PatientCase dischargePatient({CaseStage stage = CaseStage.postoperative,
     DateTime? admittedAt, DateTime? blockAt,
@@ -62,6 +63,7 @@ void main() {
     await tester.tap(find.byKey(const Key('declare-discharge-fab')));
     await tester.pumpAndSettle();
     expect(find.text('Vérification avant sortie'),findsOneWidget);
+    expect(find.text('Rédiger les brouillons de sortie'),findsOneWidget);
     expect(find.text('0 / 11 documents vérifiés'),findsOneWidget);
     expect(find.text('DATE D’ADMISSION'),findsOneWidget);
     expect(find.byKey(const Key('discharge-admission-date')),findsOneWidget);
@@ -81,6 +83,18 @@ void main() {
     expect(pending.onPressed,isNull);
     expect(patient.stage,CaseStage.postoperative);
     expect(patient.dischargeAt,isNull);
+  });
+
+  testWidgets('Brouillons de sortie sans checklist ni double validation',
+      (tester) async {
+    final patient=dischargePatient(stage: CaseStage.dischargeReady);
+    await tester.pumpWidget(MaterialApp(home:DischargePage(patient:patient)));
+    await tester.pumpAndSettle();
+    expect(find.text('Brouillons de sortie'),findsOneWidget);
+    expect(find.byKey(const Key('save-discharge-drafts')),findsOneWidget);
+    expect(find.text('Checklist documentaire de sortie'),findsNothing);
+    expect(find.text('Valider la sortie et libérer le box'),findsNothing);
+    expect(find.text('Déclarer la sortie et libérer le box'),findsNothing);
   });
 
   testWidgets('Les FAB ne masquent jamais le bouton non admis en bas du dossier',
