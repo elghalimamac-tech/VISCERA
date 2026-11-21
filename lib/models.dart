@@ -162,6 +162,8 @@ class PatientCase {
     this.surgeryType = '',
     this.procedureOverride = '',
     this.linkedProgramEntryId,
+    this.programBlockAt,
+    this.programProcedure = '',
     this.programRoom = '',
     this.programSurgeon = '',
     this.programSourceService = '',
@@ -192,6 +194,10 @@ class PatientCase {
   String get effectiveProcedure =>
       procedureOverride.trim().isEmpty ? procedure : procedureOverride.trim();
   int? linkedProgramEntryId;
+  /// Date et intervention officielles liées au séjour, sans modifier la date d'admission.
+  DateTime? programBlockAt;
+  String programProcedure;
+  DateTime get operativeAt => programBlockAt ?? blockAt;
   String motive, history, exam;
   String investigations, labs, immediatePlan;
   final String procedure, blockTiming;
