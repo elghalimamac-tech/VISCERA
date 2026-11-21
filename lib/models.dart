@@ -194,6 +194,8 @@ class PatientCase {
   String get effectiveProcedure =>
       procedureOverride.trim().isEmpty ? procedure : procedureOverride.trim();
   int? linkedProgramEntryId;
+  /// Toutes les lignes du bloc déjà liées à ce même séjour (plusieurs actes).
+  final Set<int> linkedProgramEntryIds = <int>{};
   /// Date et intervention officielles liées au séjour, sans modifier la date d'admission.
   DateTime? programBlockAt;
   String programProcedure;
