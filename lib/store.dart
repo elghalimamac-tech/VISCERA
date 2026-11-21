@@ -476,7 +476,12 @@ class AppStore extends ChangeNotifier {
     // Ne jamais masquer un programme seulement parce qu'un nom et une date
     // correspondent : deux homonymes pourraient être deux personnes différentes.
     // Seule la relation vérifiée manual_bloc_links supprime le doublon apparent.
+    final linkedOfficialIds = patients.where((p) =>
+        p.fromManualAdmission && p.linkedProgramEntryId != null)
+        .map((p) => 'BLOC-${p.linkedProgramEntryId}').toSet();
     for (final official in officialCases) {
+      // Un chargement ancien du programme ne recrée pas le dossier lié.
+      if (linkedOfficialIds.contains(official.id)) continue;
       final local = existing[official.id];
       // En dehors d'une écriture active, le serveur est la source de vérité,
       // notamment après un retour arrière demandé sur une admission.
@@ -541,12 +546,30 @@ class AppStore extends ChangeNotifier {
     final today = DateTime.now();
     final earliest = DateTime(today.year, today.month, today.day);
     return patients.where((p) =>
-      (p.isProgrammed && !p.blockAt.isBefore(earliest)) ||
-      (p.isActive && (p.stage == CaseStage.preoperative || p.stage == CaseStage.inTheatre))
-    ).toList()..sort((a,b) => a.blockAt.compareTo(b.blockAt));
+      (p.isProgrammed && !p.operativeAt.isBefore(earliest)) ||
+      (p.isActive && (p.stage == CaseStage.preoperative || p.stage == CaseStage.inTheatre)) ||
+      (p.isActive && p.programBlockAt != null &&
+        !p.programBlockAt!.isBefore(earliest))
+    ).toList()..sort((a,b) => a.operativeAt.compareTo(b.operativeAt));
   }
   List<PatientCase> get toDischarge => active.where((p) =>
     p.stage == CaseStage.dischargeReady || p.dischargeDue).toList();
+
+  /// Un séjour ouvert avec identité complète doit être réutilisé, même
+  /// si une intervention est prévue plusieurs jours après l'admission.
+  PatientCase? findActiveHospitalization(String name, DateTime birthDate) {
+    final expected = name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase();
+    for (final patient in patients) {
+      final born = patient.birthDate;
+      if (!patient.fromManualAdmission || !patient.isActive ||
+          !patient.physicallyAdmitted || born == null ||
+          patient.name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase() != expected ||
+          born.year != birthDate.year || born.month != birthDate.month ||
+          born.day != birthDate.day) continue;
+      return patient;
+    }
+    return null;
+  }
 
   PatientCase? findDuplicateCase(String name, DateTime blockDate,
       {DateTime? birthDate}) {
@@ -576,12 +599,14 @@ class AppStore extends ChangeNotifier {
     manual.linkedProgramEntryId = int.tryParse(
       programmed.id.replaceFirst('BLOC-', ''));
     manual.programRoom = programmed.programRoom;
+    manual.programBlockAt = programmed.blockAt;
+    manual.programProcedure = programmed.procedure;
     manual.programSurgeon = programmed.programSurgeon;
     manual.blockResponsibleId ??= programmed.blockResponsibleId;
     manual.programScheduledTime = programmed.programScheduledTime;
     patients.removeWhere((p)=>p.id==programmed.id);
     notifyListeners();
-    _saveIfImported(manual);
+    // La RPC a déjà persisté le lien : aucune réécriture clinique annexe.
   }
   int get occupiedBoxes => active.where((p) =>
     p.physicallyAdmitted && p.stage != CaseStage.inTheatre &&
