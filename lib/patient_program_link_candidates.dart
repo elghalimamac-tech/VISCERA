@@ -4,7 +4,7 @@ import 'models.dart';
 /// La décision finale appartient au soignant et au contrôle serveur.
 class PatientProgramLinkCandidates {
   static String _nameKey(String name) =>
-      name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase();
+      name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
 
   static DateTime _day(DateTime date) =>
       DateTime(date.year, date.month, date.day);
