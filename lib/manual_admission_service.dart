@@ -144,6 +144,7 @@ class ManualAdmissionService {
       final entry=entries[link['entry_id']];
       if(manual==null || entry==null)continue;
       manual.linkedProgramEntryId=link['entry_id'] as int;
+      manual.linkedProgramEntryIds.add(link['entry_id'] as int);
       manual.programRoom=_str(entry['room']);
       manual.programScheduledTime=_str(entry['scheduled_time']);
       manual.programSurgeon=_str(entry['surgeon']);
