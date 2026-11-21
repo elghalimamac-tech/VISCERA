@@ -476,9 +476,9 @@ class AppStore extends ChangeNotifier {
     // Ne jamais masquer un programme seulement parce qu'un nom et une date
     // correspondent : deux homonymes pourraient être deux personnes différentes.
     // Seule la relation vérifiée manual_bloc_links supprime le doublon apparent.
-    final linkedOfficialIds = patients.where((p) =>
-        p.fromManualAdmission && p.linkedProgramEntryId != null)
-        .map((p) => 'BLOC-${p.linkedProgramEntryId}').toSet();
+    final linkedOfficialIds = patients.where((p) => p.fromManualAdmission)
+        .expand((p) => p.linkedProgramEntryIds)
+        .map((id) => 'BLOC-$id').toSet();
     for (final official in officialCases) {
       // Un chargement ancien du programme ne recrée pas le dossier lié.
       if (linkedOfficialIds.contains(official.id)) continue;
@@ -506,6 +506,20 @@ class AppStore extends ChangeNotifier {
     for (final remote in incoming) {
       received.add(remote.id);
       final local = existing[remote.id];
+      if (local != null && local.linkedProgramEntryIds.isNotEmpty) {
+        // Une récupération du serveur initiée avant le lien ne peut pas
+        // faire réapparaître l'ancienne fiche BLOC entre deux écrans.
+        remote.linkedProgramEntryIds.addAll(local.linkedProgramEntryIds);
+        if (remote.linkedProgramEntryId == null &&
+            local.linkedProgramEntryId != null) {
+          remote.linkedProgramEntryId = local.linkedProgramEntryId;
+          remote.programBlockAt = local.programBlockAt;
+          remote.programProcedure = local.programProcedure;
+          remote.programRoom = local.programRoom;
+          remote.programSurgeon = local.programSurgeon;
+          remote.programScheduledTime = local.programScheduledTime;
+        }
+      }
       if (local != null &&
           (_clinicalWrites.containsKey(local.id) ||
           local.clinicalVersion > remote.clinicalVersion)) {
@@ -517,6 +531,10 @@ class AppStore extends ChangeNotifier {
     for (final entry in existing.entries) {
       if (!received.contains(entry.key)) patients.add(entry.value);
     }
+    final linkedIds = patients.where((p) => p.fromManualAdmission)
+        .expand((p) => p.linkedProgramEntryIds)
+        .map((id) => 'BLOC-$id').toSet();
+    patients.removeWhere((p) => p.fromBlocProgram && linkedIds.contains(p.id));
     notifyListeners();
   }
 
@@ -528,7 +546,7 @@ class AppStore extends ChangeNotifier {
   }
 
   List<PatientCase> get programmed => patients.where((p) => p.isProgrammed).toList()
-    ..sort((a,b) => b.blockAt.compareTo(a.blockAt));
+    ..sort((a,b) => b.operativeAt.compareTo(a.operativeAt));
   List<PatientCase> get active => patients.where((p) => p.isActive).toList();
   /// Liste prioritaire de l'accueil : uniquement les hospitalisations actives.
   /// Exclut les dossiers programmés non encore actifs, sortis et non admis.
@@ -598,6 +616,9 @@ class AppStore extends ChangeNotifier {
     if (!manual.fromManualAdmission || !programmed.fromBlocProgram) return;
     manual.linkedProgramEntryId = int.tryParse(
       programmed.id.replaceFirst('BLOC-', ''));
+    if (manual.linkedProgramEntryId != null) {
+      manual.linkedProgramEntryIds.add(manual.linkedProgramEntryId!);
+    }
     manual.programRoom = programmed.programRoom;
     manual.programBlockAt = programmed.blockAt;
     manual.programProcedure = programmed.procedure;
