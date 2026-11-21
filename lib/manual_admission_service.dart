@@ -11,7 +11,7 @@ class ManualAdmissionService {
   static DateTime? _programAt(dynamic rawDate, String rawTime) {
     final date = DateTime.tryParse(_str(rawDate));
     if (date == null) return null;
-    final clock = RegExp(r'^(\\d{1,2})\\s*[Hh:]\\s*(\\d{2})
+    final clock = RegExp(r'^(\d{1,2})\s*[Hh:]\s*(\d{2})
   static String _isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4,'0')}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
 
