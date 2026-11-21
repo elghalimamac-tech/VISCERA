@@ -2,11 +2,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'bloc_clinical_record.dart';
 import 'models.dart';
 import 'surgery_classification.dart';
+import 'patient_program_link_candidates.dart';
 
 /// Séjours créés manuellement par les médecins approuvés.
 /// Le serveur est la source de vérité. Aucune identité patient n'est mise en cache.
 class ManualAdmissionService {
   static String _str(dynamic x) => (x ?? '').toString();
+  static DateTime? _programAt(dynamic rawDate, String rawTime) {
+    final date = DateTime.tryParse(_str(rawDate));
+    if (date == null) return null;
+    final clock = RegExp(r'^(\d{1,2})\s*[Hh:]\s*(\d{2})$')
+        .firstMatch(rawTime.trim());
+    if (clock == null) return DateTime(date.year, date.month, date.day);
+    final hour = int.tryParse(clock.group(1) ?? '');
+    final minute = int.tryParse(clock.group(2) ?? '');
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return DateTime(date.year, date.month, date.day);
+    }
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
   static String _isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4,'0')}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
 
@@ -127,7 +141,7 @@ class ManualAdmissionService {
       for(var start=0;start<entryIds.length;start+=chunkSize){
         final subset=entryIds.skip(start).take(chunkSize).toList();
         final fetched=await Supabase.instance.client.from('bloc_program_entries')
-          .select('id,room,scheduled_time,surgeon,procedure_name')
+          .select('id,room,scheduled_time,surgeon,procedure_name,bloc_program_imports!inner(program_date)')
           .eq('hospital_id','huim6').inFilter('id',subset);
         for(final row in fetched){
           if(row['id'] is int) entries[row['id'] as int]=Map<String,dynamic>.from(row);
@@ -139,9 +153,15 @@ class ManualAdmissionService {
       final entry=entries[link['entry_id']];
       if(manual==null || entry==null)continue;
       manual.linkedProgramEntryId=link['entry_id'] as int;
+      manual.linkedProgramEntryIds.add(link['entry_id'] as int);
       manual.programRoom=_str(entry['room']);
       manual.programScheduledTime=_str(entry['scheduled_time']);
       manual.programSurgeon=_str(entry['surgeon']);
+      manual.programProcedure=_str(entry['procedure_name']);
+      final program=entry['bloc_program_imports'];
+      manual.programBlockAt=_programAt(
+        program is Map ? program['program_date'] : null,
+        _str(entry['scheduled_time']));
     }
     return patients;
   }
@@ -150,8 +170,9 @@ class ManualAdmissionService {
   /// le programme ne contient pas de date de naissance et ne permet
   /// donc aucune fusion automatique sur le seul nom.
   Future<void> linkToProgram(PatientCase manual,PatientCase programmed) async{
-    if(!manual.fromManualAdmission || !programmed.fromBlocProgram ||
-      manual.birthDate==null) throw StateError('Identité non vérifiée.');
+    if(!PatientProgramLinkCandidates.canLink(manual,programmed)) {
+      throw StateError('Identité ou séjour à vérifier avant rapprochement.');
+    }
     final id=int.tryParse(programmed.id.replaceFirst('BLOC-',''));
     if(id==null)throw StateError('Programme invalide.');
     final response=await Supabase.instance.client.rpc('viscera_link_manual_bloc_program',

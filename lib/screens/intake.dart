@@ -71,14 +71,17 @@ class _IntakePageState extends State<IntakePage> {
     final effectiveDate=blockTiming=='Immédiat'?DateTime.now():blockAt;
     final conflict=admissionTiming=='Immédiate'?appStore.conflictingBox(unit,box.text):null;
     if(conflict!=null){alert('Box déjà attribué à ${conflict.name}.');return;}
-    final existing = appStore.findDuplicateCase(name.text.trim(),effectiveDate,
-      birthDate:selectedBirthDate);
+    final existing = appStore.findActiveHospitalization(
+        name.text.trim(), selectedBirthDate!) ??
+      appStore.findDuplicateCase(name.text.trim(),effectiveDate,
+        birthDate:selectedBirthDate);
     if(existing!=null){
       final open = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
         title:const Text('Dossier déjà présent'),
-        content:const Text('Un patient portant ce nom figure déjà à cette date '
-          'dans les admissions ou le programme du bloc. '
-          'Ouvrez sa fiche existante et complétez-la pour éviter un doublon.'),
+        content:const Text('Ce patient est déjà hospitalisé ou possède '
+          'un dossier programmé à la même date. Réutilisez sa fiche '
+          'existante et rattachez-y l’intervention du bloc au lieu '
+          'd’ouvrir une seconde hospitalisation.'),
         actions:[
           TextButton(onPressed:()=>Navigator.pop(ctx,false),
             child:const Text('Annuler')),

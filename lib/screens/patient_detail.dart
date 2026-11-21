@@ -17,6 +17,7 @@ import 'discharge_verification_sheet.dart';
 import 'daily_observations.dart';
 import '../voice_dictation.dart';
 import '../manual_admission_service.dart';
+import '../patient_program_link_candidates.dart';
 import '../specialist_opinions.dart';
 
 class PatientDetailPage extends StatefulWidget {
@@ -193,6 +194,15 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                 ])),
               ]),
             ),
+            if (p.fromBlocProgram && !p.isOmitted && !p.isArchived) ...[
+              const SizedBox(height:8),
+              SizedBox(width:double.infinity,child:OutlinedButton.icon(
+                key:const Key('link-existing-hospitalization'),
+                onPressed:_reconcileBloc,
+                icon:const Icon(Icons.link_rounded),
+                label:const Text('Déjà hospitalisé ? Associer au dossier existant'),
+              )),
+            ],
           ],
           const SizedBox(height:11),
           Tooltip(
@@ -318,9 +328,11 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           SectionHeading('Parcours hospitalier'),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             // La vue principale montre seulement les données utiles à l'instant.
-            _line(Icons.medical_services_outlined,'Intervention',p.effectiveProcedure),
+            _line(Icons.medical_services_outlined,'Intervention',
+              p.procedureOverride.trim().isNotEmpty ? p.effectiveProcedure :
+              (p.programProcedure.isNotEmpty ? p.programProcedure : p.effectiveProcedure)),
             const Divider(height:22),
-            _line(Icons.event_rounded,'Date du bloc',_format(p.blockAt)),
+            _line(Icons.event_rounded,'Date du bloc',_format(p.operativeAt)),
             if(p.stage!=CaseStage.discharged && !p.isOmitted)...[
               const SizedBox(height:12),
               Wrap(spacing:8,runSpacing:8,children:[
@@ -347,23 +359,32 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
                   const Divider(height:22),
                   _line(Icons.event_outlined,'Consultation',_format(p.consultationAt!)),
                 ],
-                if(p.fromManualAdmission && p.origin=='Consultation')...[
+                if(p.fromManualAdmission)...[
                   const Divider(height:22),
-                  _line(Icons.link_outlined,'Programme',
+                  _line(Icons.link_outlined,'Programme opératoire',
                     p.linkedProgramEntryId==null
-                      ? 'À rapprocher du programme opératoire'
-                      : 'Associé au dossier de consultation'),
-                  if(p.linkedProgramEntryId!=null && p.programRoom.isNotEmpty)...[
+                      ? 'Aucune intervention liée à ce séjour'
+                      : 'Intervention liée au dossier d’hospitalisation'),
+                  if(p.linkedProgramEntryId!=null)...[
                     const SizedBox(height:6),
-                    Text('Salle ' + p.programRoom + ' · ' + p.programScheduledTime + ' · ' + p.programSurgeon,
+                    if(p.programBlockAt!=null)
+                      Text('Bloc : ${_format(p.programBlockAt!)}',
+                        style:const TextStyle(fontSize:12,color:VColors.muted)),
+                    if(p.programProcedure.isNotEmpty)
+                      Text('Intervention : ${p.programProcedure}',
+                        style:const TextStyle(fontSize:12,color:VColors.muted)),
+                    Text('Salle ${p.programRoom} · ${p.programScheduledTime} · ${p.programSurgeon}',
                       style:const TextStyle(fontSize:12,color:VColors.muted)),
                   ],
-                  if(p.linkedProgramEntryId==null &&
-                      p.stage!=CaseStage.discharged && !p.isOmitted)...[
+                  if(p.birthDate!=null && !p.isArchived && !p.isOmitted)...[
                     const SizedBox(height:8),
-                    OutlinedButton.icon(onPressed:_reconcileBloc,
+                    OutlinedButton.icon(
+                      key:const Key('link-hospitalization-to-program'),
+                      onPressed:_reconcileBloc,
                       icon:const Icon(Icons.link),
-                      label:const Text('Rapprocher avec le programme du bloc')),
+                      label:Text(p.linkedProgramEntryId==null
+                        ? 'Associer au programme du bloc'
+                        : 'Associer une autre intervention du bloc')),
                   ],
                 ],
                 const Divider(height:22),
@@ -1321,61 +1342,90 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   }
 
   Future<void> _reconcileBloc() async {
-    if(!p.fromManualAdmission || p.origin!='Consultation' || p.birthDate==null){
-      _notice('La date de naissance et la provenance Consultation sont nécessaires.');
+    final fromProgram = p.fromBlocProgram;
+    if(!fromProgram && !p.fromManualAdmission) return;
+    final candidates = fromProgram
+      ? PatientProgramLinkCandidates.forProgram(p, appStore.patients)
+      : PatientProgramLinkCandidates.forManual(p, appStore.patients);
+    if(candidates.isEmpty) {
+      _notice(fromProgram
+        ? 'Aucun séjour existant compatible. Vérifiez le nom, la date de naissance, '
+          'l’admission réelle et actualisez les dossiers.'
+        : 'Aucune ligne de programme compatible. Vérifiez le nom et la date '
+          'de l’intervention, puis actualisez les dossiers.');
       return;
     }
-    String key(String text)=>text.trim().replaceAll(RegExp(r'\s+'),' ').toUpperCase();
-    bool sameDate(DateTime a,DateTime b)=>
-      a.year==b.year && a.month==b.month && a.day==b.day;
-    final choices=appStore.patients.where((candidate)=>
-      candidate.fromBlocProgram && key(candidate.name)==key(p.name) &&
-      sameDate(candidate.blockAt,p.blockAt)).toList();
-    if(choices.isEmpty){
-      _notice('Aucun programme non associé ne correspond à ce nom et à cette date. '
-        'Actualisez les dossiers si nécessaire.');
-      return;
-    }
-    final picked=await showModalBottomSheet<PatientCase>(context:context,
-      showDragHandle:true,builder:(ctx)=>SafeArea(child:Padding(
-        padding:const EdgeInsets.all(16),child:Column(
-          mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,
-          children:[
-            const Text('Programme correspondant à vérifier',
-              style:TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
-            const SizedBox(height:8),
-            Text('Dossier existant : ${p.name} · né(e) le ${_date(p.birthDate!)}',
-              style:const TextStyle(fontWeight:FontWeight.w600)),
-            const SizedBox(height:8),
-            const Text('Le programme ne contient pas la date de naissance. '
-              'Vérifiez l’identité auprès du service avant d’associer les dossiers.',
-              style:TextStyle(fontSize:12,color:VColors.muted)),
-            const SizedBox(height:12),
-            ...choices.map((candidate)=>ListTile(
-              leading:const Icon(Icons.medical_services_outlined),
-              title:Text(candidate.procedure),
-              subtitle:Text('${candidate.name} · ${_date(candidate.blockAt)} · '
-                'Salle ${candidate.programRoom}'),
-              trailing:const Icon(Icons.chevron_right),
-              onTap:()=>Navigator.pop(ctx,candidate))),
-          ],
-        ))));
+    final picked=await showModalBottomSheet<PatientCase>(
+      context:context,showDragHandle:true,isScrollControlled:true,
+      builder:(ctx)=>SafeArea(child:Padding(
+        padding:const EdgeInsets.all(16),child:SizedBox(
+          height:MediaQuery.sizeOf(ctx).height * 0.60,
+          child:Column(
+            crossAxisAlignment:CrossAxisAlignment.start,
+            children:[
+              Text(fromProgram
+                ? 'Choisir l’hospitalisation existante'
+                : 'Choisir l’intervention du programme',
+                style:const TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
+              const SizedBox(height:8),
+              const Text('Le nom seul ne prouve pas l’identité. Vérifiez la '
+                'date de naissance dans le dossier hospitalier et auprès '
+                'du service avant de confirmer. Aucun document clinique '
+                'ne sera effacé.',
+                style:TextStyle(fontSize:12,color:VColors.muted)),
+              const SizedBox(height:12),
+              Expanded(child:ListView(children:[
+                for(final candidate in candidates)
+                  ListTile(
+                    key:Key('link-candidate-${candidate.id}'),
+                    leading:const Icon(Icons.folder_shared_outlined),
+                    title:Text(candidate.name),
+                    subtitle:Text(fromProgram
+                      ? 'Né(e) le ${_date(candidate.birthDate!)} · '
+                        'Admis le ${_date(candidate.admittedAt ?? candidate.blockAt)} · '
+                        '${candidate.currentUnit}'
+                      : '${_date(candidate.blockAt)} · ${candidate.procedure} · '
+                        'Salle ${candidate.programRoom}'),
+                    trailing:const Icon(Icons.chevron_right),
+                    onTap:()=>Navigator.pop(ctx,candidate),
+                  ),
+              ])),
+            ],
+          ),
+        ),
+      )));
     if(picked==null || !mounted)return;
+    final manual=fromProgram ? picked : p;
+    final programmed=fromProgram ? p : picked;
+    if(!PatientProgramLinkCandidates.canLink(manual,programmed)) {
+      _notice('Les critères de rapprochement ne sont plus remplis.');
+      return;
+    }
     final verified=await showConfirmation(context,
-      title:'Vérifier et associer les dossiers',
-      message:'Confirmez-vous avoir vérifié que le patient du programme '
-        '(${picked.name}, ${_date(picked.blockAt)}) est bien '
-        '${p.name}, né(e) le ${_date(p.birthDate!)} ? '
-        'Le dossier de consultation existant sera conservé.',
+      title:'Vérifier et associer au même séjour',
+      message:'Confirmez-vous avoir vérifié que la programmation '
+        '« ${programmed.procedure} » du ${_date(programmed.blockAt)} '
+        'concerne bien ${manual.name}, né(e) le ${_date(manual.birthDate!)} ? '
+        'Le dossier hospitalier existant (${manual.id}) sera conservé '
+        'avec ses observations, médicaments, documents et affectations. '
+        'La ligne de programme sera rattachée à ce dossier.',
       action:'Identité vérifiée · associer');
     if(!verified || !mounted)return;
-    try{
-      await ManualAdmissionService().linkToProgram(p,picked);
+    try {
+      await ManualAdmissionService().linkToProgram(manual,programmed);
       if(!mounted)return;
-      appStore.attachVerifiedProgram(p,picked);
-      _notice('Programme associé. Le dossier original de consultation est conservé.');
-    }catch(_){
-      if(mounted)_notice('Rapprochement impossible. Vérifiez les données et les observations du programme.');
+      appStore.attachVerifiedProgram(manual,programmed);
+      _notice('Programmation associée au séjour existant. Aucun deuxième dossier.');
+      if(fromProgram) {
+        Navigator.pushReplacement(context,MaterialPageRoute(
+          builder:(_)=>PatientDetailPage(patient:manual)));
+      } else {
+        setState((){});
+      }
+    } catch(_) {
+      if(mounted) _notice('Association non autorisée : dossier déjà lié ou '
+        'programme contenant des annotations cliniques. '
+        'Une vérification manuelle est nécessaire.');
     }
   }
 
