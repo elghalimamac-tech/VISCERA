@@ -25,7 +25,9 @@ void main() {
     await tester.pumpWidget(MaterialApp(home:PatientDetailPage(patient:patient)));
     final open=find.byKey(const Key('open-clinical-score-forms'));
     expect(open,findsOneWidget);
-    await tester.ensureVisible(open);
+    await Scrollable.ensureVisible(tester.element(open),
+      alignment:0.3, duration:Duration.zero);
+    await tester.pumpAndSettle();
     await tester.tap(open);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('clinical-score-forms-page')),findsOneWidget);
