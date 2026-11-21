@@ -558,12 +558,12 @@ class AppStore extends ChangeNotifier {
   /// Un séjour ouvert avec identité complète doit être réutilisé, même
   /// si une intervention est prévue plusieurs jours après l'admission.
   PatientCase? findActiveHospitalization(String name, DateTime birthDate) {
-    final expected = name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase();
+    final expected = name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
     for (final patient in patients) {
       final born = patient.birthDate;
       if (!patient.fromManualAdmission || !patient.isActive ||
           !patient.physicallyAdmitted || born == null ||
-          patient.name.trim().replaceAll(RegExp(r'\\s+'), ' ').toUpperCase() != expected ||
+          patient.name.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase() != expected ||
           born.year != birthDate.year || born.month != birthDate.month ||
           born.day != birthDate.day) continue;
       return patient;
