@@ -328,7 +328,9 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
           SectionHeading('Parcours hospitalier'),
           VCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             // La vue principale montre seulement les données utiles à l'instant.
-            _line(Icons.medical_services_outlined,'Intervention',p.effectiveProcedure),
+            _line(Icons.medical_services_outlined,'Intervention',
+              p.procedureOverride.trim().isNotEmpty ? p.effectiveProcedure :
+              (p.programProcedure.isNotEmpty ? p.programProcedure : p.effectiveProcedure)),
             const Divider(height:22),
             _line(Icons.event_rounded,'Date du bloc',_format(p.operativeAt)),
             if(p.stage!=CaseStage.discharged && !p.isOmitted)...[
